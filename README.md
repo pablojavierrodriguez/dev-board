@@ -2,9 +2,12 @@
 
 > **A local-first, blazing-fast, Linear-style Kanban, Sprint Backlog & Release Hub for developers and AI pair programmers.**
 
+[![Methodology: Agentic Team Playbook](https://img.shields.io/badge/Methodology-Agentic%20Team%20Playbook-purple.svg)](https://github.com/pablojavierrodriguez/agentic-team-playbook)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 DevBoard is a self-contained web workspace designed to eliminate the friction of managing issues, technical debt, sprint backlogs, and release notes in static Markdown files.
 
-Built with **React 18**, **Vite**, **TypeScript**, and **Tailwind CSS**.
+Built with **React 18**, **Vite**, **TypeScript**, and **Tailwind CSS**. Designed to operationalize the [**Agentic Team Playbook**](https://github.com/pablojavierrodriguez/agentic-team-playbook) methodology.
 
 ---
 
@@ -34,6 +37,18 @@ DevBoard is designed to become the **universal, zero-friction developer cockpit*
 - **Zero-Install CLI**: Run on-demand in any repository via `npx dev-board` without persistent daemon overhead.
 - **Git-Native Team Sync**: Collaborate by pushing `.devboard/backlog.json` through standard Git pull requests—no proprietary cloud lock-in.
 - **Autonomous Agent Symbiosis**: A seamless bridge connecting human engineering intent and sprint planning with AI agent execution (Antigravity, Cursor, Claude Code, Copilot).
+
+---
+
+## 🤝 Paired Framework: Agentic Team Playbook
+
+DevBoard is built to directly operationalize the agile patterns defined in the [**Agentic Team Playbook**](https://github.com/pablojavierrodriguez/agentic-team-playbook):
+
+- **Dynamic Modes in Practice**:
+  - **Mode 1 (Focus / Fast-Track)**: Handled seamlessly in DevBoard's **Simple (4-column)** perspective for surgical bugfixes and quick tasks.
+  - **Mode 2 & 3 (Duo & Sprint)**: Tracked through DevBoard's **Ampliada (6-column)** perspective with dedicated Testing/QA, deployment staging, and release assembly.
+- **Plan Guard Enforcement**: Mechanically solves the *Cowboy Coding vs Analysis Paralysis* dilemma by ensuring items entering `In Progress` have documented acceptance criteria and technical plans.
+- **AI-Ready Export**: Generates scoped prompts formatted for AI pair programmers (Antigravity, Cursor, Claude Code) with a single click.
 
 ---
 
