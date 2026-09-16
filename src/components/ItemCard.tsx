@@ -1,0 +1,289 @@
+import React, { useState, useRef, useEffect, memo } from 'react';
+import { 
+  Bug, 
+  Sparkles, 
+  Wrench, 
+  Palette, 
+  MoreVertical, 
+  Check, 
+  ArchiveX, 
+  Ban, 
+  Trash2, 
+  ChevronRight,
+  Edit3,
+  Bot
+} from 'lucide-react';
+import type { BacklogItem, ItemStatus, ItemType, Priority } from '../types';
+
+interface ItemCardProps {
+  item: BacklogItem;
+  onClick: () => void;
+  onUpdateStatus: (id: string, newStatus: ItemStatus) => void;
+  onDelete: (id: string) => void;
+  onDragStart: (e: React.DragEvent, item: BacklogItem) => void;
+  onDragEnd: (e: React.DragEvent) => void;
+}
+
+export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ className?: string }>; color: string; badge: string }> = {
+  bug: {
+    label: 'Bug',
+    icon: Bug,
+    color: 'text-rose-500 dark:text-rose-400',
+    badge: 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-300'
+  },
+  feature: {
+    label: 'Feature',
+    icon: Sparkles,
+    color: 'text-violet-500 dark:text-violet-400',
+    badge: 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20 text-violet-600 dark:text-violet-300'
+  },
+  tech_debt: {
+    label: 'Tech Debt',
+    icon: Wrench,
+    color: 'text-amber-500 dark:text-amber-400',
+    badge: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300'
+  },
+  ux: {
+    label: 'UX',
+    icon: Palette,
+    color: 'text-emerald-500 dark:text-emerald-400',
+    badge: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300'
+  }
+};
+
+export const priorityConfig: Record<Priority, { label: string; dot: string; text: string }> = {
+  p0: { label: 'P0', dot: 'bg-rose-500 animate-pulse-subtle', text: 'text-rose-600 dark:text-rose-400 font-semibold' },
+  p1: { label: 'P1', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
+  p2: { label: 'P2', dot: 'bg-yellow-500 dark:bg-yellow-400', text: 'text-yellow-600 dark:text-yellow-400' },
+  p3: { label: 'P3', dot: 'bg-slate-400 dark:bg-slate-500', text: 'text-slate-500 dark:text-slate-400' }
+};
+
+const statusLabels: Record<ItemStatus, string> = {
+  ideas: 'Ideas',
+  backlog: 'Backlog',
+  in_progress: 'In Progress',
+  testing_qa: 'Testing/QA',
+  finish: 'Finish (Ready)',
+  done: 'Done',
+  dismissed: 'Descartado',
+  cancelled: 'Cancelado'
+};
+
+const ItemCardComponent: React.FC<ItemCardProps> = ({
+  item,
+  onClick,
+  onUpdateStatus,
+  onDelete,
+  onDragStart,
+  onDragEnd
+}) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+        setStatusMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const typeInfo = typeConfig[item.type] || typeConfig.feature;
+  const TypeIcon = typeInfo.icon;
+  const priorityInfo = priorityConfig[item.priority] || priorityConfig.p2;
+
+  const handleCopyAiPrompt = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    let prompt = `# Tarea: [${item.code}] ${item.title}\n\n`;
+    prompt += `**Proyecto:** ${item.projectId}\n`;
+    prompt += `**Tipo:** ${item.type} | **Prioridad:** ${item.priority.toUpperCase()}\n`;
+    if (item.module) prompt += `**Módulo / Área:** ${item.module}\n`;
+    if (item.impactedFile) prompt += `**Archivo Impactado:** ${item.impactedFile}\n`;
+    if (item.targetSprint) prompt += `**Sprint:** ${item.targetSprint}\n`;
+    prompt += `\n## Descripción del Problema / Requerimiento\n${item.description || item.title}\n\n`;
+    if (item.risk) prompt += `## Riesgo / Impacto\n${item.risk}\n\n`;
+    if (item.fix) prompt += `## Criterio de Aceptación / Fix Propuesto\n${item.fix}\n\n`;
+    prompt += `## Instrucción para el Agente\nAnaliza el código del repositorio, genera el plan de trabajo o implementa la solución paso a paso cumpliendo los criterios de aceptación descritos.`;
+
+    navigator.clipboard.writeText(prompt);
+    setMenuOpen(false);
+    alert(`¡Prompt de ${item.code} copiado al portapapeles para Agente de IA! 🤖\nPégalo en una nueva conversación.`);
+  };
+
+  return (
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, item)}
+      onDragEnd={onDragEnd}
+      onClick={onClick}
+      className="group relative glass-card p-3 rounded-xl cursor-grab active:cursor-grabbing select-none transition-all duration-150"
+    >
+      {/* Top row: Code + Type Badge + Priority + Menu */}
+      <div className="flex items-center justify-between gap-1.5 mb-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Item Code */}
+          <span className="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-300 tracking-tight">
+            {item.code}
+          </span>
+
+          {/* Type Badge */}
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${typeInfo.badge}`}>
+            <TypeIcon className="w-3 h-3" />
+            <span>{typeInfo.label}</span>
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {/* Priority Pill */}
+          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.05] text-[10px]">
+            <span className={`w-1.5 h-1.5 rounded-full ${priorityInfo.dot}`} />
+            <span className={priorityInfo.text}>{priorityInfo.label}</span>
+          </div>
+
+          {/* Context Menu Button */}
+          <div className="relative" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => {
+                setMenuOpen(!menuOpen);
+                setStatusMenuOpen(false);
+              }}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors"
+            >
+              <MoreVertical className="w-3.5 h-3.5" />
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 mt-1 w-48 rounded-xl bg-white dark:bg-[#0e1626] border border-slate-200 dark:border-white/10 shadow-2xl p-1 z-40 text-xs animate-in fade-in zoom-in-95">
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onClick();
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-slate-900 dark:hover:text-white text-left"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Editar detalle</span>
+                </button>
+
+                {/* Copy AI Prompt Button */}
+                <button
+                  onClick={handleCopyAiPrompt}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-600/20 text-left font-medium"
+                >
+                  <Bot className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                  <span>Copiar Prompt IA 🤖</span>
+                </button>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setStatusMenuOpen(!statusMenuOpen)}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.08] hover:text-slate-900 dark:hover:text-white text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                      <span>Cambiar estado</span>
+                    </span>
+                    <ChevronRight className="w-3 h-3 text-slate-400" />
+                  </button>
+
+                  {statusMenuOpen && (
+                    <div className="absolute right-full top-0 mr-1 w-40 rounded-xl bg-white dark:bg-[#0e1626] border border-slate-200 dark:border-white/10 shadow-2xl p-1 z-50 text-xs">
+                      {(['ideas', 'backlog', 'in_progress', 'testing_qa', 'finish', 'done'] as ItemStatus[]).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => {
+                            onUpdateStatus(item.id, s);
+                            setMenuOpen(false);
+                            setStatusMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-left text-[11px] ${
+                            item.status === s
+                              ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-300 font-medium'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]'
+                          }`}
+                        >
+                          <span>{statusLabels[s]}</span>
+                          {item.status === s && <Check className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-px bg-slate-100 dark:bg-white/[0.08] my-1" />
+
+                <button
+                  onClick={() => {
+                    onUpdateStatus(item.id, 'dismissed');
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-amber-600 dark:text-amber-300/90 hover:bg-amber-50 dark:hover:bg-amber-500/10 text-left"
+                >
+                  <ArchiveX className="w-3.5 h-3.5" />
+                  <span>Descartar</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onUpdateStatus(item.id, 'cancelled');
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] text-left"
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>Cancelar</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (confirm(`¿Eliminar ${item.code}?`)) {
+                      onDelete(item.id);
+                    }
+                    setMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400/90 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-left"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Item Title */}
+      <h4 className="text-xs font-medium text-slate-900 dark:text-slate-100 leading-snug line-clamp-2 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-200 transition-colors">
+        {item.title}
+      </h4>
+
+      {/* Meta Pills (Module, Sprint, Release) */}
+      <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400">
+        {item.module && (
+          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.05] text-slate-700 dark:text-slate-300 truncate max-w-[130px]">
+            {item.module}
+          </span>
+        )}
+
+        {item.targetSprint && (
+          <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300/90 border border-indigo-200 dark:border-indigo-500/20 truncate max-w-[120px]">
+            {item.targetSprint}
+          </span>
+        )}
+
+        {item.targetRelease && (
+          <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300/90 border border-emerald-200 dark:border-emerald-500/20 font-mono">
+            v{item.targetRelease}
+          </span>
+        )}
+      </div>
+
+    </div>
+  );
+};
+
+export const ItemCard = memo(ItemCardComponent);

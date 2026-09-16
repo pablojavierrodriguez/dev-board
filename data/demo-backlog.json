@@ -1,0 +1,93 @@
+{
+  "project": {
+    "id": "demo",
+    "name": "Proyecto Demo (Tour)",
+    "codePrefix": "DEMO",
+    "description": "Proyecto de demostración de DevBoard. Puedes explorarlo o eliminarlo en cualquier momento.",
+    "isDemo": true,
+    "createdAt": "2026-09-16T00:00:00.000Z"
+  },
+  "items": [
+    {
+      "id": "item-demo-001",
+      "code": "DEMO-001",
+      "projectId": "demo",
+      "title": "Configurar paleta de diseño y modo oscuro",
+      "description": "Revisar los tokens de color HSL y verificar contraste en pantallas OLED.",
+      "type": "ux",
+      "priority": "p2",
+      "status": "done",
+      "module": "Design System",
+      "fix": "Se configuró paleta Slate y acentos Indigo/Violeta.",
+      "targetSprint": "Sprint 1 — Onboarding",
+      "targetRelease": "1.0.0",
+      "order": 1,
+      "createdAt": "2026-09-16T09:00:00.000Z",
+      "updatedAt": "2026-09-16T09:30:00.000Z",
+      "completedAt": "2026-09-16T09:30:00.000Z",
+      "releasedAt": "2026-09-16T10:00:00.000Z"
+    },
+    {
+      "id": "item-demo-002",
+      "code": "DEMO-002",
+      "projectId": "demo",
+      "title": "Optimizar debounce en la búsqueda global de la barra",
+      "description": "El input de búsqueda bloqueaba el render en listas largas al teclear.",
+      "type": "tech_debt",
+      "priority": "p1",
+      "status": "in_progress",
+      "module": "Performance",
+      "impactedFile": "src/components/FilterBar.tsx",
+      "targetSprint": "Sprint 1 — Onboarding",
+      "order": 2,
+      "createdAt": "2026-09-16T10:00:00.000Z",
+      "updatedAt": "2026-09-16T10:15:00.000Z"
+    },
+    {
+      "id": "item-demo-003",
+      "code": "DEMO-003",
+      "projectId": "demo",
+      "title": "Error al sincronizar extractos con delimitador de punto y coma",
+      "description": "El parser asume coma estándar en CSV y falla en configuraciones europeas.",
+      "type": "bug",
+      "priority": "p0",
+      "status": "backlog",
+      "module": "Ingesta CSV",
+      "risk": "Falla silenciosa en importación masiva.",
+      "fix": "Detección heurística del delimitador observando la primera línea.",
+      "targetSprint": "Sprint 2 — Resiliencia",
+      "targetRelease": "1.1.0",
+      "order": 3,
+      "createdAt": "2026-09-16T10:20:00.000Z",
+      "updatedAt": "2026-09-16T10:20:00.000Z"
+    },
+    {
+      "id": "item-demo-004",
+      "code": "DEMO-004",
+      "projectId": "demo",
+      "title": "Integración con notificaciones push vía Web Push API",
+      "description": "Permitir avisar al usuario de transacciones recurrentes pendientes.",
+      "type": "feature",
+      "priority": "p2",
+      "status": "ideas",
+      "module": "Notificaciones",
+      "order": 4,
+      "createdAt": "2026-09-16T10:30:00.000Z",
+      "updatedAt": "2026-09-16T10:30:00.000Z"
+    }
+  ],
+  "releases": [
+    {
+      "id": "rel-demo-1-0-0",
+      "projectId": "demo",
+      "version": "1.0.0",
+      "date": "2026-09-16",
+      "title": "Lanzamiento Inicial Demo",
+      "summary": "Primer release de demostración con arquitectura desacoplada.",
+      "itemCodes": ["DEMO-001"],
+      "markdownContent": "## [1.0.0] — 2026-09-16 🚀 Lanzamiento Inicial Demo\n\n### 🎯 Resumen\nPrimer release de demostración con arquitectura desacoplada.",
+      "createdAt": "2026-09-16T10:00:00.000Z"
+    }
+  ],
+  "lastUpdated": "2026-09-16T10:30:00.000Z"
+}
