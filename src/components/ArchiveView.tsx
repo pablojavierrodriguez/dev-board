@@ -5,11 +5,11 @@ import {
   Trash2, 
   ArchiveX, 
   Ban, 
-  Search,
-  Sparkles
+  Search
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus } from '../types';
 import { typeConfig, priorityConfig } from './ItemCard';
+import { ConfirmModal } from './ConfirmModal';
 
 interface ArchiveViewProps {
   items: BacklogItem[];
@@ -26,6 +26,7 @@ export const ArchiveView: FC<ArchiveViewProps> = ({
 }) => {
   const [filterType, setFilterType] = useState<'all' | 'dismissed' | 'cancelled'>('all');
   const [search, setSearch] = useState('');
+  const [itemToDelete, setItemToDelete] = useState<BacklogItem | null>(null);
 
   const archivedItems = items.filter((it) => {
     const isArchived = it.status === 'dismissed' || it.status === 'cancelled';
@@ -198,29 +199,16 @@ export const ArchiveView: FC<ArchiveViewProps> = ({
                   <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       <button
-                        onClick={() => onRestoreItem(item.id, 'backlog')}
-                        title="Restaurar al Backlog"
+                        onClick={() => onRestoreItem(item.id, 'draft')}
+                        title="Restaurar a Draft"
                         className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 text-[11px] font-medium transition-colors"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        <span>Al Backlog</span>
+                        <span>Restaurar</span>
                       </button>
 
                       <button
-                        onClick={() => onRestoreItem(item.id, 'ideas')}
-                        title="Restaurar a Ideas"
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 text-[11px] font-medium transition-colors"
-                      >
-                        <Sparkles className="w-3 h-3 text-sky-400" />
-                        <span>A Ideas</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          if (confirm(`¿Eliminar definitivamente ${item.code}?`)) {
-                            onDeleteItem(item.id);
-                          }
-                        }}
+                        onClick={() => setItemToDelete(item)}
                         title="Eliminar permanentemente"
                         className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                       >
@@ -240,6 +228,19 @@ export const ArchiveView: FC<ArchiveViewProps> = ({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!itemToDelete}
+        title="Eliminar Ítem Definitivamente"
+        message={`¿Estás seguro de que deseas eliminar permanentemente el ítem archivado ${itemToDelete?.code}?`}
+        detail={itemToDelete?.title}
+        confirmText="Eliminar Definitivamente"
+        variant="danger"
+        onConfirm={() => {
+          if (itemToDelete) onDeleteItem(itemToDelete.id);
+        }}
+        onClose={() => setItemToDelete(null)}
+      />
     </div>
   );
 };

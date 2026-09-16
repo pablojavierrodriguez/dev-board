@@ -1,16 +1,23 @@
 export type ItemType = "bug" | "feature" | "tech_debt" | "ux";
 export type Priority = "p0" | "p1" | "p2" | "p3";
 export type ItemStatus =
+  | "draft"
+  | "doing"
+  | "review"
+  | "ready"
+  | "done"
+  | "dismissed"
+  | "cancelled"
+  // Legacy aliases for backward compatibility
   | "ideas"
   | "backlog"
   | "in_progress"
   | "testing_qa"
-  | "finish"
-  | "done"
-  | "dismissed"
-  | "cancelled";
+  | "finish";
 
 export type ViewMode = "simplificada" | "ampliada";
+
+export type StorageType = "json" | "markdown";
 
 export interface Project {
   id: string; // "dom", "project-2"
@@ -19,12 +26,20 @@ export interface Project {
   repoPath?: string; // "/Users/adrisol/Pablo/code/m3"
   description?: string;
   isDemo?: boolean;
+  storageType?: StorageType;
+  backlogDir?: string;
   createdAt: string;
+}
+
+export interface AcceptanceCriterion {
+  index: number;
+  text: string;
+  checked: boolean;
 }
 
 export interface BacklogItem {
   id: string;
-  code: string; // "DOM-BUG-001", "BUG-C1", etc.
+  code: string; // "DOM-BUG-001", "BACK-355", etc.
   projectId: string; // "dom"
   title: string;
   description: string;
@@ -37,7 +52,12 @@ export interface BacklogItem {
   fix?: string;
   targetSprint?: string;
   targetRelease?: string;
+  milestone?: string;
   sourceDoc?: string;
+  acceptanceCriteriaList?: AcceptanceCriterion[];
+  implementationPlan?: string;
+  assignees?: string[];
+  labels?: string[];
   order: number;
   createdAt: string;
   updatedAt: string;

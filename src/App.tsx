@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import type { 
   BacklogItem, 
   BoardData, 
@@ -17,11 +18,16 @@ import {
   createProject, 
   deleteProject,
   createRelease, 
-  triggerResync 
+  triggerResync,
+  convertProjectToMd,
+  convertProjectToJson,
+  exportMonolithicMd,
+  exportProjectJson,
+  restoreDemoProject 
 } from './api';
 import { Header } from './components/Header';
 import { FilterBar } from './components/FilterBar';
-import { KanbanBoard } from './components/KanbanBoard';
+import { KanbanBoard, SIMPLIFIED_COLUMNS, EXPANDED_COLUMNS } from './components/KanbanBoard';
 import { SprintView } from './components/SprintView';
 import { ReleaseAssembler } from './components/ReleaseAssembler';
 import { ArchiveView } from './components/ArchiveView';
@@ -49,7 +55,21 @@ export function App() {
   }, [isDarkMode]);
 
   const handleToggleTheme = useCallback(() => {
-    setIsDarkMode((prev) => !prev);
+    const root = document.documentElement;
+    root.classList.add('theme-transitioning');
+    window.setTimeout(() => {
+      root.classList.remove('theme-transitioning');
+    }, 350);
+
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      (document as any).startViewTransition(() => {
+        flushSync(() => {
+          setIsDarkMode((prev) => !prev);
+        });
+      });
+    } else {
+      setIsDarkMode((prev) => !prev);
+    }
   }, []);
 
   // Filters
@@ -156,13 +176,24 @@ export function App() {
   }, [showToast]);
 
   // Item Handlers
-  const handleUpdateStatus = useCallback(async (id: string, newStatus: ItemStatus, bypassGuard = false) => {
+  const handleUpdateStatus = useCallback(async (
+    id: string, 
+    newStatus: ItemStatus, 
+    bypassGuard = false, 
+    targetColId?: string, 
+    targetIndex?: number
+  ) => {
     if (!boardData) return;
     const targetItem = boardData.items.find((i) => i.id === id);
+    if (!targetItem) return;
 
-    // Validate if item moving to in_progress has a defined plan/spec
-    if (newStatus === 'in_progress' && targetItem && !bypassGuard) {
+    const statusChanged = targetItem.status !== newStatus;
+
+    // Validate if item moving to doing/in_progress has a defined plan/spec
+    if ((newStatus === 'doing' || newStatus === 'in_progress') && statusChanged && !bypassGuard) {
       const hasSpecOrPlan = 
+        (targetItem.implementationPlan && targetItem.implementationPlan.trim().length > 10) ||
+        (targetItem.acceptanceCriteriaList && targetItem.acceptanceCriteriaList.length > 0) ||
         (targetItem.fix && targetItem.fix.trim().length > 10) || 
         (targetItem.description && targetItem.description.trim().length > 50) ||
         targetItem.sourceDoc;
@@ -174,34 +205,85 @@ export function App() {
       }
     }
 
+    // Determine target column supported statuses
+    let targetStatuses: ItemStatus[] = [newStatus];
+    if (targetColId) {
+      const cols = viewMode === 'simplificada' ? SIMPLIFIED_COLUMNS : EXPANDED_COLUMNS;
+      const foundCol = cols.find(c => c.id === targetColId);
+      if (foundCol) targetStatuses = foundCol.statuses;
+    }
+
+    // Existing items in destination column (excluding the dragged item) sorted by order
+    const colItems = boardData.items
+      .filter(it => targetStatuses.includes(it.status) && it.id !== id)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // Clamp insert index
+    const insertIdx = targetIndex !== undefined
+      ? Math.max(0, Math.min(targetIndex, colItems.length))
+      : colItems.length;
+
+    // Insert the dragged item into the destination list at exact position
+    const updatedMovedItem = { ...targetItem, status: newStatus };
+    colItems.splice(insertIdx, 0, updatedMovedItem);
+
+    // Compute sequential order numbers (10, 20, 30, ...)
+    const orderMap = new Map<string, number>();
+    colItems.forEach((it, i) => {
+      orderMap.set(it.id, (i + 1) * 10);
+    });
+
+    const newOrder = orderMap.get(id) ?? targetItem.order;
+    const orderChanged = targetItem.order !== newOrder;
+
+    // Si ni el estado ni el orden cambiaron (soltó en el mismo lugar), no hacer nada
+    if (!statusChanged && !orderChanged) {
+      return;
+    }
+
+    // Generate new board items list with updated orders and status
+    const newItems = boardData.items.map(it => {
+      if (it.id === id) {
+        return { ...it, status: newStatus, order: newOrder };
+      }
+      if (orderMap.has(it.id)) {
+        return { ...it, order: orderMap.get(it.id)! };
+      }
+      return it;
+    });
+
     const prevItems = [...boardData.items];
+
     // Optimistic update
     setBoardData({
       ...boardData,
-      items: boardData.items.map((it) => (it.id === id ? { ...it, status: newStatus } : it))
+      items: newItems
     });
 
     try {
-      const updated = await updateItem(id, { status: newStatus });
+      const updated = await updateItem(id, { status: newStatus, order: newOrder });
       setBoardData((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
-          items: prev.items.map((it) => (it.id === id ? updated : it))
+          items: prev.items.map((it) => (it.id === id ? { ...it, ...updated } : it))
         };
       });
-      showToast(`Estado actualizado: ${updated.code} → ${newStatus}`, 'info');
+      if (statusChanged) {
+        showToast(`Estado actualizado: ${updated.code} → ${newStatus}`, 'info');
+      }
     } catch (err: any) {
       // Rollback
       setBoardData({ ...boardData, items: prevItems });
       showToast(`Error al actualizar estado: ${err.message}`, 'error');
     }
-  }, [boardData, showToast]);
+  }, [boardData, viewMode, showToast]);
 
   const handleConfirmStartWithPlan = useCallback(async (itemId: string, updatedPlan?: string) => {
     if (!boardData) return;
-    const updates: Partial<BacklogItem> = { status: 'in_progress' };
+    const updates: Partial<BacklogItem> = { status: 'doing' };
     if (updatedPlan) {
+      updates.implementationPlan = updatedPlan;
       updates.fix = updatedPlan;
     }
     const updated = await updateItem(itemId, updates);
@@ -283,13 +365,81 @@ export function App() {
   const handleDeleteProject = useCallback(async (id: string) => {
     try {
       await deleteProject(id);
-      await loadData();
-      setSelectedProjectId('all');
       showToast('Proyecto desvinculado de DevBoard', 'info');
+      if (selectedProjectId === id) {
+        setSelectedProjectId('all');
+      }
+      await loadData();
     } catch (err: any) {
-      showToast(err.message || 'Error al desvincular proyecto', 'error');
+      showToast(`Error al desvincular proyecto: ${err.message}`, 'error');
+    }
+  }, [selectedProjectId, loadData, showToast]);
+
+  const handleRestoreDemo = useCallback(async () => {
+    try {
+      await restoreDemoProject();
+      showToast('Proyecto Demo restaurado correctamente', 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(`Error al restaurar demo: ${err.message}`, 'error');
     }
   }, [loadData, showToast]);
+
+  const handleConvertToMd = useCallback(async (projectId: string) => {
+    try {
+      const res = await convertProjectToMd(projectId);
+      showToast(res.message, 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(`Error al convertir a Backlog.md: ${err.message}`, 'error');
+    }
+  }, [loadData, showToast]);
+
+  const handleConvertToJson = useCallback(async (projectId: string) => {
+    try {
+      const res = await convertProjectToJson(projectId);
+      showToast(res.message, 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(`Error al unificar en JSON: ${err.message}`, 'error');
+    }
+  }, [loadData, showToast]);
+
+  const handleExportMonolithic = useCallback(async (projectId: string) => {
+    try {
+      const res = await exportMonolithicMd(projectId, true);
+      if (res.savedPath) {
+        showToast(`Reporte guardado en ${res.savedPath}`, 'success');
+      } else {
+        const blob = new Blob([res.content], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'BACKLOG.md';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Reporte BACKLOG.md descargado', 'success');
+      }
+    } catch (err: any) {
+      showToast(`Error al exportar reporte: ${err.message}`, 'error');
+    }
+  }, [showToast]);
+
+  const handleExportJson = useCallback(async (projectId: string) => {
+    try {
+      const res = await exportProjectJson(projectId);
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${res.project.codePrefix.toLowerCase()}-backlog.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Copia de seguridad backlog.json descargada', 'success');
+    } catch (err: any) {
+      showToast(`Error al exportar JSON: ${err.message}`, 'error');
+    }
+  }, [showToast]);
 
   const handleArchiveRelease = useCallback(async (releaseData: Partial<Release>, itemCodes: string[]) => {
     const created = await createRelease(releaseData, itemCodes);
@@ -321,9 +471,9 @@ export function App() {
   // Metrics
   const stats = useMemo(() => {
     const active = allProjectItems.filter((i) => i.status !== 'dismissed' && i.status !== 'cancelled');
-    const pending = active.filter((i) => i.status === 'ideas' || i.status === 'backlog').length;
-    const inProgress = active.filter((i) => i.status === 'in_progress' || i.status === 'testing_qa').length;
-    const completed = active.filter((i) => i.status === 'finish' || i.status === 'done').length;
+    const pending = active.filter((i) => i.status === 'draft' || i.status === 'ideas' || i.status === 'backlog').length;
+    const inProgress = active.filter((i) => i.status === 'doing' || i.status === 'in_progress' || i.status === 'review' || i.status === 'testing_qa').length;
+    const completed = active.filter((i) => i.status === 'ready' || i.status === 'done' || i.status === 'finish').length;
     return {
       total: active.length,
       pending,
@@ -395,7 +545,7 @@ export function App() {
         onChangeViewMode={setViewMode}
         onNewItem={() => {
           setEditingItem(null);
-          setDefaultNewStatus('backlog');
+          setDefaultNewStatus('draft');
           setItemModalOpen(true);
         }}
         onNewProject={() => setProjectModalOpen(true)}
@@ -405,6 +555,11 @@ export function App() {
         isDarkMode={isDarkMode}
         onToggleTheme={handleToggleTheme}
         onDeleteProject={handleDeleteProject}
+        onRestoreDemo={handleRestoreDemo}
+        onConvertToMd={handleConvertToMd}
+        onConvertToJson={handleConvertToJson}
+        onExportMonolithic={handleExportMonolithic}
+        onExportJson={handleExportJson}
       />
 
       {/* Filter Bar (Active in Kanban, Sprint, and Archive tabs) */}
@@ -423,7 +578,7 @@ export function App() {
           <KanbanBoard
             items={visibleItems}
             viewMode={viewMode}
-            onUpdateStatus={handleUpdateStatus}
+            onUpdateStatus={(id, status, targetColId, targetIndex) => handleUpdateStatus(id, status, false, targetColId, targetIndex)}
             onDeleteItem={handleDeleteItem}
             onClickItem={(item) => {
               setEditingItem(item);
@@ -434,6 +589,7 @@ export function App() {
               setDefaultNewStatus(status);
               setItemModalOpen(true);
             }}
+            onShowToast={showToast}
           />
         )}
 
@@ -444,7 +600,7 @@ export function App() {
               setEditingItem(item);
               setItemModalOpen(true);
             }}
-            onUpdateStatus={handleUpdateStatus}
+            onUpdateStatus={(id, s) => handleUpdateStatus(id, s)}
             onUpdatePriority={handleUpdatePriority}
             onDeleteItem={handleDeleteItem}
           />

@@ -2,7 +2,17 @@ import { defineConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { runMigration } from './scripts/import-dom-docs.js';
+import {
+  parseBacklogMd,
+  serializeBacklogMd,
+  normalizeStatus,
+  normalizePriority,
+  generateTaskFilename,
+  generateMonolithicBacklogMd,
+  type BacklogMdTask
+} from './scripts/backlogMdParser.ts';
 
 const REGISTRY_FILE = path.resolve(__dirname, 'data/projects-registry.json');
 const DEMO_FILE = path.resolve(__dirname, 'data/demo-backlog.json');
@@ -14,6 +24,8 @@ interface ProjectMeta {
   repoPath?: string;
   description?: string;
   isDemo?: boolean;
+  storageType?: 'json' | 'markdown';
+  backlogDir?: string;
   createdAt: string;
 }
 
@@ -22,6 +34,58 @@ interface ProjectBacklog {
   items: any[];
   releases: any[];
   lastUpdated: string;
+}
+
+function detectProjectStorage(repoPath?: string): { storageType: 'json' | 'markdown'; backlogDir: string } {
+  if (!repoPath) return { storageType: 'json', backlogDir: 'backlog' };
+  const normalized = path.normalize(repoPath.trim());
+  try {
+    if (fs.existsSync(path.join(normalized, 'backlog', 'tasks'))) {
+      return { storageType: 'markdown', backlogDir: 'backlog' };
+    }
+    if (fs.existsSync(path.join(normalized, '.backlog', 'tasks'))) {
+      return { storageType: 'markdown', backlogDir: '.backlog' };
+    }
+    if (fs.existsSync(path.join(normalized, 'backlog'))) {
+      return { storageType: 'markdown', backlogDir: 'backlog' };
+    }
+    if (fs.existsSync(path.join(normalized, '.backlog'))) {
+      return { storageType: 'markdown', backlogDir: '.backlog' };
+    }
+  } catch {}
+  return { storageType: 'json', backlogDir: 'backlog' };
+}
+
+function isBacklogMdProject(project: ProjectMeta): boolean {
+  if (project.isDemo) return false;
+  if (project.storageType === 'markdown') return true;
+  if (project.storageType === 'json') return false;
+  if (project.repoPath) {
+    return detectProjectStorage(project.repoPath).storageType === 'markdown';
+  }
+  return false;
+}
+
+function getBacklogTasksDir(project: ProjectMeta): string {
+  const dir = project.backlogDir || 'backlog';
+  return path.join(project.repoPath || '', dir, 'tasks');
+}
+
+function getSafeInitialBrowseDir(): string {
+  const candidates = [
+    path.resolve(process.cwd(), '..'),
+    process.cwd(),
+    os.homedir()
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        fs.readdirSync(candidate);
+        return candidate;
+      }
+    } catch {}
+  }
+  return process.cwd();
 }
 
 function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
@@ -35,6 +99,7 @@ function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
           codePrefix: 'DEMO',
           description: 'Proyecto de demostración de DevBoard. Puedes explorarlo o eliminarlo en cualquier momento.',
           isDemo: true,
+          storageType: 'json' as const,
           createdAt: new Date().toISOString()
         }
       ]
@@ -45,7 +110,16 @@ function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
     fs.writeFileSync(REGISTRY_FILE, JSON.stringify(defaultRegistry, null, 2), 'utf8');
     return defaultRegistry;
   }
-  return JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+  const reg = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+  // Ensure storageType is populated
+  reg.projects = reg.projects.map((p: ProjectMeta) => {
+    if (!p.storageType && p.repoPath) {
+      const detected = detectProjectStorage(p.repoPath);
+      return { ...p, storageType: detected.storageType, backlogDir: detected.backlogDir };
+    }
+    return { ...p, storageType: p.storageType || 'json' };
+  });
+  return reg;
 }
 
 function saveRegistry(registry: { activeProjectId: string; projects: ProjectMeta[] }) {
@@ -66,34 +140,222 @@ function getProjectBacklogPath(project: ProjectMeta): string {
 }
 
 function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
+  if (isBacklogMdProject(project) && project.repoPath) {
+    const tasksDir = getBacklogTasksDir(project);
+    if (!fs.existsSync(tasksDir)) {
+      fs.mkdirSync(tasksDir, { recursive: true });
+    }
+
+    const items: any[] = [];
+    const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
+    files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    let order = 1;
+    for (const filename of files) {
+      const fullPath = path.join(tasksDir, filename);
+      try {
+        const raw = fs.readFileSync(fullPath, 'utf8');
+        const fallbackId = filename.split(' - ')[0] || filename.replace(/\.md$/, '');
+        const task = parseBacklogMd(raw, fallbackId);
+
+        items.push({
+          id: task.id || fallbackId,
+          code: task.id || fallbackId,
+          projectId: project.id,
+          title: task.title,
+          description: task.description || '',
+          type: task.type || 'feature',
+          priority: normalizePriority(task.priority),
+          status: task.status, // normalized: draft, doing, review, ready, done, dismissed
+          targetSprint: task.milestone || undefined,
+          targetRelease: task.rawExtraFrontmatter?.targetRelease || undefined,
+          milestone: task.milestone || undefined,
+          impactedFile: task.rawExtraFrontmatter?.impactedFile || undefined,
+          risk: task.rawExtraFrontmatter?.risk || undefined,
+          fix: task.rawExtraFrontmatter?.fix || undefined,
+          acceptanceCriteriaList: task.acceptanceCriteria || [],
+          implementationPlan: task.implementationPlan || '',
+          assignees: task.assignees || [],
+          labels: task.labels || [],
+          order: task.rawExtraFrontmatter?.order !== undefined ? Number(task.rawExtraFrontmatter.order) : order++,
+          createdAt: task.createdDate || new Date().toISOString(),
+          updatedAt: task.updatedDate || new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn(`[DevBoard Backlog.md] Error reading ${filename}:`, err);
+      }
+    }
+
+    // Read releases
+    let releases: any[] = [];
+    const releasesPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'releases.json');
+    if (fs.existsSync(releasesPath)) {
+      try {
+        releases = JSON.parse(fs.readFileSync(releasesPath, 'utf8'));
+      } catch {}
+    }
+
+    return {
+      project: { ...project, storageType: 'markdown' },
+      items,
+      releases,
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  // Classic JSON mode: Operates directly on the project repository
   const filePath = getProjectBacklogPath(project);
   if (!fs.existsSync(filePath)) {
     const initial: ProjectBacklog = {
-      project,
+      project: { ...project, storageType: 'json' },
       items: [],
       releases: [],
       lastUpdated: new Date().toISOString()
     };
-    if (!fs.existsSync(path.dirname(filePath))) {
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    try {
+      if (!fs.existsSync(path.dirname(filePath))) {
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      }
+      fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), 'utf8');
+    } catch (writeErr: any) {
+      console.error(`[DevBoard API] Cannot initialize backlog at ${filePath}:`, writeErr.message);
     }
-    fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), 'utf8');
     return initial;
   }
+
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch {
-    return { project, items: [], releases: [], lastUpdated: new Date().toISOString() };
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    let items = Array.isArray(parsed.items) ? parsed.items : [];
+    items = items.map((it: any) => ({
+      ...it,
+      projectId: it.projectId || project.id,
+      status: normalizeStatus(it.status)
+    }));
+
+    return {
+      project: { ...project, storageType: 'json' },
+      items,
+      releases: Array.isArray(parsed.releases) ? parsed.releases : [],
+      lastUpdated: parsed.lastUpdated || new Date().toISOString()
+    };
+  } catch (err: any) {
+    console.error(`[DevBoard API] Error reading backlog for project ${project.id} from ${filePath}:`, err.message);
+    return { project: { ...project, storageType: 'json' }, items: [], releases: [], lastUpdated: new Date().toISOString() };
   }
 }
 
+function saveBacklogMdItem(project: ProjectMeta, item: any) {
+  if (!project.repoPath) return;
+  const tasksDir = getBacklogTasksDir(project);
+  if (!fs.existsSync(tasksDir)) {
+    fs.mkdirSync(tasksDir, { recursive: true });
+  }
+
+  const cleanId = (item.code || item.id).toLowerCase();
+  const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
+  const existingFile = files.find(f => {
+    const fLower = f.toLowerCase();
+    return fLower.startsWith(`${cleanId} `) || fLower.startsWith(`${cleanId}-`) || fLower === `${cleanId}.md`;
+  });
+
+  let existingTask: Partial<BacklogMdTask> = {};
+  if (existingFile) {
+    try {
+      const raw = fs.readFileSync(path.join(tasksDir, existingFile), 'utf8');
+      existingTask = parseBacklogMd(raw, item.code || item.id);
+    } catch {}
+  }
+
+  const taskData: BacklogMdTask = {
+    id: item.code || item.id,
+    title: item.title || existingTask.title || 'Sin título',
+    status: normalizeStatus(item.status),
+    type: item.type || existingTask.type || 'feature',
+    priority: item.priority || existingTask.priority || 'p2',
+    assignees: item.assignees || existingTask.assignees || [],
+    labels: item.labels || existingTask.labels || [],
+    dependencies: item.dependencies || existingTask.dependencies || [],
+    milestone: item.targetSprint || item.milestone || existingTask.milestone,
+    createdDate: item.createdAt || existingTask.createdDate,
+    updatedDate: item.updatedAt || new Date().toISOString(),
+    description: item.description !== undefined ? item.description : (existingTask.description || ''),
+    acceptanceCriteria: item.acceptanceCriteriaList || existingTask.acceptanceCriteria || [],
+    implementationPlan: item.implementationPlan !== undefined ? item.implementationPlan : (existingTask.implementationPlan || ''),
+    implementationNotes: item.fix || item.implementationNotes || existingTask.implementationNotes,
+    finalSummary: item.finalSummary || existingTask.finalSummary,
+    rawExtraFrontmatter: {
+      ...(existingTask.rawExtraFrontmatter || {})
+    }
+  };
+
+  if (item.impactedFile) taskData.rawExtraFrontmatter!.impactedFile = item.impactedFile;
+  if (item.risk) taskData.rawExtraFrontmatter!.risk = item.risk;
+  if (item.targetRelease) taskData.rawExtraFrontmatter!.targetRelease = item.targetRelease;
+  if (item.order !== undefined) taskData.rawExtraFrontmatter!.order = item.order;
+
+  const content = serializeBacklogMd(taskData);
+  const newFilename = generateTaskFilename(taskData.id, taskData.title);
+  const newFilePath = path.join(tasksDir, newFilename);
+
+  if (existingFile && existingFile !== newFilename) {
+    try {
+      fs.unlinkSync(path.join(tasksDir, existingFile));
+    } catch {}
+  }
+
+  fs.writeFileSync(newFilePath, content, 'utf8');
+}
+
+function deleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
+  if (!project.repoPath) return false;
+  const tasksDir = getBacklogTasksDir(project);
+  if (!fs.existsSync(tasksDir)) return false;
+
+  const cleanId = id.toLowerCase();
+  const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
+  const found = files.find(f => {
+    const fLower = f.toLowerCase();
+    return fLower.startsWith(`${cleanId} `) || fLower.startsWith(`${cleanId}-`) || fLower === `${cleanId}.md`;
+  });
+
+  if (found) {
+    const archiveDir = path.join(project.repoPath, project.backlogDir || 'backlog', 'archive');
+    if (!fs.existsSync(archiveDir)) {
+      fs.mkdirSync(archiveDir, { recursive: true });
+    }
+    fs.renameSync(path.join(tasksDir, found), path.join(archiveDir, found));
+    return true;
+  }
+  return false;
+}
+
 function writeProjectBacklog(project: ProjectMeta, data: ProjectBacklog) {
+  if (isBacklogMdProject(project)) {
+    // In backlog-md mode, save releases into backlog/releases.json
+    if (project.repoPath) {
+      try {
+        const dir = path.join(project.repoPath, project.backlogDir || 'backlog');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'releases.json'), JSON.stringify(data.releases || [], null, 2), 'utf8');
+      } catch (err: any) {
+        console.warn(`[DevBoard API] Warning writing releases: ${err.message}`);
+      }
+    }
+    return;
+  }
+
   const filePath = getProjectBacklogPath(project);
   data.lastUpdated = new Date().toISOString();
-  if (!fs.existsSync(path.dirname(filePath))) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+
+  try {
+    if (!fs.existsSync(path.dirname(filePath))) {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    }
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err: any) {
+    console.error(`[DevBoard API] Error writing project backlog to ${filePath}:`, err.message);
   }
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
 function devBoardApi(): PluginOption {
@@ -136,15 +398,17 @@ function devBoardApi(): PluginOption {
             if (req.method === 'GET' && url === '/api/data') {
               const allItems: any[] = [];
               const allReleases: any[] = [];
+              const resolvedProjects: ProjectMeta[] = [];
 
               for (const p of registry.projects) {
                 const backlog = readProjectBacklog(p);
+                resolvedProjects.push(backlog.project || p);
                 allItems.push(...(backlog.items || []));
                 allReleases.push(...(backlog.releases || []));
               }
 
               return sendJson(200, {
-                projects: registry.projects,
+                projects: resolvedProjects,
                 items: allItems,
                 releases: allReleases,
                 lastUpdated: new Date().toISOString()
@@ -168,6 +432,7 @@ function devBoardApi(): PluginOption {
                 code = `${prefix}-${String(count).padStart(3, '0')}`;
               }
 
+              const normalizedSt = normalizeStatus(body.status || 'draft');
               const newItem = {
                 id: body.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                 code,
@@ -175,24 +440,34 @@ function devBoardApi(): PluginOption {
                 title: body.title || 'Sin título',
                 description: body.description || '',
                 type: body.type || 'feature',
-                priority: body.priority || 'p2',
-                status: body.status || 'backlog',
+                priority: normalizePriority(body.priority),
+                status: normalizedSt,
                 module: body.module || undefined,
                 impactedFile: body.impactedFile || undefined,
                 risk: body.risk || undefined,
                 fix: body.fix || undefined,
                 targetSprint: body.targetSprint || undefined,
                 targetRelease: body.targetRelease || undefined,
+                milestone: body.targetSprint || body.milestone || undefined,
+                acceptanceCriteriaList: body.acceptanceCriteriaList || [],
+                implementationPlan: body.implementationPlan || '',
+                assignees: body.assignees || [],
+                labels: body.labels || [],
                 sourceDoc: body.sourceDoc || undefined,
                 order: body.order ?? backlog.items.length + 1,
                 createdAt: now,
                 updatedAt: now,
-                completedAt: body.status === 'done' ? now : undefined,
+                completedAt: normalizedSt === 'done' ? now : undefined,
                 releasedAt: body.releasedAt || undefined
               };
 
-              backlog.items.push(newItem);
-              writeProjectBacklog(project, backlog);
+              if (isBacklogMdProject(project)) {
+                saveBacklogMdItem(project, newItem);
+              } else {
+                backlog.items.push(newItem);
+                writeProjectBacklog(project, backlog);
+              }
+
               return sendJson(201, { ok: true, item: newItem });
             }
 
@@ -207,19 +482,28 @@ function devBoardApi(): PluginOption {
                 const index = backlog.items.findIndex(i => i.id === id || i.code === id);
                 if (index !== -1) {
                   const existing = backlog.items[index];
+                  const newNormalizedStatus = body.status ? normalizeStatus(body.status) : existing.status;
                   const wasDone = existing.status === 'done';
-                  const isNowDone = body.status === 'done';
+                  const isNowDone = newNormalizedStatus === 'done';
 
                   const updatedItem = {
                     ...existing,
                     ...body,
                     id: existing.id,
+                    code: existing.code,
+                    status: newNormalizedStatus,
+                    priority: body.priority ? normalizePriority(body.priority) : existing.priority,
                     updatedAt: now,
                     completedAt: isNowDone && !wasDone ? now : (isNowDone ? existing.completedAt : undefined)
                   };
 
-                  backlog.items[index] = updatedItem;
-                  writeProjectBacklog(p, backlog);
+                  if (isBacklogMdProject(p)) {
+                    saveBacklogMdItem(p, updatedItem);
+                  } else {
+                    backlog.items[index] = updatedItem;
+                    writeProjectBacklog(p, backlog);
+                  }
+
                   return sendJson(200, { ok: true, item: updatedItem });
                 }
               }
@@ -232,13 +516,18 @@ function devBoardApi(): PluginOption {
               const id = decodeURIComponent(url.replace('/api/items/', '').split('?')[0]);
 
               for (const p of registry.projects) {
-                const backlog = readProjectBacklog(p);
-                const initialLen = backlog.items.length;
-                backlog.items = backlog.items.filter(i => i.id !== id && i.code !== id);
+                if (isBacklogMdProject(p)) {
+                  const deleted = deleteBacklogMdItem(p, id);
+                  if (deleted) return sendJson(200, { ok: true, id });
+                } else {
+                  const backlog = readProjectBacklog(p);
+                  const initialLen = backlog.items.length;
+                  backlog.items = backlog.items.filter(i => i.id !== id && i.code !== id);
 
-                if (backlog.items.length !== initialLen) {
-                  writeProjectBacklog(p, backlog);
-                  return sendJson(200, { ok: true, id });
+                  if (backlog.items.length !== initialLen) {
+                    writeProjectBacklog(p, backlog);
+                    return sendJson(200, { ok: true, id });
+                  }
                 }
               }
 
@@ -251,25 +540,74 @@ function devBoardApi(): PluginOption {
               const now = new Date().toISOString();
 
               const id = (body.id || body.codePrefix || body.name || `proj-${Date.now()}`).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+              
+              let storageType = body.storageType;
+              let backlogDir = body.backlogDir || 'backlog';
+
+              const normalizedRepoPath = body.repoPath ? path.normalize(body.repoPath.trim()) : undefined;
+              if (!storageType && normalizedRepoPath) {
+                const detected = detectProjectStorage(normalizedRepoPath);
+                storageType = detected.storageType;
+                backlogDir = detected.backlogDir;
+              }
+
               const newProject: ProjectMeta = {
                 id,
                 name: body.name || 'Nuevo Proyecto',
                 codePrefix: (body.codePrefix || 'PRJ').toUpperCase(),
-                repoPath: body.repoPath || undefined,
+                repoPath: normalizedRepoPath,
                 description: body.description || '',
                 isDemo: !!body.isDemo,
+                storageType: storageType || 'json',
+                backlogDir,
                 createdAt: now
               };
 
               registry.projects.push(newProject);
               saveRegistry(registry);
 
-              // Auto-initialize backlog in target repo if repoPath provided
               if (newProject.repoPath) {
                 readProjectBacklog(newProject);
               }
 
               return sendJson(201, { ok: true, project: newProject });
+            }
+
+            // POST /api/projects/restore-demo
+            if (req.method === 'POST' && url === '/api/projects/restore-demo') {
+              const hasDemo = registry.projects.some(p => p.id === 'demo');
+              if (!hasDemo) {
+                registry.projects.push({
+                  id: 'demo',
+                  name: 'Proyecto Demo (Tour)',
+                  codePrefix: 'DEMO',
+                  description: 'Proyecto de demostración de DevBoard. Puedes explorarlo o eliminarlo en cualquier momento.',
+                  isDemo: true,
+                  storageType: 'json',
+                  createdAt: new Date().toISOString()
+                });
+                saveRegistry(registry);
+              }
+              return sendJson(200, { ok: true, projects: registry.projects });
+            }
+
+            // POST /api/projects/detect-path
+            if (req.method === 'POST' && url === '/api/projects/detect-path') {
+              const body = await getBody();
+              const inputPath = body.repoPath ? path.normalize(body.repoPath.trim()) : '';
+              if (!inputPath) {
+                return sendJson(400, { error: 'repoPath required' });
+              }
+              const exists = fs.existsSync(inputPath);
+              const isGit = exists && fs.existsSync(path.join(inputPath, '.git'));
+              const detection = detectProjectStorage(inputPath);
+              return sendJson(200, {
+                ok: true,
+                exists,
+                isGit,
+                normalizedPath: inputPath,
+                ...detection
+              });
             }
 
             // DELETE /api/projects/:id (Unlink project from DevBoard)
@@ -282,8 +620,222 @@ function devBoardApi(): PluginOption {
                 return sendJson(404, { error: 'Project not found in registry' });
               }
 
+              if (registry.activeProjectId === id) {
+                registry.activeProjectId = registry.projects[0]?.id || '';
+              }
+
               saveRegistry(registry);
-              return sendJson(200, { ok: true, id });
+              return sendJson(200, { ok: true, id, remainingProjects: registry.projects });
+            }
+
+            // GET /api/fs/browse?dir=...
+            if (req.method === 'GET' && url.startsWith('/api/fs/browse')) {
+              const urlObj = new URL(`http://localhost${url}`);
+              let targetDir = urlObj.searchParams.get('dir') || '';
+
+              if (!targetDir.trim()) {
+                targetDir = getSafeInitialBrowseDir();
+              }
+
+              try {
+                targetDir = path.resolve(path.normalize(targetDir));
+                if (!fs.existsSync(targetDir)) {
+                  targetDir = getSafeInitialBrowseDir();
+                }
+
+                const stat = fs.statSync(targetDir);
+                if (!stat.isDirectory()) {
+                  targetDir = path.dirname(targetDir);
+                }
+
+                const parent = path.dirname(targetDir);
+                const parentPath = parent === targetDir ? null : parent;
+
+                let entries: fs.Dirent[] = [];
+                let dirWarning: string | undefined = undefined;
+
+                try {
+                  entries = fs.readdirSync(targetDir, { withFileTypes: true });
+                } catch (readErr: any) {
+                  console.warn(`[DevBoard FS] Cannot scan ${targetDir}: ${readErr.message}`);
+                  dirWarning = readErr.code === 'EPERM' || readErr.code === 'EACCES'
+                    ? `Permiso restringido por el sistema al explorar esta carpeta (${readErr.message}). Puedes escribir o pegar la ruta exacta manualmente.`
+                    : `No se pudieron leer subcarpetas: ${readErr.message}`;
+                }
+
+                const folders: Array<{ name: string; path: string; isGit: boolean; hasBacklog: boolean }> = [];
+
+                for (const entry of entries) {
+                  if (!entry.isDirectory()) continue;
+                  // Skip noisy/hidden directories
+                  if (entry.name.startsWith('.') && entry.name !== '.backlog') continue;
+                  if (['node_modules', 'dist', 'build', '.git', '$RECYCLE.BIN', 'System Volume Information'].includes(entry.name)) continue;
+
+                  const fullPath = path.join(targetDir, entry.name);
+                  let isGit = false;
+                  let hasBacklog = false;
+                  try {
+                    isGit = fs.existsSync(path.join(fullPath, '.git'));
+                    hasBacklog = fs.existsSync(path.join(fullPath, 'backlog')) || fs.existsSync(path.join(fullPath, '.backlog'));
+                  } catch {}
+
+                  folders.push({
+                    name: entry.name,
+                    path: fullPath,
+                    isGit,
+                    hasBacklog
+                  });
+                }
+
+                folders.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+                let isCurrentGit = false;
+                let hasCurrentBacklog = false;
+                let hasCurrentDevBoard = false;
+                try {
+                  isCurrentGit = fs.existsSync(path.join(targetDir, '.git'));
+                  hasCurrentBacklog = fs.existsSync(path.join(targetDir, 'backlog')) || fs.existsSync(path.join(targetDir, '.backlog'));
+                  hasCurrentDevBoard = fs.existsSync(path.join(targetDir, '.devboard'));
+                } catch {}
+
+                return sendJson(200, {
+                  ok: true,
+                  currentPath: targetDir,
+                  parentPath,
+                  folders,
+                  isGit: isCurrentGit,
+                  hasBacklog: hasCurrentBacklog,
+                  hasDevBoard: hasCurrentDevBoard,
+                  warning: dirWarning
+                });
+              } catch (browseErr: any) {
+                const safeDir = getSafeInitialBrowseDir();
+                const parent = path.dirname(safeDir);
+                return sendJson(200, {
+                  ok: true,
+                  currentPath: safeDir,
+                  parentPath: parent === safeDir ? null : parent,
+                  folders: [],
+                  warning: `No se pudo acceder a la ruta solicitada (${browseErr.message}). Se cargó una ruta segura.`
+                });
+              }
+            }
+
+            // POST /api/projects/:id/detect-storage
+            if (req.method === 'POST' && url.includes('/detect-storage')) {
+              const id = url.split('/')[3];
+              const p = registry.projects.find(proj => proj.id === id);
+              if (!p) return sendJson(404, { error: 'Project not found' });
+              const detection = detectProjectStorage(p.repoPath);
+              return sendJson(200, { ok: true, ...detection });
+            }
+
+            // POST /api/projects/:id/convert-to-md
+            if (req.method === 'POST' && url.includes('/convert-to-md')) {
+              const id = url.split('/')[3];
+              const project = registry.projects.find(proj => proj.id === id);
+              if (!project || !project.repoPath) {
+                return sendJson(400, { error: 'Project not found or lacks repoPath' });
+              }
+
+              // Read current JSON items
+              const currentBacklog = readProjectBacklog(project);
+              const tasksDir = path.join(project.repoPath, 'backlog/tasks');
+              if (!fs.existsSync(tasksDir)) {
+                fs.mkdirSync(tasksDir, { recursive: true });
+              }
+
+              let converted = 0;
+              for (const item of currentBacklog.items) {
+                saveBacklogMdItem({ ...project, storageType: 'markdown', backlogDir: 'backlog' }, item);
+                converted++;
+              }
+
+              project.storageType = 'markdown';
+              project.backlogDir = 'backlog';
+              saveRegistry(registry);
+
+              return sendJson(200, {
+                ok: true,
+                message: `Convertidos ${converted} items a Backlog.md en ${tasksDir}`,
+                convertedCount: converted,
+                tasksDir
+              });
+            }
+
+            // POST /api/projects/:id/convert-to-json
+            if (req.method === 'POST' && url.includes('/convert-to-json')) {
+              const id = url.split('/')[3];
+              const project = registry.projects.find(proj => proj.id === id);
+              if (!project || !project.repoPath) {
+                return sendJson(400, { error: 'Project not found or lacks repoPath' });
+              }
+
+              const currentBacklog = readProjectBacklog(project);
+              const jsonPath = path.join(project.repoPath, '.devboard/backlog.json');
+              const devboardDir = path.dirname(jsonPath);
+              if (!fs.existsSync(devboardDir)) {
+                fs.mkdirSync(devboardDir, { recursive: true });
+              }
+
+              fs.writeFileSync(jsonPath, JSON.stringify(currentBacklog, null, 2), 'utf8');
+
+              project.storageType = 'json';
+              saveRegistry(registry);
+
+              return sendJson(200, {
+                ok: true,
+                message: `Unificadas ${currentBacklog.items.length} tareas en ${jsonPath}`,
+                savedPath: jsonPath
+              });
+            }
+
+            // GET /api/projects/:id/export-json
+            if (req.method === 'GET' && url.includes('/export-json')) {
+              const id = url.split('?')[0].split('/')[3];
+              const project = registry.projects.find(proj => proj.id === id);
+              if (!project) return sendJson(404, { error: 'Project not found' });
+
+              const backlog = readProjectBacklog(project);
+              return sendJson(200, {
+                ok: true,
+                project,
+                data: backlog
+              });
+            }
+
+            // GET /api/projects/:id/export-monolithic-md
+            if (req.method === 'GET' && url.includes('/export-monolithic-md')) {
+              const id = url.split('?')[0].split('/')[3];
+              const project = registry.projects.find(proj => proj.id === id);
+              if (!project) return sendJson(404, { error: 'Project not found' });
+
+              const backlog = readProjectBacklog(project);
+              const tasks: BacklogMdTask[] = backlog.items.map((it: any) => ({
+                id: it.code || it.id,
+                title: it.title,
+                status: normalizeStatus(it.status),
+                type: it.type,
+                priority: it.priority,
+                milestone: it.targetSprint || it.milestone,
+                description: it.description,
+                acceptanceCriteria: it.acceptanceCriteriaList || []
+              }));
+
+              const markdownContent = generateMonolithicBacklogMd(project.name, tasks);
+
+              const shouldSave = url.includes('save=true');
+              let savedPath = null;
+              if (shouldSave && project.repoPath) {
+                savedPath = path.join(project.repoPath, 'BACKLOG.md');
+                fs.writeFileSync(savedPath, markdownContent, 'utf8');
+              }
+
+              return sendJson(200, {
+                ok: true,
+                content: markdownContent,
+                savedPath
+              });
             }
 
             // POST /api/releases
@@ -310,14 +862,18 @@ function devBoardApi(): PluginOption {
               const itemCodeSet = new Set(release.itemCodes);
               backlog.items = backlog.items.map((it: any) => {
                 if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
-                  return {
+                  const updated = {
                     ...it,
                     targetRelease: release.version,
                     releasedAt: now,
-                    status: it.status === 'finish' ? 'done' : it.status,
+                    status: it.status === 'ready' || it.status === 'finish' ? 'done' : it.status,
                     completedAt: it.completedAt || now,
                     updatedAt: now
                   };
+                  if (isBacklogMdProject(project)) {
+                    saveBacklogMdItem(project, updated);
+                  }
+                  return updated;
                 }
                 return it;
               });

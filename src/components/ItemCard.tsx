@@ -14,14 +14,17 @@ import {
   Bot
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus, ItemType, Priority } from '../types';
+import { ConfirmModal } from './ConfirmModal';
 
 interface ItemCardProps {
   item: BacklogItem;
+  isDragging?: boolean;
   onClick: () => void;
   onUpdateStatus: (id: string, newStatus: ItemStatus) => void;
   onDelete: (id: string) => void;
   onDragStart: (e: React.DragEvent, item: BacklogItem) => void;
   onDragEnd: (e: React.DragEvent) => void;
+  onShowToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ className?: string }>; color: string; badge: string }> = {
@@ -44,7 +47,7 @@ export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ clas
     badge: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300'
   },
   ux: {
-    label: 'UX',
+    label: 'UX/UI',
     icon: Palette,
     color: 'text-emerald-500 dark:text-emerald-400',
     badge: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300'
@@ -52,34 +55,43 @@ export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ clas
 };
 
 export const priorityConfig: Record<Priority, { label: string; dot: string; text: string }> = {
-  p0: { label: 'P0', dot: 'bg-rose-500 animate-pulse-subtle', text: 'text-rose-600 dark:text-rose-400 font-semibold' },
-  p1: { label: 'P1', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
-  p2: { label: 'P2', dot: 'bg-yellow-500 dark:bg-yellow-400', text: 'text-yellow-600 dark:text-yellow-400' },
-  p3: { label: 'P3', dot: 'bg-slate-400 dark:bg-slate-500', text: 'text-slate-500 dark:text-slate-400' }
+  p0: { label: 'P0 Urgent', dot: 'bg-rose-500 animate-pulse', text: 'text-rose-600 dark:text-rose-400 font-semibold' },
+  p1: { label: 'P1 High', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400 font-medium' },
+  p2: { label: 'P2 Medium', dot: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
+  p3: { label: 'P3 Low', dot: 'bg-slate-400', text: 'text-slate-500 dark:text-slate-400' }
 };
 
-const statusLabels: Record<ItemStatus, string> = {
-  ideas: 'Ideas',
-  backlog: 'Backlog',
-  in_progress: 'In Progress',
-  testing_qa: 'Testing/QA',
-  finish: 'Finish (Ready)',
+const statusLabels: Record<string, string> = {
+  draft: 'Draft',
+  doing: 'Doing',
+  review: 'Review',
+  ready: 'Ready',
   done: 'Done',
-  dismissed: 'Descartado',
-  cancelled: 'Cancelado'
+  dismissed: 'Dismissed',
+  cancelled: 'Cancelled',
+  // legacy
+  ideas: 'Draft',
+  backlog: 'Draft',
+  in_progress: 'Doing',
+  testing_qa: 'Review',
+  finish: 'Ready'
 };
 
 const ItemCardComponent: React.FC<ItemCardProps> = ({
   item,
+  isDragging = false,
   onClick,
   onUpdateStatus,
   onDelete,
   onDragStart,
-  onDragEnd
+  onDragEnd,
+  onShowToast
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dragJustEndedRef = useRef(false);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -93,11 +105,33 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
   }, []);
 
   const typeInfo = typeConfig[item.type] || typeConfig.feature;
-  const TypeIcon = typeInfo.icon;
   const priorityInfo = priorityConfig[item.priority] || priorityConfig.p2;
+  const TypeIcon = typeInfo.icon;
 
-  const handleCopyAiPrompt = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDragStartInternal = (e: React.DragEvent) => {
+    dragJustEndedRef.current = false;
+    onDragStart(e, item);
+  };
+
+  const handleDragEndInternal = (e: React.DragEvent) => {
+    dragJustEndedRef.current = true;
+    onDragEnd(e);
+    // Suppress synthetic click fired by browser right after mouseup on drag
+    window.setTimeout(() => {
+      dragJustEndedRef.current = false;
+    }, 200);
+  };
+
+  const handleClickInternal = (e: React.MouseEvent) => {
+    if (dragJustEndedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onClick();
+  };
+
+  const handleCopyAiPrompt = () => {
     let prompt = `# Tarea: [${item.code}] ${item.title}\n\n`;
     prompt += `**Proyecto:** ${item.projectId}\n`;
     prompt += `**Tipo:** ${item.type} | **Prioridad:** ${item.priority.toUpperCase()}\n`;
@@ -111,16 +145,20 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
 
     navigator.clipboard.writeText(prompt);
     setMenuOpen(false);
-    alert(`¡Prompt de ${item.code} copiado al portapapeles para Agente de IA! 🤖\nPégalo en una nueva conversación.`);
+    if (onShowToast) {
+      onShowToast(`¡Prompt de ${item.code} copiado al portapapeles! 🤖`, 'success');
+    }
   };
 
   return (
     <div
       draggable
-      onDragStart={(e) => onDragStart(e, item)}
-      onDragEnd={onDragEnd}
-      onClick={onClick}
-      className="group relative glass-card p-3 rounded-xl cursor-grab active:cursor-grabbing select-none transition-all duration-150"
+      onDragStart={handleDragStartInternal}
+      onDragEnd={handleDragEndInternal}
+      onClick={handleClickInternal}
+      className={`group relative glass-card p-3 rounded-xl cursor-grab active:cursor-grabbing select-none transition-all duration-150 ${
+        isDragging ? 'is-dragging' : ''
+      }`}
     >
       {/* Top row: Code + Type Badge + Priority + Menu */}
       <div className="flex items-center justify-between gap-1.5 mb-2">
@@ -192,7 +230,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
 
                   {statusMenuOpen && (
                     <div className="absolute right-full top-0 mr-1 w-40 rounded-xl bg-white dark:bg-[#0e1626] border border-slate-200 dark:border-white/10 shadow-2xl p-1 z-50 text-xs">
-                      {(['ideas', 'backlog', 'in_progress', 'testing_qa', 'finish', 'done'] as ItemStatus[]).map((s) => (
+                      {(['draft', 'doing', 'review', 'ready', 'done'] as ItemStatus[]).map((s) => (
                         <button
                           key={s}
                           onClick={() => {
@@ -239,11 +277,10 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
                 </button>
 
                 <button
-                  onClick={() => {
-                    if (confirm(`¿Eliminar ${item.code}?`)) {
-                      onDelete(item.id);
-                    }
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setMenuOpen(false);
+                    setShowDeleteConfirm(true);
                   }}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400/90 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-left"
                 >
@@ -261,8 +298,14 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
         {item.title}
       </h4>
 
-      {/* Meta Pills (Module, Sprint, Release) */}
+      {/* Meta Pills (Module, Sprint, Release, ACs) */}
       <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400">
+        {item.acceptanceCriteriaList && item.acceptanceCriteriaList.length > 0 && (
+          <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 font-mono text-[9px] flex items-center gap-1 font-medium">
+            ✓ {item.acceptanceCriteriaList.filter(ac => ac.checked).length}/{item.acceptanceCriteriaList.length} AC
+          </span>
+        )}
+
         {item.module && (
           <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.05] text-slate-700 dark:text-slate-300 truncate max-w-[130px]">
             {item.module}
@@ -282,6 +325,16 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
         )}
       </div>
 
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        title="Eliminar Tarea"
+        message={`¿Estás seguro de que deseas eliminar permanentemente la tarea ${item.code}?`}
+        detail={item.title}
+        confirmText="Eliminar Tarea"
+        variant="danger"
+        onConfirm={() => onDelete(item.id)}
+        onClose={() => setShowDeleteConfirm(false)}
+      />
     </div>
   );
 };

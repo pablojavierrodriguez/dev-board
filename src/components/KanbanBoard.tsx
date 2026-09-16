@@ -6,101 +6,93 @@ import { ItemCard } from './ItemCard';
 interface KanbanBoardProps {
   items: BacklogItem[];
   viewMode: ViewMode;
-  onUpdateStatus: (id: string, newStatus: ItemStatus) => void;
+  onUpdateStatus: (id: string, newStatus: ItemStatus, targetColId?: string, targetIndex?: number) => void;
   onDeleteItem: (id: string) => void;
   onClickItem: (item: BacklogItem) => void;
   onQuickAddItem: (status: ItemStatus) => void;
+  onShowToast?: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const SIMPLIFIED_COLUMNS: ColumnConfig[] = [
+export const SIMPLIFIED_COLUMNS: ColumnConfig[] = [
   {
-    id: 'col-ideas',
-    title: 'Ideas',
-    subtitle: 'Triage & Descubrimiento',
-    color: 'border-slate-300 dark:border-slate-700/60',
-    dotColor: 'bg-sky-500',
-    statuses: ['ideas'],
-    dropTargetStatus: 'ideas'
-  },
-  {
-    id: 'col-backlog',
-    title: 'Backlog',
-    subtitle: 'Priorizado y listo',
+    id: 'col-draft',
+    title: 'Draft',
+    subtitle: 'Backlog & Ideas',
     color: 'border-slate-300 dark:border-slate-700/60',
     dotColor: 'bg-indigo-500',
-    statuses: ['backlog'],
-    dropTargetStatus: 'backlog'
+    statuses: ['draft', 'ideas', 'backlog'],
+    dropTargetStatus: 'draft'
   },
   {
-    id: 'col-inprogress',
-    title: 'In Progress',
-    subtitle: 'Doing & Testing QA',
+    id: 'col-doing',
+    title: 'Doing',
+    subtitle: 'Desarrollo activo',
     color: 'border-amber-500/30',
     dotColor: 'bg-amber-500',
-    statuses: ['in_progress', 'testing_qa'],
-    dropTargetStatus: 'in_progress'
+    statuses: ['doing', 'in_progress'],
+    dropTargetStatus: 'doing'
+  },
+  {
+    id: 'col-review-ready',
+    title: 'Review & Ready',
+    subtitle: 'QA & Listo para deploy',
+    color: 'border-purple-500/30',
+    dotColor: 'bg-purple-500',
+    statuses: ['review', 'testing_qa', 'ready', 'finish'],
+    dropTargetStatus: 'review'
   },
   {
     id: 'col-done',
     title: 'Done',
-    subtitle: 'Finish & Liberado',
+    subtitle: 'Deployed & Liberado',
     color: 'border-emerald-500/30',
     dotColor: 'bg-emerald-500',
-    statuses: ['finish', 'done'],
+    statuses: ['done'],
     dropTargetStatus: 'done'
   }
 ];
 
-const EXPANDED_COLUMNS: ColumnConfig[] = [
+export const EXPANDED_COLUMNS: ColumnConfig[] = [
   {
-    id: 'col-ideas',
-    title: 'Ideas',
-    subtitle: 'Triage & Specs',
-    color: 'border-slate-300 dark:border-slate-700/60',
-    dotColor: 'bg-sky-500',
-    statuses: ['ideas'],
-    dropTargetStatus: 'ideas'
-  },
-  {
-    id: 'col-backlog',
-    title: 'Backlog',
-    subtitle: 'Listo para sprint',
+    id: 'col-draft',
+    title: 'Draft',
+    subtitle: 'Backlog & Triaged',
     color: 'border-slate-300 dark:border-slate-700/60',
     dotColor: 'bg-indigo-500',
-    statuses: ['backlog'],
-    dropTargetStatus: 'backlog'
+    statuses: ['draft', 'ideas', 'backlog'],
+    dropTargetStatus: 'draft'
   },
   {
-    id: 'col-inprogress',
-    title: 'In Progress',
+    id: 'col-doing',
+    title: 'Doing',
     subtitle: 'Desarrollo activo',
     color: 'border-amber-500/30',
     dotColor: 'bg-amber-500',
-    statuses: ['in_progress'],
-    dropTargetStatus: 'in_progress'
+    statuses: ['doing', 'in_progress'],
+    dropTargetStatus: 'doing'
   },
   {
-    id: 'col-testing',
-    title: 'Testing/QA',
-    subtitle: 'Verificación en curso',
+    id: 'col-review',
+    title: 'Review',
+    subtitle: 'Testing & Code Review',
     color: 'border-purple-500/30',
     dotColor: 'bg-purple-500',
-    statuses: ['testing_qa'],
-    dropTargetStatus: 'testing_qa'
+    statuses: ['review', 'testing_qa'],
+    dropTargetStatus: 'review'
   },
   {
-    id: 'col-finish',
-    title: 'Finish',
+    id: 'col-ready',
+    title: 'Ready',
     subtitle: 'Ready for deploy',
     color: 'border-teal-500/30',
     dotColor: 'bg-teal-500',
-    statuses: ['finish'],
-    dropTargetStatus: 'finish'
+    statuses: ['ready', 'finish'],
+    dropTargetStatus: 'ready'
   },
   {
     id: 'col-done',
     title: 'Done',
-    subtitle: 'Liberado / Deployed',
+    subtitle: 'Deployed & Cerrado',
     color: 'border-emerald-500/30',
     dotColor: 'bg-emerald-500',
     statuses: ['done'],
@@ -114,22 +106,32 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onUpdateStatus,
   onDeleteItem,
   onClickItem,
-  onQuickAddItem
+  onQuickAddItem,
+  onShowToast
 }) => {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [activeDropColumn, setActiveDropColumn] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ colId: string; index: number } | null>(null);
 
   const columns = viewMode === 'simplificada' ? SIMPLIFIED_COLUMNS : EXPANDED_COLUMNS;
 
   const handleDragStart = (e: React.DragEvent, item: BacklogItem) => {
-    setDraggedItemId(item.id);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
+    window.setTimeout(() => {
+      setDraggedItemId(item.id);
+    }, 0);
   };
 
   const handleDragEnd = () => {
     setDraggedItemId(null);
     setActiveDropColumn(null);
+    setDropTarget(null);
+  };
+
+  const handleDragEnter = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    setActiveDropColumn(columnId);
   };
 
   const handleDragOver = (e: React.DragEvent, columnId: string) => {
@@ -140,20 +142,51 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   };
 
-  const handleDragLeave = (_e: React.DragEvent, columnId: string) => {
-    if (activeDropColumn === columnId) {
-      setActiveDropColumn(null);
+  const handleDragLeave = (e: React.DragEvent, columnId: string) => {
+    // Only clear if the cursor actually leaves the column element
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      if (activeDropColumn === columnId) {
+        setActiveDropColumn(null);
+        setDropTarget(null);
+      }
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetStatus: ItemStatus) => {
+  const handleCardDragOver = (e: React.DragEvent, colId: string, index: number) => {
     e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (activeDropColumn !== colId) {
+      setActiveDropColumn(colId);
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const targetIdx = e.clientY < midY ? index : index + 1;
+    setDropTarget({ colId, index: targetIdx });
+  };
+
+  const handleDrop = (e: React.DragEvent, col: ColumnConfig, specificIndex?: number) => {
+    e.preventDefault();
+    e.stopPropagation();
     const itemId = e.dataTransfer.getData('text/plain') || draggedItemId;
     if (itemId) {
-      onUpdateStatus(itemId, targetStatus);
+      const draggedItem = items.find((i) => i.id === itemId);
+      let newStatus: ItemStatus;
+
+      // Si el ítem ya pertenecía a esta columna, preservamos su sub-estado original
+      // (ej. 'ideas' o 'backlog' en Draft; 'in_progress' en Doing; 'ready' en Review & Ready)
+      if (draggedItem && col.statuses.includes(draggedItem.status)) {
+        newStatus = draggedItem.status;
+      } else {
+        newStatus = col.dropTargetStatus;
+      }
+
+      const idx = specificIndex !== undefined ? specificIndex : (dropTarget?.colId === col.id ? dropTarget.index : undefined);
+      onUpdateStatus(itemId, newStatus, col.id, idx);
     }
     setDraggedItemId(null);
     setActiveDropColumn(null);
+    setDropTarget(null);
   };
 
   return (
@@ -165,18 +198,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         }}
       >
         {columns.map((col) => {
-          const colItems = items.filter((item) => col.statuses.includes(item.status));
+          const colItems = items
+            .filter((item) => col.statuses.includes(item.status))
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
           const isDropActive = activeDropColumn === col.id;
 
           return (
             <div
               key={col.id}
+              onDragEnter={(e) => handleDragEnter(e, col.id)}
               onDragOver={(e) => handleDragOver(e, col.id)}
               onDragLeave={(e) => handleDragLeave(e, col.id)}
-              onDrop={(e) => handleDrop(e, col.dropTargetStatus)}
-              className={`flex flex-col rounded-2xl p-3 kanban-col transition-all duration-150 min-h-[500px] ${
+              onDrop={(e) => handleDrop(e, col)}
+              className={`flex flex-col rounded-2xl p-3 kanban-col transition-all duration-200 min-h-[520px] ${
                 isDropActive
-                  ? 'border-indigo-500/60 bg-indigo-50/50 dark:bg-indigo-950/20 shadow-lg shadow-indigo-500/10'
+                  ? 'drop-target-active'
                   : ''
               }`}
             >
@@ -209,18 +245,51 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </div>
 
               {/* Items List */}
-              <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-0.5">
-                {colItems.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    onClick={() => onClickItem(item)}
-                    onUpdateStatus={onUpdateStatus}
-                    onDelete={onDeleteItem}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                  />
-                ))}
+              <div 
+                className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-0.5"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (activeDropColumn !== col.id) setActiveDropColumn(col.id);
+                  if (e.target === e.currentTarget) {
+                    setDropTarget({ colId: col.id, index: colItems.length });
+                  }
+                }}
+              >
+                {colItems.map((item, idx) => {
+                  const isItemDragged = draggedItemId === item.id;
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={`relative transition-all duration-150 ${isItemDragged ? 'h-0 overflow-hidden opacity-0 pointer-events-none' : ''}`}
+                    >
+                      {/* Top drop indicator */}
+                      {isDropActive && dropTarget?.colId === col.id && dropTarget?.index === idx && !isItemDragged && (
+                        <div className="drop-indicator" />
+                      )}
+
+                      <div
+                        onDragOver={(e) => handleCardDragOver(e, col.id, idx)}
+                        onDrop={(e) => handleDrop(e, col, dropTarget?.index ?? idx)}
+                      >
+                        <ItemCard
+                          item={item}
+                          isDragging={isItemDragged}
+                          onClick={() => onClickItem(item)}
+                          onUpdateStatus={(id, s) => onUpdateStatus(id, s)}
+                          onDelete={onDeleteItem}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onShowToast={onShowToast}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Bottom drop indicator when dragging past last item */}
+                {isDropActive && dropTarget?.colId === col.id && dropTarget?.index === colItems.length && (
+                  <div className="drop-indicator" />
+                )}
 
                 {colItems.length === 0 && (
                   <div className="flex-1 flex flex-col items-center justify-center py-12 rounded-xl border border-dashed border-slate-300 dark:border-white/[0.06] text-slate-400 dark:text-slate-600 text-xs">

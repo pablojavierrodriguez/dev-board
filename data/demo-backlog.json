@@ -5,7 +5,8 @@
     "codePrefix": "DEMO",
     "description": "Proyecto de demostración de DevBoard. Puedes explorarlo o eliminarlo en cualquier momento.",
     "isDemo": true,
-    "createdAt": "2026-09-16T00:00:00.000Z"
+    "storageType": "json",
+    "createdAt": "2026-09-16T20:45:40.567Z"
   },
   "items": [
     {
@@ -16,15 +17,14 @@
       "description": "Revisar los tokens de color HSL y verificar contraste en pantallas OLED.",
       "type": "ux",
       "priority": "p2",
-      "status": "done",
+      "status": "draft",
       "module": "Design System",
       "fix": "Se configuró paleta Slate y acentos Indigo/Violeta.",
       "targetSprint": "Sprint 1 — Onboarding",
       "targetRelease": "1.0.0",
       "order": 1,
       "createdAt": "2026-09-16T09:00:00.000Z",
-      "updatedAt": "2026-09-16T09:30:00.000Z",
-      "completedAt": "2026-09-16T09:30:00.000Z",
+      "updatedAt": "2026-09-16T20:46:41.470Z",
       "releasedAt": "2026-09-16T10:00:00.000Z"
     },
     {
@@ -35,13 +35,13 @@
       "description": "El input de búsqueda bloqueaba el render en listas largas al teclear.",
       "type": "tech_debt",
       "priority": "p1",
-      "status": "in_progress",
+      "status": "draft",
       "module": "Performance",
       "impactedFile": "src/components/FilterBar.tsx",
       "targetSprint": "Sprint 1 — Onboarding",
       "order": 2,
       "createdAt": "2026-09-16T10:00:00.000Z",
-      "updatedAt": "2026-09-16T10:15:00.000Z"
+      "updatedAt": "2026-09-16T20:46:32.936Z"
     },
     {
       "id": "item-demo-003",
@@ -51,7 +51,7 @@
       "description": "El parser asume coma estándar en CSV y falla en configuraciones europeas.",
       "type": "bug",
       "priority": "p0",
-      "status": "backlog",
+      "status": "doing",
       "module": "Ingesta CSV",
       "risk": "Falla silenciosa en importación masiva.",
       "fix": "Detección heurística del delimitador observando la primera línea.",
@@ -59,7 +59,7 @@
       "targetRelease": "1.1.0",
       "order": 3,
       "createdAt": "2026-09-16T10:20:00.000Z",
-      "updatedAt": "2026-09-16T10:20:00.000Z"
+      "updatedAt": "2026-09-16T20:46:37.856Z"
     },
     {
       "id": "item-demo-004",
@@ -69,11 +69,11 @@
       "description": "Permitir avisar al usuario de transacciones recurrentes pendientes.",
       "type": "feature",
       "priority": "p2",
-      "status": "ideas",
+      "status": "doing",
       "module": "Notificaciones",
       "order": 4,
       "createdAt": "2026-09-16T10:30:00.000Z",
-      "updatedAt": "2026-09-16T10:30:00.000Z"
+      "updatedAt": "2026-09-16T20:46:50.686Z"
     }
   ],
   "releases": [
@@ -84,10 +84,12 @@
       "date": "2026-09-16",
       "title": "Lanzamiento Inicial Demo",
       "summary": "Primer release de demostración con arquitectura desacoplada.",
-      "itemCodes": ["DEMO-001"],
+      "itemCodes": [
+        "DEMO-001"
+      ],
       "markdownContent": "## [1.0.0] — 2026-09-16 🚀 Lanzamiento Inicial Demo\n\n### 🎯 Resumen\nPrimer release de demostración con arquitectura desacoplada.",
       "createdAt": "2026-09-16T10:00:00.000Z"
     }
   ],
-  "lastUpdated": "2026-09-16T10:30:00.000Z"
+  "lastUpdated": "2026-09-16T20:46:50.688Z"
 }

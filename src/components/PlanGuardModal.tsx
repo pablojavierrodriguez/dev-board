@@ -30,13 +30,26 @@ export const PlanGuardModal: FC<PlanGuardModalProps> = ({
     if (item.impactedFile) prompt += `**Archivo Impactado:** ${item.impactedFile}\n`;
     if (item.targetSprint) prompt += `**Sprint:** ${item.targetSprint}\n`;
     prompt += `\n## Descripción del Requerimiento\n${item.description || item.title}\n\n`;
+    
+    if (item.acceptanceCriteriaList && item.acceptanceCriteriaList.length > 0) {
+      prompt += `## Criterios de Aceptación (AC)\n`;
+      item.acceptanceCriteriaList.forEach(ac => {
+        prompt += `- [${ac.checked ? 'x' : ' '}] #${ac.index} ${ac.text}\n`;
+      });
+      prompt += `\n`;
+    }
+
     if (item.risk) prompt += `## Riesgo Identificado\n${item.risk}\n\n`;
+    
     if (planText.trim()) {
-      prompt += `## Plan de Trabajo Inicial\n${planText.trim()}\n\n`;
+      prompt += `## Plan de Implementación\n${planText.trim()}\n\n`;
+    } else if (item.implementationPlan) {
+      prompt += `## Plan de Implementación\n${item.implementationPlan}\n\n`;
     } else if (item.fix) {
       prompt += `## Fix o Criterio Existente\n${item.fix}\n\n`;
     }
-    prompt += `## Objetivo para el Agente\nHola Antigravity/AI: Necesito que investigues el código afectado, armes el plan de implementación detallado y ejecutes la solución técnica paso a paso cumpliendo los criterios de calidad.`;
+    
+    prompt += `## Objetivo para el Agente\nHola Antigravity/AI: Necesito que investigues el código afectado, armes el plan de implementación detallado y ejecutes la solución técnica paso a paso cumpliendo los criterios de aceptación y calidad.`;
 
     navigator.clipboard.writeText(prompt);
     onShowToast(`¡Prompt de ${item.code} copiado! Pégalo en tu nuevo hilo de conversación 🤖`, 'success');
@@ -46,7 +59,7 @@ export const PlanGuardModal: FC<PlanGuardModalProps> = ({
     setIsSubmitting(true);
     try {
       await onConfirmStart(item.id, planText.trim() || undefined);
-      onShowToast(`Ítem ${item.code} pasado a In Progress con su plan`, 'success');
+      onShowToast(`Ítem ${item.code} pasado a Doing con su plan`, 'success');
       onClose();
     } catch (err: any) {
       onShowToast(err.message || 'Error al iniciar ítem', 'error');
@@ -59,7 +72,7 @@ export const PlanGuardModal: FC<PlanGuardModalProps> = ({
     setIsSubmitting(true);
     try {
       await onConfirmStart(item.id);
-      onShowToast(`Ítem ${item.code} pasado a In Progress`, 'info');
+      onShowToast(`Ítem ${item.code} pasado a Doing`, 'info');
       onClose();
     } catch (err: any) {
       onShowToast(err.message || 'Error al iniciar ítem', 'error');
@@ -85,7 +98,7 @@ export const PlanGuardModal: FC<PlanGuardModalProps> = ({
                 Guard de Desarrollo: Plan / Spec Requerido
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Verificación de definición antes de pasar a <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">In Progress</span>
+                Verificación de definición antes de pasar a <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">Doing</span>
               </p>
             </div>
           </div>

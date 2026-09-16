@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus, Priority } from '../types';
 import { typeConfig, priorityConfig } from './ItemCard';
+import { ConfirmModal } from './ConfirmModal';
 
 interface SprintViewProps {
   items: BacklogItem[];
@@ -23,14 +24,19 @@ interface SprintViewProps {
 type GroupBy = 'sprint' | 'priority' | 'module' | 'none';
 
 const statusLabels: Record<ItemStatus, { label: string; color: string }> = {
-  ideas: { label: 'Ideas', color: 'bg-sky-500/10 text-sky-500 dark:text-sky-400 border-sky-500/20' },
-  backlog: { label: 'Backlog', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
-  in_progress: { label: 'In Progress', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
-  testing_qa: { label: 'Testing/QA', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' },
-  finish: { label: 'Finish', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
+  draft: { label: 'Draft', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+  doing: { label: 'Doing', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
+  review: { label: 'Review', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' },
+  ready: { label: 'Ready', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
   done: { label: 'Done', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
   dismissed: { label: 'Descartado', color: 'bg-slate-200 dark:bg-slate-700/30 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700' },
-  cancelled: { label: 'Cancelado', color: 'bg-rose-100 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/30' }
+  cancelled: { label: 'Cancelado', color: 'bg-rose-100 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/30' },
+  // legacy
+  ideas: { label: 'Draft', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+  backlog: { label: 'Draft', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
+  in_progress: { label: 'Doing', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
+  testing_qa: { label: 'Review', color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' },
+  finish: { label: 'Ready', color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' }
 };
 
 export const SprintView: FC<SprintViewProps> = ({
@@ -44,6 +50,7 @@ export const SprintView: FC<SprintViewProps> = ({
   const [sortBy, setSortBy] = useState<'priority' | 'code' | 'status'>('priority');
   const [sortAsc, setSortAsc] = useState(true);
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+  const [itemToDelete, setItemToDelete] = useState<BacklogItem | null>(null);
 
   // Grouping logic
   const groupedData = useMemo(() => {
@@ -60,7 +67,8 @@ export const SprintView: FC<SprintViewProps> = ({
       }
       if (sortBy === 'status') {
         const sOrder: Record<ItemStatus, number> = {
-          ideas: 0, backlog: 1, in_progress: 2, testing_qa: 3, finish: 4, done: 5, dismissed: 6, cancelled: 7
+          draft: 0, doing: 1, review: 2, ready: 3, done: 4, dismissed: 5, cancelled: 6,
+          ideas: 0, backlog: 0, in_progress: 1, testing_qa: 2, finish: 3
         };
         const diff = sOrder[a.status] - sOrder[b.status];
         return sortAsc ? diff : -diff;
@@ -315,11 +323,10 @@ export const SprintView: FC<SprintViewProps> = ({
                                 onChange={(e) => onUpdateStatus(item.id, e.target.value as ItemStatus)}
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium border cursor-pointer focus:outline-none ${sInfo.color}`}
                               >
-                                <option value="ideas" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Ideas</option>
-                                <option value="backlog" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Backlog</option>
-                                <option value="in_progress" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">In Progress</option>
-                                <option value="testing_qa" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Testing/QA</option>
-                                <option value="finish" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Finish</option>
+                                <option value="draft" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Draft</option>
+                                <option value="doing" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Doing</option>
+                                <option value="review" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Review</option>
+                                <option value="ready" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Ready</option>
                                 <option value="done" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Done</option>
                                 <option value="dismissed" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Descartado</option>
                                 <option value="cancelled" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Cancelado</option>
@@ -353,11 +360,7 @@ export const SprintView: FC<SprintViewProps> = ({
                                   <Edit3 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    if (confirm(`¿Eliminar ${item.code}?`)) {
-                                      onDeleteItem(item.id);
-                                    }
-                                  }}
+                                  onClick={() => setItemToDelete(item)}
                                   title="Eliminar"
                                   className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                                 >
@@ -376,6 +379,19 @@ export const SprintView: FC<SprintViewProps> = ({
           );
         })}
       </div>
+
+      <ConfirmModal
+        isOpen={!!itemToDelete}
+        title="Eliminar Tarea"
+        message={`¿Estás seguro de que deseas eliminar permanentemente la tarea ${itemToDelete?.code}?`}
+        detail={itemToDelete?.title}
+        confirmText="Eliminar Tarea"
+        variant="danger"
+        onConfirm={() => {
+          if (itemToDelete) onDeleteItem(itemToDelete.id);
+        }}
+        onClose={() => setItemToDelete(null)}
+      />
     </div>
   );
 };

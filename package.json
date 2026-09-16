@@ -7,7 +7,9 @@
     "dev": "vite --port 4100",
     "build": "tsc && vite build",
     "preview": "vite preview --port 4100",
-    "import:dom": "node scripts/import-dom-docs.js"
+    "import:dom": "node scripts/import-dom-docs.js",
+    "test:backlog": "node --experimental-strip-types scripts/verify-integration.js",
+    "mcp": "node --experimental-strip-types scripts/mcp-server.ts"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",
