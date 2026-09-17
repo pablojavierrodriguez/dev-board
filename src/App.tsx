@@ -37,6 +37,7 @@ import { ProjectModal } from './components/ProjectModal';
 import { PlanGuardModal } from './components/PlanGuardModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
 import { ToastContainer, type ToastMessage } from './components/Toast';
+import { AlertTriangle } from 'lucide-react';
 
 export function App() {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
@@ -594,6 +595,31 @@ export function App() {
           stats={stats}
         />
       )}
+
+      {/* Project Error Warning Banner (e.g. EPERM or missing path) */}
+      {(() => {
+        const activeProj = projects.find(p => p.id === selectedProjectId);
+        if (!activeProj?.error) return null;
+        return (
+          <div className="mx-4 sm:mx-6 lg:mx-8 mt-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex items-start gap-3 text-xs leading-relaxed">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="font-semibold text-amber-800 dark:text-amber-300">
+                No se pudieron cargar las tareas de {activeProj.name}
+              </div>
+              <div className="text-slate-600 dark:text-slate-400 mt-0.5">
+                El proceso del servidor Vite no pudo acceder a la carpeta: <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono text-[11px]">{activeProj.repoPath}</code>
+              </div>
+              <div className="mt-1 text-slate-500 dark:text-slate-400">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Detalle:</span> {activeProj.error}
+              </div>
+              <div className="mt-2 text-slate-700 dark:text-slate-300 bg-amber-500/5 p-2 rounded-lg border border-amber-500/15">
+                💡 <strong>Solución:</strong> Si el servidor Vite fue iniciado dentro de un sandbox o proceso aislado, reinicia el servidor en tu terminal habitual con <code className="px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 font-mono font-bold">npm run dev</code> para que cuente con permisos de acceso a las carpetas de otros repositorios en tu máquina.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Main Tab Content */}
       <main className="flex-1 flex flex-col">

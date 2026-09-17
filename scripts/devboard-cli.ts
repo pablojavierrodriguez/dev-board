@@ -33,13 +33,31 @@ function getProject(projectId?: string) {
     const found = registry.projects.find(p => p.id === projectId || p.codePrefix?.toLowerCase() === projectId.toLowerCase());
     if (found) return found;
   }
+
+  // Si se ejecuta dentro de un repo con backlog, priorizar el directorio actual (estilo Git)
+  const cwd = process.cwd();
+  const matched = registry.projects.find(p => p.repoPath && path.normalize(p.repoPath) === path.normalize(cwd));
+  if (matched) return matched;
+
+  const hasMdBacklog = fs.existsSync(path.join(cwd, 'backlog/tasks'));
+  const hasJsonBacklog = fs.existsSync(path.join(cwd, '.devboard/backlog.json'));
+  if (hasMdBacklog || hasJsonBacklog) {
+    const folderName = path.basename(cwd);
+    return {
+      id: folderName.toLowerCase().replace(/[^a-z0-9_-]/g, '-'),
+      name: folderName,
+      codePrefix: folderName.substring(0, 4).toUpperCase(),
+      repoPath: cwd,
+      storageType: hasMdBacklog ? 'markdown' : 'json',
+      backlogDir: 'backlog',
+      createdAt: new Date().toISOString()
+    };
+  }
+
   if (registry.activeProjectId) {
     const active = registry.projects.find(p => p.id === registry.activeProjectId);
     if (active) return active;
   }
-  const cwd = process.cwd();
-  const matched = registry.projects.find(p => p.repoPath && path.normalize(p.repoPath) === path.normalize(cwd));
-  if (matched) return matched;
 
   return registry.projects[0];
 }

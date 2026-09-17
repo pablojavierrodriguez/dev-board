@@ -4,8 +4,10 @@
   "version": "0.2.0",
   "type": "module",
   "bin": {
+    "devboard": "./bin/devboard.js",
+    "devboard-mcp": "./bin/devboard-mcp.js",
     "dev-board": "./bin/devboard.js",
-    "devboard-mcp": "./bin/devboard-mcp.js"
+    "dev-board-mcp": "./bin/devboard-mcp.js"
   },
   "scripts": {
     "dev": "vite --port 4100",
@@ -15,7 +17,10 @@
     "import:dom": "node scripts/import-dom-docs.js",
     "test:backlog": "node --experimental-strip-types scripts/verify-integration.js",
     "mcp": "node bin/devboard-mcp.js",
-    "tasks": "node --experimental-strip-types scripts/devboard-cli.ts list --open"
+    "tasks": "node --experimental-strip-types scripts/devboard-cli.ts list --open",
+    "backlog:check": "node scripts/verify-backlog-sync.js",
+    "backlog:sync": "node scripts/verify-backlog-sync.js --fix",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

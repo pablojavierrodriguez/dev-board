@@ -54,28 +54,60 @@ From the project settings in DevBoard, you can convert between storage engines a
 
 ---
 
+## 📐 Methodology: Agentic Team Playbook
+
+DevBoard is engineered from the ground up to operationalize the [**Agentic Team Playbook**](docs/AGENTIC_PLAYBOOK.md), a rigorous engineering framework for teams pairing with AI agents (Antigravity, Cursor, Claude Code, GitHub Copilot).
+
+It replaces chaotic "vibe coding" with strict, transparent engineering guardrails:
+- **Phase 1: Context & Grounding** — No agent touches code without anchoring to an atomic task in `backlog/tasks/`.
+- **Phase 2: Plan Guard** — Explicit architecture and step-by-step implementation plans before execution.
+- **Phase 3: Atomic Incremental Execution** — Live checkbox tracking (`- [x]`) and strict scope isolation.
+- **Phase 4: Automated Verification Gates** — Pre-commit hooks (`.githooks/pre-commit`) prevent desynchronization between code and backlog.
+- **Phase 5: Release Hub & Traceability** — Historical versioning, automated changelog compilation, and zero merge conflicts.
+
+👉 Read the full methodology in [**docs/AGENTIC_PLAYBOOK.md**](docs/AGENTIC_PLAYBOOK.md).
+
 ---
 
-## 🤖 Standalone MCP Server & AI Agent Skills
+## 🚀 Quick Start (Choose Your Workflow)
 
-DevBoard includes an autonomous **Model Context Protocol (MCP)** server bundled for Node 18+ over `stdio` (`bin/devboard-mcp.js`) and an agent skill ([`.agents/skills/devboard/SKILL.md`](.agents/skills/devboard/SKILL.md)).
+No complex setups or servers required. Pick the scenario that matches what you want to do:
 
-AI agents (Cursor, Claude Code, Antigravity) can inspect, create, plan, and update backlog tasks autonomously without human copy-pasting.
-
-### Zero-Config MCP Setup
-
-Add DevBoard to your IDE or agent's `mcp_config.json`:
+### 1. Use the AI Agent MCP Server in any project (Zero-Install)
+You **don't need to clone this repository**. Just add this to your IDE's MCP configuration (`.cursor/mcp.json`, Claude Desktop, or Antigravity):
 
 ```json
 {
   "mcpServers": {
     "devboard": {
       "command": "npx",
-      "args": ["devboard-mcp"]
+      "args": ["-y", "devboard-mcp", "--repo", "."]
     }
   }
 }
 ```
+*Your AI agent (Cursor, Claude Code, Antigravity) will automatically detect `backlog/tasks/` in your repository and manage tasks through 9 dedicated tools.*
+
+### 2. Run the Visual Kanban Cockpit in your browser
+Clone this repository and launch the local dashboard:
+```bash
+git clone https://github.com/pablojavierrodriguez/dev-board.git
+cd dev-board
+npm install
+npm run dev
+```
+*Open `http://localhost:4100`. Pre-commit verification hooks configure automatically via `npm install`.*
+
+### 3. Local Developer Link (`npm link`)
+If you cloned the repo and want `devboard` and `devboard-mcp` available in terminal across any directory on your machine:
+```bash
+npm link
+```
+*Now you can run `devboard` (launches web UI) or `devboard-mcp` from any directory (also accepts `dev-board` / `dev-board-mcp`).*
+
+---
+
+## 🤖 Standalone MCP Server Tools (9 Tools)
 
 Or pointing to an explicit repository path:
 ```json
@@ -187,7 +219,7 @@ This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder mana
 Run inside any repository folder:
 
 ```bash
-npx dev-board
+npx devboard
 ```
 
 DevBoard automatically detects the repository in your working directory, verifies storage engine (`backlog/tasks` or `.devboard`), and launches the Kanban UI in your default browser at `http://localhost:4100`.

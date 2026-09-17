@@ -4,9 +4,12 @@ import {
   Copy, 
   Archive, 
   ChevronDown, 
-  ChevronRight
+  ChevronRight,
+  RefreshCw,
+  CheckCircle2
 } from 'lucide-react';
 import type { BacklogItem, Release } from '../types';
+import { syncLegacyReleases } from '../api';
 
 interface ReleaseAssemblerProps {
   items: BacklogItem[];
@@ -43,18 +46,69 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedReleaseId, setExpandedReleaseId] = useState<string | null>(null);
+  const [showAlreadyReleased, setShowAlreadyReleased] = useState(false);
+  const [isSyncingReleases, setIsSyncingReleases] = useState(false);
 
-  // Candidate items: status === 'finish' or status === 'done'
+  // Set of all task codes already included in any release
+  const releasedCodeSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const rel of releases) {
+      if (Array.isArray(rel.itemCodes)) {
+        for (const code of rel.itemCodes) {
+          if (code) set.add(code.toUpperCase());
+        }
+      }
+    }
+    return set;
+  }, [releases]);
+
+  // Candidate items: status === 'finish' or status === 'done', excluding already released items unless toggled
   const candidateItems = useMemo(() => {
     return items.filter((it) => {
       const matchProject = projectId === 'all' || it.projectId === projectId;
-      return matchProject && (it.status === 'finish' || it.status === 'done');
-    });
-  }, [items, projectId]);
+      if (!matchProject) return false;
+      const isCandidateStatus = it.status === 'finish' || it.status === 'done' || it.status === 'ready';
+      if (!isCandidateStatus) return false;
 
-  // Pre-select items with status 'finish' by default on mount
+      const codeUpper = (it.code || it.id).toUpperCase();
+      const isAlreadyReleased = releasedCodeSet.has(codeUpper) || Boolean(it.releasedAt);
+
+      if (isAlreadyReleased && !showAlreadyReleased) {
+        return false;
+      }
+      return true;
+    });
+  }, [items, projectId, releasedCodeSet, showAlreadyReleased]);
+
+  // Count of historical released items hidden from candidate view
+  const hiddenReleasedCount = useMemo(() => {
+    return items.filter((it) => {
+      const matchProject = projectId === 'all' || it.projectId === projectId;
+      if (!matchProject) return false;
+      const codeUpper = (it.code || it.id).toUpperCase();
+      const isCandidateStatus = it.status === 'done' || it.status === 'finish' || it.status === 'ready';
+      const isAlreadyReleased = releasedCodeSet.has(codeUpper) || Boolean(it.releasedAt);
+      return isCandidateStatus && isAlreadyReleased;
+    }).length;
+  }, [items, projectId, releasedCodeSet]);
+
+  const handleSyncLegacyReleases = async () => {
+    try {
+      setIsSyncingReleases(true);
+      const result = await syncLegacyReleases(projectId === 'all' ? undefined : projectId);
+      if (result.ok) {
+        onShowToast(`Sincronización completada: ${result.count} releases detectados y asociados.`, 'success');
+      }
+    } catch (err: any) {
+      onShowToast(err.message || 'Error al sincronizar releases', 'error');
+    } finally {
+      setIsSyncingReleases(false);
+    }
+  };
+
+  // Pre-select items with status 'finish' or 'ready' by default on mount
   useEffect(() => {
-    const finishCodes = new Set(candidateItems.filter((i) => i.status === 'finish').map((i) => i.code));
+    const finishCodes = new Set(candidateItems.filter((i) => i.status === 'finish' || i.status === 'ready').map((i) => i.code));
     setSelectedCodes(finishCodes);
   }, [candidateItems]);
 
@@ -203,6 +257,15 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleSyncLegacyReleases}
+              disabled={isSyncingReleases}
+              title="Detecta RELEASE_NOTES.md / CHANGELOG.md y asocia las tareas históricas a sus versiones"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-medium text-slate-200 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingReleases ? 'animate-spin' : ''}`} />
+              <span>{isSyncingReleases ? 'Sincronizando...' : 'Sincronizar RELEASE_NOTES.md'}</span>
+            </button>
+            <button
               onClick={handleCopyMarkdown}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-medium text-slate-200 transition-colors"
             >
@@ -307,6 +370,26 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                 </button>
               </div>
             </div>
+
+            {hiddenReleasedCount > 0 && (
+              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    {hiddenReleasedCount} {hiddenReleasedCount === 1 ? 'tarea histórica ya liberada en versiones previas está oculta' : 'tareas históricas ya liberadas en versiones previas están ocultas'}.
+                  </span>
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300 hover:text-white font-medium select-none">
+                  <input
+                    type="checkbox"
+                    checked={showAlreadyReleased}
+                    onChange={(e) => setShowAlreadyReleased(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
+                  />
+                  Mostrar ya liberadas
+                </label>
+              </div>
+            )}
 
             <div className="max-h-[380px] overflow-y-auto space-y-1.5 pr-1 divide-y divide-white/[0.02]">
               {candidateItems.map((item) => {

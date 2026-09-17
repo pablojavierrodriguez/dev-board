@@ -35,6 +35,7 @@ interface ProjectMeta {
   storageType?: 'json' | 'markdown';
   backlogDir?: string;
   createdAt: string;
+  error?: string;
 }
 
 function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
@@ -851,25 +852,60 @@ async function handleToolCall(name: string, args: any): Promise<any> {
       try { releases = JSON.parse(fs.readFileSync(dataReleasesPath, 'utf8')); } catch {}
     }
 
+    const allTasks = readTasksForProject(targetProject);
+    const knownCodes = new Set(allTasks.map(t => (t.code || t.id || '').toUpperCase()).filter(Boolean));
+    const codePrefix = (targetProject.codePrefix || '').toUpperCase().trim();
+
     // Fallback: parse docs/RELEASE_NOTES.md or RELEASE_NOTES.md
     if (releases.length === 0) {
       const notesPaths = [
         path.join(repoPath, 'docs/RELEASE_NOTES.md'),
+        path.join(repoPath, 'docs/releasenotes.md'),
         path.join(repoPath, 'RELEASE_NOTES.md'),
+        path.join(repoPath, 'releasenotes.md'),
         path.join(repoPath, 'CHANGELOG.md')
       ];
       for (const np of notesPaths) {
         if (fs.existsSync(np)) {
           try {
             const content = fs.readFileSync(np, 'utf8');
-            const versionHeaderRegex = /^##\s*\[?([vV]?\d+\.\d+\.?\d*[^\]\n]*)\]?(?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/gm;
-            let match;
-            while ((match = versionHeaderRegex.exec(content)) !== null) {
+            const sections = content.split(/(?=^##\s+)/m);
+            for (const section of sections) {
+              const trimmed = section.trim();
+              if (!trimmed.startsWith('##')) continue;
+              const firstLineEnd = trimmed.indexOf('\n');
+              const headerLine = firstLineEnd > 0 ? trimmed.substring(0, firstLineEnd) : trimmed;
+              const vMatch = headerLine.match(/^##\s*\[?([vV]?\d+(?:\.\d+)*(?:-[a-zA-Z0-9.]+)?(?:[^\s\]—–-]+)?)\]?/);
+              if (!vMatch) continue;
+
+              const rawVersion = vMatch[1].trim();
+              const version = rawVersion.replace(/^v(?=\d)/i, '');
+              const dateMatch = headerLine.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+              const date = dateMatch ? dateMatch[1] : '';
+
+              let title = headerLine.replace(/^##\s*\[?[^\]]+\]?/, '').trim();
+              if (date) title = title.replace(date, '').trim();
+              title = title.replace(/^[-—–:🚀 ]+/, '').trim();
+
+              const itemCodesSet = new Set<string>();
+              const candidates = trimmed.match(/\b([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+)\b/g) || [];
+              for (const c of candidates) {
+                const upper = c.toUpperCase();
+                if (knownCodes.has(upper) || (codePrefix && upper.startsWith(`${codePrefix}-`))) {
+                  itemCodesSet.add(upper);
+                }
+              }
+              for (const t of allTasks) {
+                const m = (t.milestone || t.targetSprint || '').replace(/^v/i, '');
+                if (m && m === version) itemCodesSet.add(t.code || t.id);
+              }
+
               releases.push({
-                version: match[1].trim(),
-                date: match[2] || '',
-                title: `Release ${match[1].trim()}`,
-                itemCodes: []
+                version,
+                date: date || '',
+                title: title || `Release ${version}`,
+                itemCodes: Array.from(itemCodesSet),
+                itemCount: itemCodesSet.size
               });
             }
           } catch {}
@@ -877,8 +913,6 @@ async function handleToolCall(name: string, args: any): Promise<any> {
         }
       }
     }
-
-    const allTasks = readTasksForProject(targetProject);
 
     if (args.version) {
       const vClean = String(args.version).trim().toLowerCase().replace(/^v/, '');

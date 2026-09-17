@@ -1,0 +1,20 @@
+#!/bin/sh
+# DevBoard Pre-Commit Hook: Sincronización viva obligatoria del Backlog
+
+echo "🛡️  [Git Pre-Commit Hook] Verificando sincronización de Backlog con código fuente..."
+
+# Ejecuta el guard de DevBoard
+node scripts/verify-backlog-sync.js --hook
+
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+  echo ""
+  echo "❌ Commit rechazado por DevBoard Backlog Guard."
+  echo "   Para auto-corregir discrepancias de estado ejecuta: npm run backlog:sync"
+  echo "   O si deseas forzar el commit sin verificar usa: git commit --no-verify"
+  echo ""
+  exit 1
+fi
+
+exit 0

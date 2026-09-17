@@ -1,11 +1,11 @@
 ---
 id: DEV-003
 title: "Explorador visual de carpetas y compatibilidad multiplataforma"
-status: Doing
+status: Done
 assignee:
   - "Antigravity"
 created_date: '2026-09-16'
-updated_date: '2026-09-16 20:42'
+updated_date: '2026-09-17 02:48'
 labels:
   - filesystem
   - cross-platform

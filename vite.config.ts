@@ -32,6 +32,7 @@ interface ProjectMeta {
   storageType?: 'json' | 'markdown';
   backlogDir?: string;
   createdAt: string;
+  error?: string;
 }
 
 interface ProjectBacklog {
@@ -131,7 +132,17 @@ function saveRegistry(registry: { activeProjectId: string; projects: ProjectMeta
   if (!fs.existsSync(path.dirname(REGISTRY_FILE))) {
     fs.mkdirSync(path.dirname(REGISTRY_FILE), { recursive: true });
   }
-  fs.writeFileSync(REGISTRY_FILE, JSON.stringify(registry, null, 2), 'utf8');
+  const sanitized = {
+    ...registry,
+    projects: registry.projects.map(p => {
+      const clean: any = { ...p };
+      if (!clean.isDemo) {
+        delete clean.isDemo;
+      }
+      return clean;
+    })
+  };
+  fs.writeFileSync(REGISTRY_FILE, JSON.stringify(sanitized, null, 2), 'utf8');
 }
 
 function getProjectBacklogPath(project: ProjectMeta): string {
@@ -144,93 +155,233 @@ function getProjectBacklogPath(project: ProjectMeta): string {
   return path.resolve(__dirname, `data/${project.id}-backlog.json`);
 }
 
-function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
-  if (isBacklogMdProject(project) && project.repoPath) {
-    const tasksDir = getBacklogTasksDir(project);
-    if (!fs.existsSync(tasksDir)) {
-      fs.mkdirSync(tasksDir, { recursive: true });
+function parseReleaseNotesMd(repoPath: string, projectPrefix?: string, knownItems: any[] = []): any[] {
+  if (!repoPath) return [];
+  const possiblePaths = [
+    path.join(repoPath, 'docs/RELEASE_NOTES.md'),
+    path.join(repoPath, 'docs/releasenotes.md'),
+    path.join(repoPath, 'RELEASE_NOTES.md'),
+    path.join(repoPath, 'releasenotes.md'),
+    path.join(repoPath, 'docs/CHANGELOG.md'),
+    path.join(repoPath, 'CHANGELOG.md'),
+    path.join(repoPath, 'changelog.md')
+  ];
+
+  let notesContent = '';
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        notesContent = fs.readFileSync(p, 'utf8');
+        break;
+      } catch {}
+    }
+  }
+
+  if (!notesContent.trim()) return [];
+
+  const knownCodeSet = new Set(knownItems.map(it => (it.code || it.id || '').toUpperCase()).filter(Boolean));
+  const prefixUpper = (projectPrefix || '').toUpperCase().trim();
+
+  // Split into version sections based on ## headers
+  const sections = notesContent.split(/(?=^##\s+)/m);
+  const releases: any[] = [];
+
+  for (const section of sections) {
+    const trimmed = section.trim();
+    if (!trimmed.startsWith('##')) continue;
+
+    const firstLineEnd = trimmed.indexOf('\n');
+    const headerLine = firstLineEnd > 0 ? trimmed.substring(0, firstLineEnd) : trimmed;
+    const bodyContent = firstLineEnd > 0 ? trimmed.substring(firstLineEnd + 1) : '';
+
+    const vMatch = headerLine.match(/^##\s*\[?([vV]?\d+(?:\.\d+)*(?:-[a-zA-Z0-9.]+)?(?:[^\s\]—–-]+)?)\]?/);
+    if (!vMatch) continue;
+
+    const rawVersion = vMatch[1].trim();
+    const version = rawVersion.replace(/^v(?=\d)/i, '');
+
+    const dateMatch = headerLine.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    const date = dateMatch ? dateMatch[1] : '';
+
+    let title = headerLine.replace(/^##\s*\[?[^\]]+\]?/, '').trim();
+    if (date) {
+      title = title.replace(date, '').trim();
+    }
+    title = title.replace(/^[-—–:🚀 ]+/, '').trim();
+    if (!title) title = `Release ${version}`;
+
+    let summary = '';
+    const summaryMatch = bodyContent.match(/###\s*(?:🎯\s*)?Resumen\s*\n+([^\n#]+)/i);
+    if (summaryMatch) {
+      summary = summaryMatch[1].replace(/^\*+|\*+$/g, '').trim();
     }
 
-    const items: any[] = [];
-    const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
-    files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-    let order = 1;
-    for (const filename of files) {
-      const fullPath = path.join(tasksDir, filename);
-      try {
-        const fileStat = fs.statSync(fullPath);
-        const raw = fs.readFileSync(fullPath, 'utf8');
-        const fallbackId = filename.split(' - ')[0] || filename.replace(/\.md$/, '');
-        const task = parseBacklogMd(raw, fallbackId);
-
-        items.push({
-          id: task.id || fallbackId,
-          code: task.id || fallbackId,
-          projectId: project.id,
-          title: task.title,
-          description: task.description || '',
-          type: task.type || 'feature',
-          priority: normalizePriority(task.priority),
-          status: task.status, // normalized: draft, doing, review, ready, done, dismissed
-          targetSprint: task.milestone || undefined,
-          targetRelease: task.rawExtraFrontmatter?.targetRelease || undefined,
-          milestone: task.milestone || undefined,
-          impactedFile: task.rawExtraFrontmatter?.impactedFile || undefined,
-          risk: task.rawExtraFrontmatter?.risk || undefined,
-          fix: task.rawExtraFrontmatter?.fix || undefined,
-          acceptanceCriteriaList: task.acceptanceCriteria || [],
-          implementationPlan: task.implementationPlan || '',
-          assignees: task.assignees || [],
-          labels: task.labels || [],
-          order: task.rawExtraFrontmatter?.order !== undefined ? Number(task.rawExtraFrontmatter.order) : order++,
-          createdAt: task.createdDate || new Date().toISOString(),
-          updatedAt: task.updatedDate || new Date().toISOString(),
-          mtime: Math.round(fileStat.mtimeMs)
-        });
-      } catch (err) {
-        console.warn(`[DevBoard Backlog.md] Error reading ${filename}:`, err);
+    const itemCodesSet = new Set<string>();
+    const codeCandidates = trimmed.match(/\b([A-Za-z0-9]+(?:-[A-Za-z0-9]+)+)\b/g) || [];
+    for (const code of codeCandidates) {
+      const upper = code.toUpperCase();
+      if (knownCodeSet.has(upper)) {
+        itemCodesSet.add(upper);
+      } else if (prefixUpper && upper.startsWith(`${prefixUpper}-`)) {
+        itemCodesSet.add(upper);
       }
     }
 
-    // Read releases
-    let releases: any[] = [];
-    const releasesPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'releases.json');
-    if (fs.existsSync(releasesPath)) {
-      try {
-        releases = JSON.parse(fs.readFileSync(releasesPath, 'utf8'));
-      } catch {}
+    for (const it of knownItems) {
+      const m = (it.milestone || it.targetSprint || '').replace(/^v/i, '');
+      if (m && m === version) {
+        itemCodesSet.add(it.code || it.id);
+      }
     }
 
-    return {
-      project: { ...project, storageType: 'markdown' },
-      items,
-      releases,
-      lastUpdated: new Date().toISOString()
-    };
+    releases.push({
+      id: `rel-${version.replace(/\./g, '-')}`,
+      version,
+      date: date || new Date().toISOString().split('T')[0],
+      title,
+      summary,
+      itemCodes: Array.from(itemCodesSet),
+      markdownContent: trimmed,
+      createdAt: date ? `${date}T00:00:00.000Z` : new Date().toISOString()
+    });
+  }
+
+  return releases;
+}
+
+function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
+  if (isBacklogMdProject(project) && project.repoPath) {
+    const tasksDir = getBacklogTasksDir(project);
+    try {
+      if (!fs.existsSync(tasksDir)) {
+        fs.mkdirSync(tasksDir, { recursive: true });
+      }
+
+      const items: any[] = [];
+      const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
+      files.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+      let order = 1;
+      for (const filename of files) {
+        const fullPath = path.join(tasksDir, filename);
+        try {
+          const fileStat = fs.statSync(fullPath);
+          const raw = fs.readFileSync(fullPath, 'utf8');
+          const fallbackId = filename.split(' - ')[0] || filename.replace(/\.md$/, '');
+          const task = parseBacklogMd(raw, fallbackId);
+
+          items.push({
+            id: task.id || fallbackId,
+            code: task.id || fallbackId,
+            projectId: project.id,
+            title: task.title,
+            description: task.description || '',
+            type: task.type || 'feature',
+            priority: normalizePriority(task.priority),
+            status: task.status, // normalized: draft, doing, review, ready, done, dismissed
+            targetSprint: task.milestone || undefined,
+            targetRelease: task.rawExtraFrontmatter?.targetRelease || undefined,
+            milestone: task.milestone || undefined,
+            impactedFile: task.rawExtraFrontmatter?.impactedFile || undefined,
+            risk: task.rawExtraFrontmatter?.risk || undefined,
+            fix: task.rawExtraFrontmatter?.fix || undefined,
+            acceptanceCriteriaList: task.acceptanceCriteria || [],
+            implementationPlan: task.implementationPlan || '',
+            assignees: task.assignees || [],
+            labels: task.labels || [],
+            order: task.rawExtraFrontmatter?.order !== undefined ? Number(task.rawExtraFrontmatter.order) : order++,
+            createdAt: task.createdDate || new Date().toISOString(),
+            updatedAt: task.updatedDate || new Date().toISOString(),
+            mtime: Math.round(fileStat.mtimeMs)
+          });
+        } catch (err) {
+          console.warn(`[DevBoard Backlog.md] Error reading ${filename}:`, err);
+        }
+      }
+
+      // Read releases
+      let releases: any[] = [];
+      const releasesPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'releases.json');
+      if (fs.existsSync(releasesPath)) {
+        try {
+          releases = JSON.parse(fs.readFileSync(releasesPath, 'utf8'));
+        } catch {}
+      }
+
+      // Retrocompatibilidad: Si no hay releases registrados pero existe RELEASE_NOTES.md / CHANGELOG.md, auto-sincronizar
+      if (releases.length === 0 && project.repoPath) {
+        const parsed = parseReleaseNotesMd(project.repoPath, project.codePrefix, items);
+        if (parsed.length > 0) {
+          releases = parsed;
+          try {
+            if (!fs.existsSync(path.dirname(releasesPath))) {
+              fs.mkdirSync(path.dirname(releasesPath), { recursive: true });
+            }
+            fs.writeFileSync(releasesPath, JSON.stringify(releases, null, 2), 'utf8');
+          } catch (writeErr: any) {
+            console.warn(`[DevBoard API] Error persisting auto-synced releases:`, writeErr.message);
+          }
+        }
+      }
+
+      // Asignar targetRelease y releasedAt a las tareas ya liberadas en releases pasados
+      if (releases.length > 0) {
+        const releaseByCode = new Map<string, { version: string; date: string }>();
+        for (const rel of releases) {
+          for (const code of rel.itemCodes || []) {
+            if (!releaseByCode.has(code.toUpperCase())) {
+              releaseByCode.set(code.toUpperCase(), { version: rel.version, date: rel.date });
+            }
+          }
+        }
+        for (const it of items) {
+          const key = (it.code || it.id).toUpperCase();
+          if (releaseByCode.has(key)) {
+            const rInfo = releaseByCode.get(key)!;
+            it.targetRelease = it.targetRelease || rInfo.version;
+            it.releasedAt = it.releasedAt || (rInfo.date ? new Date(rInfo.date).toISOString() : undefined);
+          }
+        }
+      }
+
+      return {
+        project: { ...project, storageType: 'markdown' },
+        items,
+        releases,
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (err: any) {
+      console.warn(`[DevBoard API] Error reading Backlog.md tasks for ${project.id} at ${tasksDir}:`, err.message);
+      return {
+        project: { ...project, storageType: 'markdown', error: err.message },
+        items: [],
+        releases: [],
+        lastUpdated: new Date().toISOString()
+      };
+    }
   }
 
   // Classic JSON mode: Operates directly on the project repository
   const filePath = getProjectBacklogPath(project);
-  if (!fs.existsSync(filePath)) {
-    const initial: ProjectBacklog = {
-      project: { ...project, storageType: 'json' },
-      items: [],
-      releases: [],
-      lastUpdated: new Date().toISOString()
-    };
-    try {
-      if (!fs.existsSync(path.dirname(filePath))) {
-        fs.mkdirSync(path.dirname(filePath), { recursive: true });
-      }
-      fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), 'utf8');
-    } catch (writeErr: any) {
-      console.error(`[DevBoard API] Cannot initialize backlog at ${filePath}:`, writeErr.message);
-    }
-    return initial;
-  }
-
   try {
+    if (!fs.existsSync(filePath)) {
+      const initial: ProjectBacklog = {
+        project: { ...project, storageType: 'json' },
+        items: [],
+        releases: [],
+        lastUpdated: new Date().toISOString()
+      };
+      try {
+        if (!fs.existsSync(path.dirname(filePath))) {
+          fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        }
+        fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), 'utf8');
+      } catch (writeErr: any) {
+        console.error(`[DevBoard API] Cannot initialize backlog at ${filePath}:`, writeErr.message);
+      }
+      return initial;
+    }
+
     const jsonStat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
     const jsonMtime = jsonStat ? Math.round(jsonStat.mtimeMs) : Date.now();
     const raw = fs.readFileSync(filePath, 'utf8');
@@ -251,7 +402,7 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
     };
   } catch (err: any) {
     console.error(`[DevBoard API] Error reading backlog for project ${project.id} from ${filePath}:`, err.message);
-    return { project: { ...project, storageType: 'json' }, items: [], releases: [], lastUpdated: new Date().toISOString() };
+    return { project: { ...project, storageType: 'json', error: err.message }, items: [], releases: [], lastUpdated: new Date().toISOString() };
   }
 }
 
@@ -431,11 +582,15 @@ function devBoardApi(): PluginOption {
     if (fs.existsSync(dataDir)) dirsToWatch.add(dataDir);
 
     for (const p of registry.projects) {
-      if (p.repoPath && fs.existsSync(p.repoPath)) {
-        const backlogDir = path.join(p.repoPath, p.backlogDir || 'backlog');
-        if (fs.existsSync(backlogDir)) dirsToWatch.add(backlogDir);
-        const devboardDir = path.join(p.repoPath, '.devboard');
-        if (fs.existsSync(devboardDir)) dirsToWatch.add(devboardDir);
+      try {
+        if (p.repoPath && fs.existsSync(p.repoPath)) {
+          const backlogDir = path.join(p.repoPath, p.backlogDir || 'backlog');
+          if (fs.existsSync(backlogDir)) dirsToWatch.add(backlogDir);
+          const devboardDir = path.join(p.repoPath, '.devboard');
+          if (fs.existsSync(devboardDir)) dirsToWatch.add(devboardDir);
+        }
+      } catch (err: any) {
+        console.warn(`[DevBoard Watcher] Error checking repoPath for ${p.id}:`, err.message);
       }
     }
 
@@ -787,8 +942,7 @@ function devBoardApi(): PluginOption {
                 name: body.name || 'Nuevo Proyecto',
                 codePrefix: (body.codePrefix || 'PRJ').toUpperCase(),
                 repoPath: normalizedRepoPath,
-                description: body.description || '',
-                isDemo: !!body.isDemo,
+                ...(body.isDemo ? { isDemo: true } : {}),
                 storageType: storageType || 'json',
                 backlogDir,
                 createdAt: now
@@ -1118,6 +1272,37 @@ function devBoardApi(): PluginOption {
 
               writeProjectBacklog(project, backlog);
               return sendJson(201, { ok: true, release });
+            }
+
+            // POST /api/releases/sync-legacy
+            if (req.method === 'POST' && url === '/api/releases/sync-legacy') {
+              const body = await getBody();
+              const project = registry.projects.find(p => p.id === body.projectId) 
+                || registry.projects.find(p => p.id === registry.activeProjectId)
+                || registry.projects[0];
+              if (!project) return sendJson(400, { error: 'Project not found' });
+
+              const backlog = readProjectBacklog(project);
+              if (project.repoPath) {
+                const parsed = parseReleaseNotesMd(project.repoPath, project.codePrefix, backlog.items);
+                if (parsed.length > 0) {
+                  backlog.releases = parsed;
+                  const releasesPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'releases.json');
+                  try {
+                    if (!fs.existsSync(path.dirname(releasesPath))) fs.mkdirSync(path.dirname(releasesPath), { recursive: true });
+                    fs.writeFileSync(releasesPath, JSON.stringify(backlog.releases, null, 2), 'utf8');
+                  } catch (err: any) {
+                    console.warn(`[DevBoard API] Error saving synced releases:`, err.message);
+                  }
+                  broadcastSse('backlog_changed', { projectId: project.id, action: 'releases_synced', timestamp: Date.now() });
+                }
+              }
+
+              return sendJson(200, {
+                ok: true,
+                releases: backlog.releases,
+                count: backlog.releases.length
+              });
             }
 
             // POST /api/import

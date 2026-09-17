@@ -1,11 +1,11 @@
 ---
 id: DEV-004
 title: "Servidor MCP y Skills para Agentes de IA"
-status: Doing
+status: Done
 assignee:
   - "Antigravity"
 created_date: '2026-09-16'
-updated_date: '2026-09-16 20:51'
+updated_date: '2026-09-17'
 labels:
   - mcp
   - agents
@@ -28,10 +28,10 @@ actualizar y completar tareas del backlog de forma autónoma y sin fricciones.
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Crear script `scripts/mcp-server.ts` con protocolo JSON-RPC 2.0 stdio
-- [ ] #2 Implementar tools MCP: list_projects, list_tasks, get_task, create_task, update_task, export_backlog
-- [ ] #3 Añadir comando npm `npm run mcp` en package.json
-- [ ] #4 Crear `.agents/skills/devboard/SKILL.md` con documentación y guía de flujo para agentes
+- [x] #1 Crear script `scripts/mcp-server.ts` con protocolo JSON-RPC 2.0 stdio
+- [x] #2 Implementar tools MCP: list_projects, list_tasks, get_task, create_task, update_task, export_backlog
+- [x] #3 Añadir comando npm `npm run mcp` en package.json
+- [x] #4 Crear `.agents/skills/devboard/SKILL.md` con documentación y guía de flujo para agentes
 <!-- AC:END -->
 
 ## Implementation Plan

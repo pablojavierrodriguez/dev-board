@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * DevBoard CLI (Zero-Install Runner - DEV-015)
- * Usage: npx dev-board [--port 4100] [--repo <path>] [--no-open]
+ * DevBoard CLI (Zero-Install Runner - DEV-015 / DEV-026)
+ * Usage: npx devboard [--port 4100] [--repo <path>] [--no-open]
  */
 
 import fs from 'node:fs';
@@ -21,8 +21,8 @@ if (args.includes('--help') || args.includes('-h')) {
   🚀 DevBoard CLI - Cockpit Ágil para Desarrollo Pair-Programming con IA
   
   Uso:
-    npx dev-board [opciones]
-    dev-board [opciones]
+    npx devboard [opciones]
+    devboard [opciones] (o dev-board)
 
   Opciones:
     --port, -p <puerto>   Puerto para el servidor web (por defecto: 4100)

@@ -56,7 +56,6 @@ export function migrateToRepo() {
         name: 'DOM (Personal Finances)',
         codePrefix: 'DOM',
         repoPath: TARGET_REPO,
-        isDemo: false,
         createdAt: domProject.createdAt || '2026-09-01T00:00:00.000Z'
       },
       {

@@ -29,6 +29,7 @@ export interface Project {
   storageType?: StorageType;
   backlogDir?: string;
   createdAt: string;
+  error?: string;
 }
 
 export interface AcceptanceCriterion {

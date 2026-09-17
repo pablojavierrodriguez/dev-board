@@ -1,11 +1,11 @@
 ---
 id: DEV-005
 title: "Release v1.1.0 y changelog automatizado"
-status: Draft
+status: Done
 assignee:
   - "Antigravity"
 created_date: '2026-09-16'
-updated_date: '2026-09-16 20:51'
+updated_date: '2026-09-17'
 labels:
   - release
   - changelog
@@ -26,9 +26,9 @@ dogfooding y servidor MCP) en el Release v1.1.0 utilizando el Release Assembler 
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Probar empaquetado del release con las tareas DEV completadas
-- [ ] #2 Generar changelog formateado con resumen de cambios para el usuario
-- [ ] #3 Validar paso de tareas de ready a done al archivar el release
+- [x] #1 Probar empaquetado del release con las tareas DEV completadas
+- [x] #2 Generar changelog formateado con resumen de cambios para el usuario
+- [x] #3 Validar paso de tareas de ready a done al archivar el release
 <!-- AC:END -->
 
 ## Implementation Plan

@@ -120,6 +120,18 @@ export async function createRelease(release: Partial<Release>, itemCodes: string
   return data.release;
 }
 
+export async function syncLegacyReleases(projectId?: string): Promise<{ ok: boolean; releases: Release[]; count: number }> {
+  const res = await fetch(`${API_BASE}/releases/sync-legacy`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectId }),
+  });
+  if (!res.ok) {
+    throw new Error(`Error sincronizando releases: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function triggerResync(): Promise<BoardData> {
   const res = await fetch(`${API_BASE}/import`, {
     method: 'POST',

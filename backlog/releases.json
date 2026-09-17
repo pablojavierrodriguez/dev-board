@@ -1,0 +1,31 @@
+[
+  {
+    "id": "rel-0-2-0",
+    "projectId": "dev-board",
+    "version": "0.2.0",
+    "date": "2026-09-16",
+    "title": "v0.2.0 - Distributed Resilience, Optimistic Concurrency & Standalone Engine",
+    "summary": "Arquitectura distribuida con servidor MCP autónomo, cliente CLI npx dev-board, concurrencia optimista y sincronización en vivo.",
+    "itemCodes": [
+      "DEV-001",
+      "DEV-002",
+      "DEV-003",
+      "DEV-004",
+      "DEV-005",
+      "DEV-013",
+      "DEV-014",
+      "DEV-015",
+      "DEV-016",
+      "DEV-017",
+      "DEV-018",
+      "DEV-019",
+      "DEV-020",
+      "DEV-021",
+      "DEV-022",
+      "DEV-023",
+      "DEV-024"
+    ],
+    "markdownContent": "## [0.2.0] — 2026-09-16 🚀 Distributed Resilience & Standalone Engine\n\n### 🎯 Resumen\n*Arquitectura distribuida con servidor MCP autónomo, cliente CLI npx dev-board, concurrencia optimista y sincronización en vivo.*",
+    "createdAt": "2026-09-16T21:22:19.000Z"
+  }
+]
