@@ -1,15 +1,21 @@
 {
   "name": "dev-board",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
+  "bin": {
+    "dev-board": "./bin/devboard.js",
+    "devboard-mcp": "./bin/devboard-mcp.js"
+  },
   "scripts": {
     "dev": "vite --port 4100",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node scripts/build-binaries.js",
+    "build:bin": "node scripts/build-binaries.js",
     "preview": "vite preview --port 4100",
     "import:dom": "node scripts/import-dom-docs.js",
     "test:backlog": "node --experimental-strip-types scripts/verify-integration.js",
-    "mcp": "node --experimental-strip-types scripts/mcp-server.ts"
+    "mcp": "node bin/devboard-mcp.js",
+    "tasks": "node --experimental-strip-types scripts/devboard-cli.ts list --open"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

@@ -38,10 +38,47 @@ interface ProjectMeta {
 }
 
 function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
-  if (!fs.existsSync(REGISTRY_FILE)) {
-    return { activeProjectId: '', projects: [] };
+  let reg: { activeProjectId: string; projects: ProjectMeta[] } = { activeProjectId: '', projects: [] };
+  if (fs.existsSync(REGISTRY_FILE)) {
+    try {
+      reg = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+    } catch {}
   }
-  return JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+
+  // CLI arg support: --repo <dir> or -p <dir>
+  const args = process.argv.slice(2);
+  let cliRepo: string | null = null;
+  const repoIdx = args.findIndex(a => a === '--repo' || a === '-p');
+  if (repoIdx !== -1 && args[repoIdx + 1]) {
+    cliRepo = path.resolve(args[repoIdx + 1]);
+  }
+
+  const targetRepo = cliRepo || process.cwd();
+  const hasMdBacklog = fs.existsSync(path.join(targetRepo, 'backlog/tasks'));
+  const hasJsonBacklog = fs.existsSync(path.join(targetRepo, '.devboard/backlog.json'));
+
+  if (hasMdBacklog || hasJsonBacklog || cliRepo) {
+    const existing = reg.projects.find(p => p.repoPath && path.resolve(p.repoPath) === targetRepo);
+    if (existing) {
+      reg.activeProjectId = existing.id;
+    } else {
+      const folderName = path.basename(targetRepo);
+      const synthId = folderName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+      const synthProject: ProjectMeta = {
+        id: synthId,
+        name: folderName,
+        codePrefix: folderName.substring(0, 4).toUpperCase(),
+        repoPath: targetRepo,
+        storageType: hasMdBacklog ? 'markdown' : 'json',
+        backlogDir: 'backlog',
+        createdAt: new Date().toISOString()
+      };
+      reg.projects.unshift(synthProject);
+      reg.activeProjectId = synthId;
+    }
+  }
+
+  return reg;
 }
 
 function getTasksDir(project: ProjectMeta): string {
@@ -114,7 +151,7 @@ const TOOLS = [
   },
   {
     name: 'devboard_list_tasks',
-    description: 'Lista tareas del backlog con filtros opcionales por proyecto, estado, prioridad o sprint.',
+    description: 'Lista tareas del backlog con filtros opcionales (openOnly, search, limit, format compacto para mínimo consumo de tokens).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -123,9 +160,72 @@ const TOOLS = [
           type: 'string', 
           description: 'Filtrar por estado: "draft", "doing", "review", "ready", "done", "dismissed", "cancelled".' 
         },
+        openOnly: {
+          type: 'boolean',
+          description: 'Si es true, excluye tareas en done, dismissed o cancelled, devolviendo solo tareas activas o en backlog.'
+        },
         priority: { type: 'string', description: 'Filtrar por prioridad: "urgent", "high", "medium", "low".' },
-        milestone: { type: 'string', description: 'Filtrar por milestone o sprint (ej: "v1.1.0").' }
+        milestone: { type: 'string', description: 'Filtrar por milestone o sprint (ej: "v1.1.0").' },
+        search: { type: 'string', description: 'Término de búsqueda para filtrar en título, código o etiquetas.' },
+        prefix: { type: 'string', description: 'Filtrar por prefijo de código (ej: "FEAT-", "BUG-", "CORE-").' },
+        taskIds: { 
+          type: 'array', 
+          items: { type: 'string' }, 
+          description: 'Lista explícita de IDs de tareas a consultar (ej: ["BUG-001", "BUG-002"]).' 
+        },
+        limit: { type: 'number', description: 'Límite máximo de tareas a retornar (ideal para no saturar ventana de tokens).' },
+        offset: { type: 'number', description: 'Desplazamiento para paginación (por defecto 0).' },
+        format: { 
+          type: 'string', 
+          enum: ['detailed', 'compact'], 
+          description: 'Formato de salida. "compact" devuelve una lista resumida de 1 línea por tarea ideal para agentes (ahorra ~90% de tokens).' 
+        }
       }
+    }
+  },
+  {
+    name: 'devboard_get_stats',
+    description: 'Obtiene métricas agregadas del backlog: total de tareas, abiertas, cerradas, porcentaje completado, distribución por estado/prioridad y desglose agrupado por prefijos de código (ej: FEAT, BUG, CORE).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'ID del proyecto (ej: "dev-board", "mi-proyecto"). Si se omite analiza el activo.' }
+      }
+    }
+  },
+  {
+    name: 'devboard_bulk_update_tasks',
+    description: 'Actualiza en lote múltiples tareas simultáneamente (por lista de taskIds o por prefijo/filtro). Ideal para auditorías y limpiezas masivas sin hacer decenas de tool calls.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'ID del proyecto.' },
+        taskIds: { 
+          type: 'array', 
+          items: { type: 'string' }, 
+          description: 'Lista explícita de IDs de tareas a actualizar (ej: ["TASK-01", "TASK-02"]).' 
+        },
+        filterPrefix: { 
+          type: 'string', 
+          description: 'Prefijo de código para aplicar actualización masiva (ej: "FEAT-", "EPIC-").' 
+        },
+        filterStatus: {
+          type: 'string',
+          description: 'Filtrar por estado actual antes de aplicar actualización (ej: "draft").'
+        },
+        updates: {
+          type: 'object',
+          description: 'Campos a actualizar en todas las tareas coincidentes.',
+          properties: {
+            status: { type: 'string', enum: ['draft', 'doing', 'review', 'ready', 'done', 'dismissed', 'cancelled'] },
+            priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
+            milestone: { type: 'string' },
+            implementationNotes: { type: 'string' },
+            labels: { type: 'array', items: { type: 'string' } }
+          }
+        }
+      },
+      required: ['updates']
     }
   },
   {
@@ -134,7 +234,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        taskId: { type: 'string', description: 'Código o ID de la tarea (ej: "DEV-001", "DOM-012").' },
+        taskId: { type: 'string', description: 'Código o ID de la tarea (ej: "DEV-001", "AUTH-012").' },
         projectId: { type: 'string', description: 'ID del proyecto (opcional si el código es único).' }
       },
       required: ['taskId']
@@ -191,6 +291,17 @@ const TOOLS = [
         projectId: { type: 'string', description: 'ID del proyecto a consolidar.' }
       }
     }
+  },
+  {
+    name: 'devboard_list_releases',
+    description: 'Lista las versiones, releases y notas de cambio estructuradas del proyecto, permitiendo contrastar tareas asociadas.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'ID del proyecto. Si se omite, usa el proyecto activo.' },
+        version: { type: 'string', description: 'Versión específica a consultar (ej: "v1.2.0" o "1.2.0"). Si se omite, devuelve todas.' }
+      }
+    }
   }
 ];
 
@@ -220,6 +331,11 @@ async function handleToolCall(name: string, args: any): Promise<any> {
 
     let tasks = readTasksForProject(targetProject);
 
+    if (args.openOnly) {
+      const closedStatuses = ['done', 'dismissed', 'cancelled', 'released'];
+      tasks = tasks.filter(t => !closedStatuses.includes(normalizeStatus(t.status)));
+    }
+
     if (args.status) {
       const norm = normalizeStatus(args.status);
       tasks = tasks.filter(t => normalizeStatus(t.status) === norm);
@@ -231,12 +347,62 @@ async function handleToolCall(name: string, args: any): Promise<any> {
     if (args.milestone) {
       tasks = tasks.filter(t => t.milestone === args.milestone || t.targetSprint === args.milestone);
     }
+    if (args.prefix) {
+      const pfx = String(args.prefix).toLowerCase();
+      tasks = tasks.filter(t => 
+        (t.id && t.id.toLowerCase().startsWith(pfx)) || 
+        (t.code && t.code.toLowerCase().startsWith(pfx))
+      );
+    }
+    if (Array.isArray(args.taskIds) && args.taskIds.length > 0) {
+      const idsLower = new Set(args.taskIds.map((id: string) => String(id).toLowerCase()));
+      tasks = tasks.filter(t => 
+        (t.id && idsLower.has(t.id.toLowerCase())) || 
+        (t.code && idsLower.has(t.code.toLowerCase()))
+      );
+    }
+    if (args.search) {
+      const q = String(args.search).toLowerCase();
+      tasks = tasks.filter(t => 
+        (t.title && t.title.toLowerCase().includes(q)) || 
+        (t.id && t.id.toLowerCase().includes(q)) ||
+        (t.labels && Array.isArray(t.labels) && t.labels.some((l: string) => l.toLowerCase().includes(q)))
+      );
+    }
+
+    const totalFiltered = tasks.length;
+    const offset = typeof args.offset === 'number' ? Math.max(0, args.offset) : 0;
+    if (args.limit && typeof args.limit === 'number' && args.limit > 0) {
+      tasks = tasks.slice(offset, offset + args.limit);
+    } else if (offset > 0) {
+      tasks = tasks.slice(offset);
+    }
+
+    if (args.format === 'compact') {
+      return {
+        projectId: targetProject.id,
+        projectName: targetProject.name,
+        storageType: targetProject.storageType,
+        total: totalFiltered,
+        showing: tasks.length,
+        offset,
+        items: tasks.map(t => {
+          const acInfo = t.acceptanceCriteriaList 
+            ? `${t.acceptanceCriteriaList.filter((ac: any) => ac.checked).length}/${t.acceptanceCriteriaList.length} AC` 
+            : '0/0 AC';
+          const m = t.milestone || t.targetSprint ? ` [${t.milestone || t.targetSprint}]` : '';
+          return `[${t.code || t.id}] (${t.status}/${t.priority}) ${t.title}${m} (${acInfo})`;
+        })
+      };
+    }
 
     return {
       projectId: targetProject.id,
       projectName: targetProject.name,
       storageType: targetProject.storageType,
-      total: tasks.length,
+      total: totalFiltered,
+      showing: tasks.length,
+      offset,
       tasks: tasks.map(t => ({
         id: t.code || t.id,
         title: t.title,
@@ -251,11 +417,207 @@ async function handleToolCall(name: string, args: any): Promise<any> {
     };
   }
 
+  if (name === 'devboard_get_stats') {
+    const targetProject = registry.projects.find(p => p.id === args.projectId) 
+      || registry.projects.find(p => p.id === registry.activeProjectId) 
+      || registry.projects[0];
+
+    if (!targetProject) throw new Error('No hay proyectos registrados en DevBoard.');
+
+    const tasks = readTasksForProject(targetProject);
+    const total = tasks.length;
+    const closedStatuses = ['done', 'dismissed', 'cancelled', 'released'];
+    let openCount = 0;
+    let doneCount = 0;
+    const byStatus: Record<string, number> = {};
+    const byPriority: Record<string, number> = {};
+    const byPrefix: Record<string, { total: number; open: number; done: number }> = {};
+
+    for (const t of tasks) {
+      const s = normalizeStatus(t.status);
+      const p = normalizePriority(t.priority);
+      const isClosed = closedStatuses.includes(s);
+      if (isClosed) doneCount++; else openCount++;
+
+      byStatus[s] = (byStatus[s] || 0) + 1;
+      byPriority[p] = (byPriority[p] || 0) + 1;
+
+      const code = String(t.code || t.id || '');
+      const parts = code.split('-');
+      const prefix = parts.length > 2 ? `${parts[0]}-${parts[1]}` : (parts[0] || 'OTHER');
+
+      if (!byPrefix[prefix]) {
+        byPrefix[prefix] = { total: 0, open: 0, done: 0 };
+      }
+      byPrefix[prefix].total++;
+      if (isClosed) byPrefix[prefix].done++; else byPrefix[prefix].open++;
+    }
+
+    const completionRate = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+    return {
+      projectId: targetProject.id,
+      projectName: targetProject.name,
+      storageType: targetProject.storageType,
+      summary: {
+        total,
+        open: openCount,
+        done: doneCount,
+        completionRate: `${completionRate}%`
+      },
+      byStatus,
+      byPriority,
+      byPrefix
+    };
+  }
+
+  if (name === 'devboard_bulk_update_tasks') {
+    const targetProject = registry.projects.find(p => p.id === args.projectId) 
+      || registry.projects.find(p => p.id === registry.activeProjectId) 
+      || registry.projects[0];
+
+    if (!targetProject) throw new Error('No hay proyectos registrados en DevBoard.');
+
+    const updates = args.updates || {};
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+    const cleanIds = Array.isArray(args.taskIds) ? new Set(args.taskIds.map((id: string) => String(id).toLowerCase())) : null;
+    const pfxFilter = args.filterPrefix ? String(args.filterPrefix).toLowerCase() : null;
+    const statusFilter = args.filterStatus ? normalizeStatus(args.filterStatus) : null;
+
+    let updatedCount = 0;
+    const updatedIds: string[] = [];
+
+    // Markdown storage
+    if (targetProject.storageType === 'markdown' && targetProject.repoPath) {
+      const tasksDir = getTasksDir(targetProject);
+      if (!fs.existsSync(tasksDir)) throw new Error('Carpeta de tareas no encontrada.');
+      const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
+
+      for (const file of files) {
+        try {
+          const fullPath = path.join(tasksDir, file);
+          const raw = fs.readFileSync(fullPath, 'utf8');
+          const fallbackId = file.split(' - ')[0] || file.replace(/\.md$/, '');
+          const current = parseBacklogMd(raw, fallbackId);
+          const taskId = String(current.id || fallbackId).toLowerCase();
+
+          // Match criteria
+          let match = false;
+          if (cleanIds) {
+            match = cleanIds.has(taskId);
+          } else if (pfxFilter) {
+            match = taskId.startsWith(pfxFilter);
+          } else {
+            match = true;
+          }
+
+          if (statusFilter && normalizeStatus(current.status) !== statusFilter) {
+            match = false;
+          }
+
+          if (match) {
+            if (updates.status) current.status = normalizeStatus(updates.status);
+            if (updates.priority) current.priority = normalizePriority(updates.priority);
+            if (updates.milestone !== undefined) current.milestone = updates.milestone;
+            if (updates.implementationNotes !== undefined) current.implementationNotes = updates.implementationNotes;
+            if (Array.isArray(updates.labels)) current.labels = updates.labels;
+            current.updatedDate = today;
+
+            const serialized = serializeBacklogMd(current);
+            const canonicalName = generateTaskFilename(current.id, current.title);
+            const canonicalPath = path.join(tasksDir, canonicalName);
+
+            if (file !== canonicalName) {
+              try { fs.unlinkSync(fullPath); } catch {}
+            }
+            fs.writeFileSync(canonicalPath, serialized, 'utf8');
+            updatedCount++;
+            updatedIds.push(current.id);
+          }
+        } catch {}
+      }
+
+      return {
+        ok: true,
+        projectId: targetProject.id,
+        storageType: 'markdown',
+        updatedCount,
+        updatedIds
+      };
+    }
+
+    // JSON storage
+    const filePath = targetProject.isDemo 
+      ? DEMO_FILE 
+      : (targetProject.repoPath ? path.join(targetProject.repoPath, '.devboard/backlog.json') : path.join(ROOT_DIR, `data/${targetProject.id}-backlog.json`));
+
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const items = data.items || [];
+
+      for (let i = 0; i < items.length; i++) {
+        const current = items[i];
+        const taskId = String(current.id || current.code || '').toLowerCase();
+
+        let match = false;
+        if (cleanIds) {
+          match = cleanIds.has(taskId);
+        } else if (pfxFilter) {
+          match = taskId.startsWith(pfxFilter);
+        } else {
+          match = true;
+        }
+
+        if (statusFilter && normalizeStatus(current.status) !== statusFilter) {
+          match = false;
+        }
+
+        if (match) {
+          if (updates.status) current.status = normalizeStatus(updates.status);
+          if (updates.priority) current.priority = normalizePriority(updates.priority);
+          if (updates.milestone !== undefined) {
+            current.milestone = updates.milestone;
+            current.targetSprint = updates.milestone;
+          }
+          if (updates.implementationNotes !== undefined) {
+            current.implementationNotes = updates.implementationNotes;
+            current.fix = updates.implementationNotes;
+          }
+          if (Array.isArray(updates.labels)) current.labels = updates.labels;
+          current.updatedAt = now;
+
+          items[i] = current;
+          updatedCount++;
+          updatedIds.push(current.code || current.id);
+        }
+      }
+
+      data.items = items;
+      data.lastUpdated = now;
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+
+      return {
+        ok: true,
+        projectId: targetProject.id,
+        storageType: 'json',
+        updatedCount,
+        updatedIds
+      };
+    }
+
+    throw new Error('No se pudo encontrar el archivo de almacenamiento del proyecto.');
+  }
+
   if (name === 'devboard_get_task') {
+    const cleanId = String(args.taskId).toLowerCase();
     for (const p of registry.projects) {
       if (args.projectId && p.id !== args.projectId) continue;
       const tasks = readTasksForProject(p);
-      const match = tasks.find(t => t.id === args.taskId || t.code === args.taskId);
+      const match = tasks.find(t => 
+        (t.id && t.id.toLowerCase() === cleanId) || 
+        (t.code && t.code.toLowerCase() === cleanId)
+      );
       if (match) {
         return {
           found: true,
@@ -341,10 +703,31 @@ async function handleToolCall(name: string, args: any): Promise<any> {
         const tasksDir = getTasksDir(project);
         if (!fs.existsSync(tasksDir)) continue;
         const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
-        const targetFile = files.find(f => f.startsWith(`${args.taskId} `) || f === `${args.taskId}.md` || f.startsWith(`${args.taskId}-`));
+        const cleanId = String(args.taskId).toLowerCase();
 
-        if (targetFile) {
-          const fullPath = path.join(tasksDir, targetFile);
+        // 1. Coincidencia por convención de nombre de archivo (case-insensitive)
+        let resolvedFile = files.find(f => {
+          const fLower = f.toLowerCase();
+          return fLower.startsWith(`${cleanId} `) || fLower === `${cleanId}.md` || fLower.startsWith(`${cleanId}-`);
+        });
+
+        // 2. Reconciliación por frontmatter YAML si el archivo fue renombrado (DEV-019)
+        if (!resolvedFile) {
+          for (const f of files) {
+            try {
+              const raw = fs.readFileSync(path.join(tasksDir, f), 'utf8');
+              const fallbackId = f.split(' - ')[0] || f.replace(/\.md$/, '');
+              const task = parseBacklogMd(raw, fallbackId);
+              if (task.id && task.id.toLowerCase() === cleanId) {
+                resolvedFile = f;
+                break;
+              }
+            } catch {}
+          }
+        }
+
+        if (resolvedFile) {
+          const fullPath = path.join(tasksDir, resolvedFile);
           const raw = fs.readFileSync(fullPath, 'utf8');
           const current = parseBacklogMd(raw, args.taskId);
 
@@ -362,8 +745,19 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             );
           }
 
-          fs.writeFileSync(fullPath, serializeBacklogMd(current), 'utf8');
-          return { ok: true, updatedTask: current, filePath: fullPath };
+          const serialized = serializeBacklogMd(current);
+          const canonicalName = generateTaskFilename(current.id, current.title);
+          const canonicalPath = path.join(tasksDir, canonicalName);
+
+          // Si el archivo tenía un nombre no estándar, renombrar al canónico
+          if (resolvedFile !== canonicalName) {
+            try {
+              fs.unlinkSync(fullPath);
+            } catch {}
+          }
+
+          fs.writeFileSync(canonicalPath, serialized, 'utf8');
+          return { ok: true, updatedTask: current, filePath: canonicalPath };
         }
       } else {
         // JSON storage update
@@ -373,7 +767,11 @@ async function handleToolCall(name: string, args: any): Promise<any> {
         
         if (fs.existsSync(filePath)) {
           const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          const idx = data.items.findIndex((i: any) => i.id === args.taskId || i.code === args.taskId);
+          const cleanId = String(args.taskId).toLowerCase();
+          const idx = data.items.findIndex((i: any) => 
+            (i.id && String(i.id).toLowerCase() === cleanId) || 
+            (i.code && String(i.code).toLowerCase() === cleanId)
+          );
           if (idx >= 0) {
             const current = data.items[idx];
             if (args.status) current.status = normalizeStatus(args.status);
@@ -429,6 +827,104 @@ async function handleToolCall(name: string, args: any): Promise<any> {
       ok: true,
       savedPath,
       taskCount: tasks.length
+    };
+  }
+
+  if (name === 'devboard_list_releases') {
+    const targetProject = registry.projects.find(p => p.id === args.projectId) 
+      || registry.projects.find(p => p.id === registry.activeProjectId) 
+      || registry.projects[0];
+
+    if (!targetProject) throw new Error('No hay proyectos registrados en DevBoard.');
+
+    let releases: any[] = [];
+    const repoPath = targetProject.repoPath || ROOT_DIR;
+    const releasesJsonPath = path.join(repoPath, targetProject.backlogDir || 'backlog', 'releases.json');
+    const legacyReleasesPath = path.join(repoPath, '.devboard/releases.json');
+    const dataReleasesPath = path.join(ROOT_DIR, 'data/releases.json');
+
+    if (fs.existsSync(releasesJsonPath)) {
+      try { releases = JSON.parse(fs.readFileSync(releasesJsonPath, 'utf8')); } catch {}
+    } else if (fs.existsSync(legacyReleasesPath)) {
+      try { releases = JSON.parse(fs.readFileSync(legacyReleasesPath, 'utf8')); } catch {}
+    } else if (fs.existsSync(dataReleasesPath)) {
+      try { releases = JSON.parse(fs.readFileSync(dataReleasesPath, 'utf8')); } catch {}
+    }
+
+    // Fallback: parse docs/RELEASE_NOTES.md or RELEASE_NOTES.md
+    if (releases.length === 0) {
+      const notesPaths = [
+        path.join(repoPath, 'docs/RELEASE_NOTES.md'),
+        path.join(repoPath, 'RELEASE_NOTES.md'),
+        path.join(repoPath, 'CHANGELOG.md')
+      ];
+      for (const np of notesPaths) {
+        if (fs.existsSync(np)) {
+          try {
+            const content = fs.readFileSync(np, 'utf8');
+            const versionHeaderRegex = /^##\s*\[?([vV]?\d+\.\d+\.?\d*[^\]\n]*)\]?(?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/gm;
+            let match;
+            while ((match = versionHeaderRegex.exec(content)) !== null) {
+              releases.push({
+                version: match[1].trim(),
+                date: match[2] || '',
+                title: `Release ${match[1].trim()}`,
+                itemCodes: []
+              });
+            }
+          } catch {}
+          if (releases.length > 0) break;
+        }
+      }
+    }
+
+    const allTasks = readTasksForProject(targetProject);
+
+    if (args.version) {
+      const vClean = String(args.version).trim().toLowerCase().replace(/^v/, '');
+      const foundRelease = releases.find(r => String(r.version).toLowerCase().replace(/^v/, '') === vClean);
+      if (!foundRelease) {
+        return {
+          project: targetProject.id,
+          version: args.version,
+          found: false,
+          message: `No se encontró el release para la versión "${args.version}".`,
+          availableVersions: releases.map(r => r.version)
+        };
+      }
+
+      const relatedCodes = new Set((foundRelease.itemCodes || []).map((c: string) => c.toLowerCase()));
+      const relatedTasks = allTasks.filter(t => {
+        const idLower = String(t.id || t.code || '').toLowerCase();
+        if (relatedCodes.has(idLower)) return true;
+        const mLower = String(t.milestone || t.targetSprint || '').toLowerCase().replace(/^v/, '');
+        return mLower === vClean;
+      });
+
+      return {
+        project: targetProject.id,
+        release: foundRelease,
+        taskCount: relatedTasks.length,
+        tasks: relatedTasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          type: t.type
+        }))
+      };
+    }
+
+    return {
+      project: targetProject.id,
+      totalReleases: releases.length,
+      releases: releases.map(r => ({
+        version: r.version,
+        date: r.date,
+        title: r.title,
+        itemCount: Array.isArray(r.itemCodes) ? r.itemCodes.length : 0,
+        itemCodes: r.itemCodes || []
+      }))
     };
   }
 

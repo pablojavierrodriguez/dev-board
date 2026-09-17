@@ -16,14 +16,15 @@ import {
   FileCode,
   Download,
   RotateCcw,
-  Database
+  Database,
+  Upload
 } from 'lucide-react';
 import type { Project, ViewMode } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 interface HeaderProps {
   projects: Project[];
-  selectedProjectId: string; // 'all' or project.id
+  selectedProjectId: string;
   onSelectProject: (id: string) => void;
   activeTab: 'kanban' | 'sprint' | 'release' | 'archive';
   onSelectTab: (tab: 'kanban' | 'sprint' | 'release' | 'archive') => void;
@@ -42,6 +43,8 @@ interface HeaderProps {
   onConvertToJson?: (projectId: string) => void;
   onExportMonolithic?: (projectId: string) => void;
   onExportJson?: (projectId: string) => void;
+  onOpenImportWizard?: () => void;
+  liveConnected?: boolean;
 }
 
 export const Header: FC<HeaderProps> = ({
@@ -64,7 +67,9 @@ export const Header: FC<HeaderProps> = ({
   onConvertToMd,
   onConvertToJson,
   onExportMonolithic,
-  onExportJson
+  onExportJson,
+  onOpenImportWizard,
+  liveConnected = false
 }) => {
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
@@ -300,6 +305,22 @@ export const Header: FC<HeaderProps> = ({
                             <span>Copia de seguridad completa (backlog.json)</span>
                           </button>
                         )}
+
+                        <div className="px-1.5 pt-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                          Importar & Migración
+                        </div>
+                        {onOpenImportWizard && (
+                          <button
+                            onClick={() => {
+                              setProjectMenuOpen(false);
+                              onOpenImportWizard();
+                            }}
+                            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-left text-[11px] font-medium transition-colors"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Importar backlog legacy (TODO.md / BACKLOG.md)</span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -390,6 +411,24 @@ export const Header: FC<HeaderProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Live Sync Status Indicator (DEV-014) */}
+            <div 
+              title={liveConnected ? 'Sincronización en vivo activa (SSE conectado al backend)' : 'Reconectando con el servidor local...'}
+              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors ${
+                liveConnected 
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                {liveConnected && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                )}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${liveConnected ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              </span>
+              <span className="hidden xl:inline">{liveConnected ? 'Live Sync' : 'Reconectando...'}</span>
+            </div>
 
             {/* Theme Switcher Toggle Button */}
             <button

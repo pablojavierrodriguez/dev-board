@@ -23,12 +23,24 @@ export async function createItem(item: Partial<BacklogItem>): Promise<BacklogIte
   return data.item;
 }
 
-export async function updateItem(id: string, updates: Partial<BacklogItem>): Promise<BacklogItem> {
+export async function updateItem(
+  id: string, 
+  updates: Partial<BacklogItem> & { expectedMtime?: number; force?: boolean }
+): Promise<BacklogItem> {
   const res = await fetch(`${API_BASE}/items/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   });
+  if (res.status === 409) {
+    const errorData = await res.json().catch(() => ({}));
+    const err: any = new Error(errorData.message || 'Conflict: item modificado en disco externamente');
+    err.status = 409;
+    err.conflict = true;
+    err.currentMtime = errorData.currentMtime;
+    err.currentItem = errorData.currentItem;
+    throw err;
+  }
   if (!res.ok) {
     throw new Error(`Error updating item: ${res.statusText}`);
   }
@@ -210,3 +222,82 @@ export async function detectPathStorage(repoPath: string): Promise<{
   }
   return res.json();
 }
+
+export type BoardEventType = 'connected' | 'disconnected' | 'backlog_changed';
+
+export interface BoardEvent {
+  type: BoardEventType;
+  data: any;
+}
+
+export function subscribeToBoardEvents(onEvent: (event: BoardEvent) => void): () => void {
+  let es: EventSource | null = null;
+  let reconnectTimer: any = null;
+  let isClosed = false;
+
+  function connect() {
+    if (isClosed) return;
+    try {
+      es = new EventSource(`${API_BASE}/events`);
+
+      es.onopen = () => {
+        onEvent({ type: 'connected', data: null });
+      };
+
+      es.addEventListener('backlog_changed', (evt: any) => {
+        try {
+          const data = JSON.parse(evt.data);
+          onEvent({ type: 'backlog_changed', data });
+        } catch {
+          onEvent({ type: 'backlog_changed', data: null });
+        }
+      });
+
+      es.onerror = () => {
+        if (es) {
+          es.close();
+          es = null;
+        }
+        onEvent({ type: 'disconnected', data: null });
+        if (!isClosed) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+    } catch {
+      onEvent({ type: 'disconnected', data: null });
+      if (!isClosed) {
+        reconnectTimer = setTimeout(connect, 3000);
+      }
+    }
+  }
+
+  connect();
+
+  return () => {
+    isClosed = true;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (es) {
+      es.close();
+      es = null;
+    }
+  };
+}
+
+export async function importLegacyBacklog(params: {
+  projectId: string;
+  content?: string;
+  items?: any[];
+  defaultMilestone?: string;
+}): Promise<{ ok: boolean; importedCount: number; items: BacklogItem[] }> {
+  const res = await fetch(`${API_BASE}/import/legacy-md`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Error importing legacy backlog: ${res.statusText}`);
+  }
+  return res.json();
+}
+

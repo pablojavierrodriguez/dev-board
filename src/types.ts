@@ -63,6 +63,7 @@ export interface BacklogItem {
   updatedAt: string;
   completedAt?: string;
   releasedAt?: string;
+  mtime?: number; // File modification timestamp (ms) for optimistic concurrency locking
 }
 
 export interface Release {

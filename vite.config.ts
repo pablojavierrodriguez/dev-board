@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { runMigration } from './scripts/import-dom-docs.js';
 import {
   parseBacklogMd,
@@ -13,6 +14,10 @@ import {
   generateMonolithicBacklogMd,
   type BacklogMdTask
 } from './scripts/backlogMdParser.ts';
+import { parseLegacyMarkdown, type ParsedLegacyItem } from './src/utils/legacyParser.ts';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const REGISTRY_FILE = path.resolve(__dirname, 'data/projects-registry.json');
 const DEMO_FILE = path.resolve(__dirname, 'data/demo-backlog.json');
@@ -154,6 +159,7 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
     for (const filename of files) {
       const fullPath = path.join(tasksDir, filename);
       try {
+        const fileStat = fs.statSync(fullPath);
         const raw = fs.readFileSync(fullPath, 'utf8');
         const fallbackId = filename.split(' - ')[0] || filename.replace(/\.md$/, '');
         const task = parseBacklogMd(raw, fallbackId);
@@ -179,7 +185,8 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
           labels: task.labels || [],
           order: task.rawExtraFrontmatter?.order !== undefined ? Number(task.rawExtraFrontmatter.order) : order++,
           createdAt: task.createdDate || new Date().toISOString(),
-          updatedAt: task.updatedDate || new Date().toISOString()
+          updatedAt: task.updatedDate || new Date().toISOString(),
+          mtime: Math.round(fileStat.mtimeMs)
         });
       } catch (err) {
         console.warn(`[DevBoard Backlog.md] Error reading ${filename}:`, err);
@@ -224,13 +231,16 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
   }
 
   try {
+    const jsonStat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
+    const jsonMtime = jsonStat ? Math.round(jsonStat.mtimeMs) : Date.now();
     const raw = fs.readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(raw);
     let items = Array.isArray(parsed.items) ? parsed.items : [];
     items = items.map((it: any) => ({
       ...it,
       projectId: it.projectId || project.id,
-      status: normalizeStatus(it.status)
+      status: normalizeStatus(it.status),
+      mtime: it.mtime || jsonMtime
     }));
 
     return {
@@ -254,10 +264,27 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
 
   const cleanId = (item.code || item.id).toLowerCase();
   const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
-  const existingFile = files.find(f => {
+  
+  // 1. Coincidencia por prefijo de archivo
+  let existingFile = files.find(f => {
     const fLower = f.toLowerCase();
     return fLower.startsWith(`${cleanId} `) || fLower.startsWith(`${cleanId}-`) || fLower === `${cleanId}.md`;
   });
+
+  // 2. Reconciliación por frontmatter si fue renombrado manualmente (DEV-019)
+  if (!existingFile) {
+    for (const f of files) {
+      try {
+        const raw = fs.readFileSync(path.join(tasksDir, f), 'utf8');
+        const fallbackId = f.split(' - ')[0] || f.replace(/\.md$/, '');
+        const parsed = parseBacklogMd(raw, fallbackId);
+        if (parsed.id && parsed.id.toLowerCase() === cleanId) {
+          existingFile = f;
+          break;
+        }
+      } catch {}
+    }
+  }
 
   let existingTask: Partial<BacklogMdTask> = {};
   if (existingFile) {
@@ -298,6 +325,7 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
   const newFilename = generateTaskFilename(taskData.id, taskData.title);
   const newFilePath = path.join(tasksDir, newFilename);
 
+  // Si existía un archivo con nombre distinto (o no canónico), eliminar el anterior
   if (existingFile && existingFile !== newFilename) {
     try {
       fs.unlinkSync(path.join(tasksDir, existingFile));
@@ -314,10 +342,25 @@ function deleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
 
   const cleanId = id.toLowerCase();
   const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
-  const found = files.find(f => {
+  let found = files.find(f => {
     const fLower = f.toLowerCase();
     return fLower.startsWith(`${cleanId} `) || fLower.startsWith(`${cleanId}-`) || fLower === `${cleanId}.md`;
   });
+
+  // Reconciliación por frontmatter si fue renombrado
+  if (!found) {
+    for (const f of files) {
+      try {
+        const raw = fs.readFileSync(path.join(tasksDir, f), 'utf8');
+        const fallbackId = f.split(' - ')[0] || f.replace(/\.md$/, '');
+        const parsed = parseBacklogMd(raw, fallbackId);
+        if (parsed.id && parsed.id.toLowerCase() === cleanId) {
+          found = f;
+          break;
+        }
+      } catch {}
+    }
+  }
 
   if (found) {
     const archiveDir = path.join(project.repoPath, project.backlogDir || 'backlog', 'archive');
@@ -359,19 +402,110 @@ function writeProjectBacklog(project: ProjectMeta, data: ProjectBacklog) {
 }
 
 function devBoardApi(): PluginOption {
-  return {
-    name: 'vite-plugin-dev-board-api',
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const url = req.url || '';
-        if (!url.startsWith('/api/')) {
-          return next();
+  // SSE clients connection pool for real-time live sync (DEV-014)
+  const sseClients = new Set<any>();
+
+  function broadcastSse(event: string, data: any) {
+    const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const client of sseClients) {
+      try {
+        client.write(msg);
+      } catch {
+        sseClients.delete(client);
+      }
+    }
+  }
+
+  let activeWatchers: fs.FSWatcher[] = [];
+
+  function setupProjectWatchers() {
+    for (const w of activeWatchers) {
+      try { w.close(); } catch {}
+    }
+    activeWatchers = [];
+
+    const registry = getRegistry();
+    const dirsToWatch = new Set<string>();
+
+    const dataDir = path.resolve(__dirname, 'data');
+    if (fs.existsSync(dataDir)) dirsToWatch.add(dataDir);
+
+    for (const p of registry.projects) {
+      if (p.repoPath && fs.existsSync(p.repoPath)) {
+        const backlogDir = path.join(p.repoPath, p.backlogDir || 'backlog');
+        if (fs.existsSync(backlogDir)) dirsToWatch.add(backlogDir);
+        const devboardDir = path.join(p.repoPath, '.devboard');
+        if (fs.existsSync(devboardDir)) dirsToWatch.add(devboardDir);
+      }
+    }
+
+    let debounceTimer: any = null;
+    const notifyChange = (eventDir: string, filename: string | null) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        broadcastSse('backlog_changed', {
+          dir: eventDir,
+          file: filename,
+          timestamp: Date.now()
+        });
+      }, 250);
+    };
+
+    for (const dir of dirsToWatch) {
+      try {
+        const watcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+          if (filename && (filename.startsWith('.') || filename.endsWith('.log') || filename.endsWith('.tmp') || filename.includes('.git'))) {
+            return;
+          }
+          notifyChange(dir, filename);
+        });
+        if (typeof watcher.unref === 'function') watcher.unref();
+        activeWatchers.push(watcher);
+      } catch (err: any) {
+        console.warn(`[DevBoard Watcher] Could not watch ${dir}:`, err.message);
+      }
+    }
+  }
+
+  const apiMiddleware = (req: any, res: any, next: any) => {
+    const url = req.url || '';
+    const pathname = url.split('?')[0];
+    if (!pathname.startsWith('/api/')) {
+      return next();
+    }
+
+        // GET /api/events (SSE endpoint for real-time live sync DEV-014)
+        if (req.method === 'GET' && pathname === '/api/events') {
+          res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.write(`event: connected\ndata: ${JSON.stringify({ status: 'connected', clients: sseClients.size + 1 })}\n\n`);
+          sseClients.add(res);
+
+          const pingInterval = setInterval(() => {
+            try {
+              res.write(': ping\n\n');
+            } catch {
+              clearInterval(pingInterval);
+              sseClients.delete(res);
+            }
+          }, 25000);
+          if (typeof pingInterval.unref === 'function') pingInterval.unref();
+
+          req.on('close', () => {
+            clearInterval(pingInterval);
+            sseClients.delete(res);
+          });
+          return;
         }
 
         const getBody = (): Promise<any> => {
           return new Promise((resolve, reject) => {
             let body = '';
-            req.on('data', chunk => { body += chunk; });
+            req.on('data', (chunk: any) => { body += chunk; });
             req.on('end', () => {
               if (!body) return resolve({});
               try {
@@ -482,6 +616,19 @@ function devBoardApi(): PluginOption {
                 const index = backlog.items.findIndex(i => i.id === id || i.code === id);
                 if (index !== -1) {
                   const existing = backlog.items[index];
+
+                  // DEV-017: Optimistic Concurrency Check (ETag / Mtime)
+                  if (!body.force && typeof body.expectedMtime === 'number' && typeof existing.mtime === 'number') {
+                    if (existing.mtime > body.expectedMtime + 1000) {
+                      return sendJson(409, {
+                        error: 'conflict',
+                        message: `La tarea "${existing.code}" fue modificada en disco por otro proceso o agente.`,
+                        currentMtime: existing.mtime,
+                        currentItem: existing
+                      });
+                    }
+                  }
+
                   const newNormalizedStatus = body.status ? normalizeStatus(body.status) : existing.status;
                   const wasDone = existing.status === 'done';
                   const isNowDone = newNormalizedStatus === 'done';
@@ -504,6 +651,7 @@ function devBoardApi(): PluginOption {
                     writeProjectBacklog(p, backlog);
                   }
 
+                  updatedItem.mtime = Date.now();
                   return sendJson(200, { ok: true, item: updatedItem });
                 }
               }
@@ -532,6 +680,89 @@ function devBoardApi(): PluginOption {
               }
 
               return sendJson(404, { error: 'Item not found' });
+            }
+
+            // POST /api/import/legacy-md (DEV-018)
+            if (req.method === 'POST' && url === '/api/import/legacy-md') {
+              const body = await getBody();
+              const projectId = body.projectId || registry.projects[0]?.id;
+              const project = registry.projects.find(p => p.id === projectId);
+              if (!project) return sendJson(404, { error: 'Proyecto no encontrado' });
+
+              let itemsToImport: ParsedLegacyItem[] = [];
+              if (Array.isArray(body.items) && body.items.length > 0) {
+                itemsToImport = body.items.filter((it: any) => it.selected !== false);
+              } else if (body.content) {
+                itemsToImport = parseLegacyMarkdown(body.content, body.defaultMilestone);
+              }
+
+              if (itemsToImport.length === 0) {
+                return sendJson(400, { error: 'No se encontraron tareas seleccionadas para importar' });
+              }
+
+              const currentBacklog = readProjectBacklog(project);
+              const prefix = (project.codePrefix || 'ITEM').toUpperCase();
+
+              // Calculate starting code number
+              let maxNum = 0;
+              for (const item of currentBacklog.items) {
+                const code = String(item.code || item.id || '');
+                const match = code.match(new RegExp(`^${prefix}-(\\d+)`, 'i'));
+                if (match) {
+                  const num = parseInt(match[1], 10);
+                  if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+              }
+
+              const now = new Date().toISOString();
+              const createdItems: any[] = [];
+              let order = currentBacklog.items.length + 1;
+
+              for (const it of itemsToImport) {
+                maxNum++;
+                const itemCode = `${prefix}-${String(maxNum).padStart(3, '0')}`;
+                const newItem = {
+                  id: itemCode,
+                  code: itemCode,
+                  projectId: project.id,
+                  title: it.title || 'Sin título',
+                  description: it.description || '',
+                  type: it.type || 'feature',
+                  priority: normalizePriority(it.priority || 'p2'),
+                  status: normalizeStatus(it.status || 'ready'),
+                  module: it.module || undefined,
+                  targetSprint: it.milestone || undefined,
+                  milestone: it.milestone || undefined,
+                  order: order++,
+                  createdAt: now,
+                  updatedAt: now,
+                  completedAt: it.status === 'done' ? now : undefined
+                };
+
+                if (isBacklogMdProject(project)) {
+                  saveBacklogMdItem(project, newItem);
+                } else {
+                  currentBacklog.items.push(newItem);
+                }
+                createdItems.push(newItem);
+              }
+
+              if (!isBacklogMdProject(project)) {
+                writeProjectBacklog(project, currentBacklog);
+              }
+
+              broadcastSse('backlog_changed', {
+                projectId: project.id,
+                action: 'imported',
+                count: createdItems.length,
+                timestamp: Date.now()
+              });
+
+              return sendJson(200, {
+                ok: true,
+                importedCount: createdItems.length,
+                items: createdItems
+              });
             }
 
             // POST /api/projects
@@ -912,7 +1143,17 @@ function devBoardApi(): PluginOption {
         };
 
         handle();
-      });
+  };
+
+  return {
+    name: 'vite-plugin-dev-board-api',
+    configureServer(server: any) {
+      setupProjectWatchers();
+      server.middlewares.use(apiMiddleware);
+    },
+    configurePreviewServer(server: any) {
+      setupProjectWatchers();
+      server.middlewares.use(apiMiddleware);
     }
   };
 }
@@ -922,6 +1163,9 @@ export default defineConfig({
   server: {
     port: 4100,
     strictPort: true,
-    host: true
+    host: true,
+    watch: {
+      ignored: ['**/backlog/**', '**/.devboard/**', '**/data/**']
+    }
   }
 });

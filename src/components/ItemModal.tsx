@@ -7,7 +7,9 @@ import {
   CheckSquare,
   Plus,
   Trash,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus, ItemType, Priority, Project, AcceptanceCriterion } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -19,7 +21,7 @@ interface ItemModalProps {
   defaultStatus?: ItemStatus;
   projects: Project[];
   availableModules: string[];
-  onSave: (itemData: Partial<BacklogItem>) => Promise<void>;
+  onSave: (itemData: Partial<BacklogItem> & { expectedMtime?: number; force?: boolean }) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
 }
 
@@ -52,28 +54,34 @@ export const ItemModal: FC<ItemModalProps> = ({
   const [acceptanceCriteriaList, setAcceptanceCriteriaList] = useState<AcceptanceCriterion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [conflictItem, setConflictItem] = useState<BacklogItem | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const populateFromItem = (source: BacklogItem) => {
+    setTitle(source.title || '');
+    setCode(source.code || '');
+    setProjectId(source.projectId || 'dom');
+    setType(source.type || 'feature');
+    setPriority(source.priority || 'p2');
+    setStatus(source.status || 'backlog');
+    setModule(source.module || '');
+    setImpactedFile(source.impactedFile || '');
+    setTargetSprint(source.targetSprint || '');
+    setTargetRelease(source.targetRelease || '');
+    setDescription(source.description || '');
+    setRisk(source.risk || '');
+    setFix(source.fix || '');
+    setImplementationPlan(source.implementationPlan || '');
+    setAcceptanceCriteriaList(source.acceptanceCriteriaList || []);
+  };
 
   // Initialize form when item changes or modal opens
   useEffect(() => {
     setFormError(null);
+    setConflictItem(null);
     setShowDeleteConfirm(false);
     if (item) {
-      setTitle(item.title || '');
-      setCode(item.code || '');
-      setProjectId(item.projectId || 'dom');
-      setType(item.type || 'feature');
-      setPriority(item.priority || 'p2');
-      setStatus(item.status || 'backlog');
-      setModule(item.module || '');
-      setImpactedFile(item.impactedFile || '');
-      setTargetSprint(item.targetSprint || '');
-      setTargetRelease(item.targetRelease || '');
-      setDescription(item.description || '');
-      setRisk(item.risk || '');
-      setFix(item.fix || '');
-      setImplementationPlan(item.implementationPlan || '');
-      setAcceptanceCriteriaList(item.acceptanceCriteriaList || []);
+      populateFromItem(item);
     } else {
       // New item defaults
       setTitle('');
@@ -110,7 +118,7 @@ export const ItemModal: FC<ItemModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, title, code, projectId, type, priority, status, module, impactedFile, targetSprint, targetRelease, description, risk, fix, showDeleteConfirm]);
 
-  const handleFormSubmit = async () => {
+  const handleFormSubmit = async (force = false) => {
     if (!title.trim()) {
       setFormError('Por favor especifica un título para el ítem');
       return;
@@ -135,11 +143,19 @@ export const ItemModal: FC<ItemModalProps> = ({
         risk: risk.trim() || undefined,
         fix: fix.trim() || undefined,
         implementationPlan: implementationPlan.trim() || undefined,
-        acceptanceCriteriaList
+        acceptanceCriteriaList,
+        expectedMtime: item?.mtime,
+        force
       });
+      setConflictItem(null);
       onClose();
     } catch (err: any) {
-      setFormError(`Error al guardar: ${err.message}`);
+      if (err.status === 409 && err.currentItem) {
+        setConflictItem(err.currentItem);
+        setFormError('Conflicto detectado: la tarea fue modificada en disco por otro proceso o agente.');
+      } else {
+        setFormError(`Error al guardar: ${err.message}`);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -205,7 +221,39 @@ export const ItemModal: FC<ItemModalProps> = ({
 
         {/* Modal Body - Scrollable */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
-          {formError && (
+          {conflictItem && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col gap-2.5 animate-in fade-in">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-amber-300">Modificación concurrente en disco:</span> Esta tarea fue modificada externamente (por un agente o en el sistema de archivos) mientras la editabas. Puedes cargar los datos frescos de disco o sobreescribir con tus cambios actuales.
+                </div>
+              </div>
+              <div className="flex items-center gap-2 justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    populateFromItem(conflictItem);
+                    setConflictItem(null);
+                    setFormError(null);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Cargar datos frescos de disco</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFormSubmit(true)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold text-xs transition-colors"
+                >
+                  Sobreescribir de todos modos
+                </button>
+              </div>
+            </div>
+          )}
+
+          {formError && !conflictItem && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2 animate-in fade-in">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{formError}</span>
@@ -464,7 +512,7 @@ export const ItemModal: FC<ItemModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={handleFormSubmit}
+              onClick={() => handleFormSubmit(false)}
               disabled={isSaving || !title.trim()}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium shadow-md shadow-indigo-600/30 transition-all active:scale-[0.98]"
             >

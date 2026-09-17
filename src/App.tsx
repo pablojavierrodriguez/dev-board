@@ -23,7 +23,8 @@ import {
   convertProjectToJson,
   exportMonolithicMd,
   exportProjectJson,
-  restoreDemoProject 
+  restoreDemoProject,
+  subscribeToBoardEvents
 } from './api';
 import { Header } from './components/Header';
 import { FilterBar } from './components/FilterBar';
@@ -34,6 +35,7 @@ import { ArchiveView } from './components/ArchiveView';
 import { ItemModal } from './components/ItemModal';
 import { ProjectModal } from './components/ProjectModal';
 import { PlanGuardModal } from './components/PlanGuardModal';
+import { ImportWizardModal } from './components/ImportWizardModal';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 
 export function App() {
@@ -86,6 +88,7 @@ export function App() {
   const [editingItem, setEditingItem] = useState<BacklogItem | null>(null);
   const [defaultNewStatus, setDefaultNewStatus] = useState<ItemStatus>('backlog');
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [importWizardOpen, setImportWizardOpen] = useState(false);
 
   // Plan Guard Modal (validates plan/spec before in_progress)
   const [planGuardOpen, setPlanGuardOpen] = useState(false);
@@ -107,10 +110,12 @@ export function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Initial Load
-  const loadData = useCallback(async () => {
+  const [liveConnected, setLiveConnected] = useState<boolean>(false);
+
+  // Initial & Live Load
+  const loadData = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await fetchBoardData();
       setBoardData(data);
       if (data.projects.length > 0 && selectedProjectId !== 'all') {
@@ -118,15 +123,31 @@ export function App() {
         if (!exists) setSelectedProjectId(data.projects[0].id);
       }
     } catch (err: any) {
-      showToast(`Error al cargar datos: ${err.message}`, 'error');
+      if (!silent) showToast(`Error al cargar datos: ${err.message}`, 'error');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [selectedProjectId, showToast]);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // SSE Real-time Live Watcher Subscription (DEV-014)
+  useEffect(() => {
+    const unsubscribe = subscribeToBoardEvents((event) => {
+      if (event.type === 'connected') {
+        setLiveConnected(true);
+      } else if (event.type === 'disconnected') {
+        setLiveConnected(false);
+      } else if (event.type === 'backlog_changed') {
+        loadData(true);
+        showToast('Tablero sincronizado con cambios en disco', 'info');
+      }
+    });
+
+    return unsubscribe;
+  }, [loadData, showToast]);
 
   // Keyboard Shortcuts: 'N' for new item, '1'-'4' for tabs
   useEffect(() => {
@@ -326,7 +347,7 @@ export function App() {
     }
   }, [boardData, showToast]);
 
-  const handleSaveItem = useCallback(async (itemData: Partial<BacklogItem>) => {
+  const handleSaveItem = useCallback(async (itemData: Partial<BacklogItem> & { expectedMtime?: number; force?: boolean }) => {
     if (!boardData) return;
     if (itemData.id) {
       // Update
@@ -560,6 +581,8 @@ export function App() {
         onConvertToJson={handleConvertToJson}
         onExportMonolithic={handleExportMonolithic}
         onExportJson={handleExportJson}
+        onOpenImportWizard={() => setImportWizardOpen(true)}
+        liveConnected={liveConnected}
       />
 
       {/* Filter Bar (Active in Kanban, Sprint, and Archive tabs) */}
@@ -661,6 +684,18 @@ export function App() {
         }}
         onConfirmStart={handleConfirmStartWithPlan}
         onShowToast={showToast}
+      />
+
+      {/* Import Wizard Modal (DEV-018: Legacy Markdown Import) */}
+      <ImportWizardModal
+        isOpen={importWizardOpen}
+        onClose={() => setImportWizardOpen(false)}
+        projects={boardData?.projects || []}
+        activeProjectId={selectedProjectId === 'all' ? (boardData?.projects[0]?.id || 'dom') : selectedProjectId}
+        onImportComplete={() => {
+          loadData(true);
+          showToast('Tareas importadas exitosamente desde archivo legacy', 'success');
+        }}
       />
 
       {/* Floating Notifications */}
