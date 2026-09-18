@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (19)
+### 📋 Backlog / Draft (18)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -198,27 +198,6 @@ Evolución de la experiencia de usuario en la configuración del tablero en `Set
 
 ---
 
-#### [DEV-054] Rediseño Ergonómico y Expansión del Modal de Crear y Editar Card (Layout de 2 Columnas)
-- **Prioridad**: `medium` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.3.2
-
-Rediseño integral de ergonomía y distribución visual en el modal de creación y edición de tarjetas (`ItemModal.tsx`):
-1. **Problema de Espacio:** El modal actual es angosto y verticalmente apretado para la alta densidad de información que maneja (criterios de aceptación dinámicos, descripción técnica, plan de implementación, contexto, dependencias y metadatos).
-2. **Arquitectura de 2 Columnas (Estilo Linear / GitHub Projects):**
-   - **Columna Principal (Izquierda ~65-70%):** Área amplia y despejada dedicada al contenido sustantivo: Título grande, Descripción con soporte enriquecido, Criterios de Aceptación con espacio cómodo de escritura por ítem, y Plan Técnico de Implementación.
-   - **Sidebar Lateral de Atributos (Derecha ~30-35%):** Panel lateral estilizado con selectores rápidos y limpios para metadatos: Tipo de Card, Prioridad, Estado, Épica/Padre, Sprints, Release, Enlaces/Dependencias, Etiquetas, Módulo y Archivo Impactado.
-3. **Dimensiones:** Ampliar el ancho del modal a `max-w-6xl` en pantallas de escritorio con scrolls independientes para evitar saltos.
-4. **Mobile First:** Mantenimiento de la experiencia como bottom-sheet táctil fluido en pantallas pequeñas.
-
-**Criterios de Aceptación:**
-- [ ] #1 Modal expandido a max-w-6xl en escritorio con distribución moderna de 2 columnas
-- [ ] #2 Panel principal izquierdo espacioso para título, descripción, criterios de aceptación y plan técnico
-- [ ] #3 Sidebar lateral derecha compacta y alineada para atributos clave (tipo, prioridad, estado, padre, sprint, release)
-- [ ] #4 Entradas de criterios de aceptación con altura cómoda y auto-creación fluida
-- [ ] #5 Adaptación responsive elegante a bottom-sheet en pantallas móviles
-
----
-
 #### [DEV-055] Ciclo de Vida Integral de Sprints: Objetivo, Fechas con Presets, Estados y Autofiltrado
 - **Prioridad**: `high` | **Tipo**: `feature`
 - **Sprint / Milestone**: 0.4.0
@@ -374,7 +353,7 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### ✅ Done / Deployed (45)
+### ✅ Done / Deployed (46)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1055,6 +1034,27 @@ Soporte integral para reordenamiento manual de ítems en la vista de Backlog y S
 - [x] #3 Cuando el ranking está desactivado, el arrastre manual queda bloqueado y se respeta el orden estricto de columnas
 - [x] #4 Al reordenar filas con ranking activo, se actualiza el campo 'order' y se persiste en los archivos Markdown
 - [x] #5 Rendimiento optimizado a 60 FPS durante la interacción de arrastre en listas largas
+
+---
+
+#### [DEV-054] Rediseño Ergonómico y Expansión del Modal de Crear y Editar Card (Layout de 2 Columnas)
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.3.2
+
+Rediseño integral de ergonomía y distribución visual en el modal de creación y edición de tarjetas (`ItemModal.tsx`):
+1. **Problema de Espacio:** El modal actual es angosto y verticalmente apretado para la alta densidad de información que maneja (criterios de aceptación dinámicos, descripción técnica, plan de implementación, contexto, dependencias y metadatos).
+2. **Arquitectura de 2 Columnas (Estilo Linear / GitHub Projects):**
+   - **Columna Principal (Izquierda ~65-70%):** Área amplia y despejada dedicada al contenido sustantivo: Título grande, Descripción con soporte enriquecido, Criterios de Aceptación con espacio cómodo de escritura por ítem, y Plan Técnico de Implementación.
+   - **Sidebar Lateral de Atributos (Derecha ~30-35%):** Panel lateral estilizado con selectores rápidos y limpios para metadatos: Tipo de Card, Prioridad, Estado, Épica/Padre, Sprints, Release, Enlaces/Dependencias, Etiquetas, Módulo y Archivo Impactado.
+3. **Dimensiones:** Ampliar el ancho del modal a `max-w-6xl` en pantallas de escritorio con scrolls independientes para evitar saltos.
+4. **Mobile First:** Mantenimiento de la experiencia como bottom-sheet táctil fluido en pantallas pequeñas.
+
+**Criterios de Aceptación:**
+- [x] #1 Modal expandido a max-w-6xl en escritorio con distribución moderna de 2 columnas
+- [x] #2 Panel principal izquierdo espacioso para título, descripción, criterios de aceptación y plan técnico
+- [x] #3 Sidebar lateral derecha compacta y alineada para atributos clave (tipo, prioridad, estado, padre, sprint, release)
+- [x] #4 Entradas de criterios de aceptación con altura cómoda y auto-creación fluida
+- [x] #5 Adaptación responsive elegante a bottom-sheet en pantallas móviles
 
 ---
 

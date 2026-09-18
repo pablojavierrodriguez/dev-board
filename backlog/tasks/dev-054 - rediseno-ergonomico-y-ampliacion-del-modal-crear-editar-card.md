@@ -1,9 +1,9 @@
 ---
 id: DEV-054
 title: "Rediseño Ergonómico y Expansión del Modal de Crear y Editar Card (Layout de 2 Columnas)"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:06'
+updated_date: '2026-09-18 10:00'
 labels:
   - ux
   - modal
@@ -34,11 +34,11 @@ Rediseño integral de ergonomía y distribución visual en el modal de creación
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Modal expandido a max-w-6xl en escritorio con distribución moderna de 2 columnas
-- [ ] #2 Panel principal izquierdo espacioso para título, descripción, criterios de aceptación y plan técnico
-- [ ] #3 Sidebar lateral derecha compacta y alineada para atributos clave (tipo, prioridad, estado, padre, sprint, release)
-- [ ] #4 Entradas de criterios de aceptación con altura cómoda y auto-creación fluida
-- [ ] #5 Adaptación responsive elegante a bottom-sheet en pantallas móviles
+- [x] #1 Modal expandido a max-w-6xl en escritorio con distribución moderna de 2 columnas
+- [x] #2 Panel principal izquierdo espacioso para título, descripción, criterios de aceptación y plan técnico
+- [x] #3 Sidebar lateral derecha compacta y alineada para atributos clave (tipo, prioridad, estado, padre, sprint, release)
+- [x] #4 Entradas de criterios de aceptación con altura cómoda y auto-creación fluida
+- [x] #5 Adaptación responsive elegante a bottom-sheet en pantallas móviles
 <!-- AC:END -->
 
 ## Implementation Plan
