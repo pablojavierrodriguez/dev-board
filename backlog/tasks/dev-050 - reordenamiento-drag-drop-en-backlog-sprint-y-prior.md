@@ -1,9 +1,9 @@
 ---
 id: DEV-050
 title: "Reordenamiento Drag & Drop en Backlog / Sprint y Priorización con Setting de Ranking Manual Condicional"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:04'
+updated_date: '2026-09-18 06:36'
 labels:
   - ux
   - drag-and-drop
@@ -12,7 +12,12 @@ labels:
 dependencies: []
 priority: high
 type: feature
-milestone: "0.4.0"
+milestone: "0.3.0"
+sprint: "Sprint 1"
+release: "0.3.0"
+targetRelease: "0.3.0"
+order: 90
+targetSprint: "Sprint 1"
 ---
 
 ## Description
@@ -29,11 +34,11 @@ Soporte integral para reordenamiento manual de ítems en la vista de Backlog y S
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Soporte de Drag & Drop vertical fluido para reordenar filas en la tabla de Backlog y contenedores de sprint
-- [ ] #2 Setting 'rankingEnabled' en SettingsView para activar o desactivar el ranking manual
-- [ ] #3 Cuando el ranking está desactivado, el arrastre manual queda bloqueado y se respeta el orden estricto de columnas
-- [ ] #4 Al reordenar filas con ranking activo, se actualiza el campo 'order' y se persiste en los archivos Markdown
-- [ ] #5 Rendimiento optimizado a 60 FPS durante la interacción de arrastre en listas largas
+- [x] #1 Soporte de Drag & Drop vertical fluido para reordenar filas en la tabla de Backlog y contenedores de sprint
+- [x] #2 Setting 'rankingEnabled' en SettingsView para activar o desactivar el ranking manual
+- [x] #3 Cuando el ranking está desactivado, el arrastre manual queda bloqueado y se respeta el orden estricto de columnas
+- [x] #4 Al reordenar filas con ranking activo, se actualiza el campo 'order' y se persiste en los archivos Markdown
+- [x] #5 Rendimiento optimizado a 60 FPS durante la interacción de arrastre en listas largas
 <!-- AC:END -->
 
 ## Implementation Plan

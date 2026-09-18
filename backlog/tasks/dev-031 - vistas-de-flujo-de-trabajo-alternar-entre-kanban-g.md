@@ -3,7 +3,7 @@ id: DEV-031
 title: "Vistas de Flujo de Trabajo: Alternar entre Kanban Global y Sprint/Release Board Acotado"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - kanban
   - scrum
@@ -14,10 +14,11 @@ dependencies: []
 priority: high
 type: feature
 milestone: "0.3.0"
-order: "31"
+order: 130
 sprint: "Sprint 1"
 release: "0.3.0"
 targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

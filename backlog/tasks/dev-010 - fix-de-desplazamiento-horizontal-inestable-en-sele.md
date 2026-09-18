@@ -3,7 +3,7 @@ id: DEV-010
 title: "Fix de Desplazamiento Horizontal Inestable en Selector de Navegación de Pestañas"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - bugfix
   - layout
@@ -14,7 +14,10 @@ priority: high
 type: bug
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "39"
+order: 190
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

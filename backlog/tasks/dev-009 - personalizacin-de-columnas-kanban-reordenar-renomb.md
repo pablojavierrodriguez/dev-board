@@ -3,7 +3,7 @@ id: DEV-009
 title: "Personalización de Columnas Kanban: Reordenar, Renombrar, Mapeo de Estados y WIP Limits"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - kanban
   - workflow
@@ -14,7 +14,10 @@ priority: medium
 type: feature
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "38"
+order: 180
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

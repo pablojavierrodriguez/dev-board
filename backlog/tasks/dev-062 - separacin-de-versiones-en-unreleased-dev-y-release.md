@@ -3,7 +3,7 @@ id: DEV-062
 title: "Separación de Versiones en Unreleased (Dev) y Released (Producción) en Release Hub y Modelo de Datos"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 02:30'
+updated_date: '2026-09-18 06:36'
 labels:
   - releases
   - architecture
@@ -13,6 +13,10 @@ priority: high
 type: feature
 milestone: "0.3.0"
 sprint: "Sprint 1"
+release: "0.3.0"
+targetRelease: "0.3.0"
+order: 200
+targetSprint: "Sprint 1"
 ---
 
 ## Description

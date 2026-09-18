@@ -130,6 +130,7 @@ export interface DevBoardConfig {
     release?: boolean;
   };
   kanban?: KanbanSettings;
+  rankingEnabled?: boolean;
   autoSave?: boolean;
   version?: string;
 }

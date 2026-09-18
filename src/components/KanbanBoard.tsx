@@ -195,8 +195,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return items.filter(i => i.status === 'ideas' || i.labels?.includes('idea')).length;
   }, [items]);
 
-  // Sprint / Milestone options for Scrumban
-  const availableMilestones = useMemo(() => {
+  // Sprint options for Scrumban (DEV-033 & DEV-038: desacople estricto de sprints y releases)
+  const availableSprintsList = useMemo(() => {
     const set = new Set<string>();
     if (availableSprints && availableSprints.length > 0) {
       availableSprints.forEach(s => set.add(s));
@@ -204,53 +204,52 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     items.forEach((item) => {
       if (item.sprint) set.add(item.sprint);
       if (item.targetSprint) set.add(item.targetSprint);
-      if (item.milestone) set.add(item.milestone);
     });
     return Array.from(set).filter(Boolean).sort().reverse();
   }, [items, availableSprints]);
 
-  const [activeMilestone, setActiveMilestone] = useState<string>(() => {
+  const [activeSprint, setActiveSprint] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem('devboard_kanban_milestone');
+      const saved = localStorage.getItem('devboard_kanban_sprint');
       if (saved) return saved;
     } catch {}
-    return '';
+    return 'all';
   });
 
   useEffect(() => {
-    if (activeMilestone) {
+    if (activeSprint) {
       try {
-        localStorage.setItem('devboard_kanban_milestone', activeMilestone);
+        localStorage.setItem('devboard_kanban_sprint', activeSprint);
       } catch {}
     }
-  }, [activeMilestone]);
+  }, [activeSprint]);
 
   useEffect(() => {
-    if (config?.methodology !== 'kanban' && (!activeMilestone || !availableMilestones.includes(activeMilestone))) {
-      if (availableMilestones.length > 0) {
-        const preferred = availableMilestones.find(m => m === '0.3.0') || availableMilestones[0];
-        setActiveMilestone(preferred);
+    if (config?.methodology !== 'kanban') {
+      if (!activeSprint) {
+        setActiveSprint('all');
+      } else if (activeSprint !== 'all' && activeSprint !== 'backlog' && !availableSprintsList.includes(activeSprint)) {
+        setActiveSprint('all');
       }
     }
-  }, [config?.methodology, availableMilestones, activeMilestone]);
+  }, [config?.methodology, availableSprintsList, activeSprint]);
 
   // In pure Kanban: shows all items continuously.
-  // In Scrumban: board is strictly focused on active Sprint Goal.
+  // In Scrumban: board can show all items or focus on a specific Sprint Goal.
   const scopedItems = useMemo(() => {
-    if (config?.methodology === 'kanban') {
+    if (config?.methodology === 'kanban' || !activeSprint || activeSprint === 'all') {
       return items;
     }
-    if (activeMilestone) {
-      return items.filter(
-        (i) => i.sprint === activeMilestone || i.targetSprint === activeMilestone || i.milestone === activeMilestone
-      );
+    if (activeSprint === 'backlog') {
+      return items.filter((i) => !i.sprint && !i.targetSprint);
     }
-    return availableMilestones.length === 0 ? items : [];
-  }, [items, activeMilestone, config?.methodology, availableMilestones]);
+    return items.filter(
+      (i) => i.sprint === activeSprint || i.targetSprint === activeSprint
+    );
+  }, [items, activeSprint, config?.methodology]);
 
   const sprintStats = useMemo(() => {
-    if (config?.methodology === 'kanban') return null;
-    if (!activeMilestone) return null;
+    if (config?.methodology === 'kanban' || !activeSprint || activeSprint === 'all') return null;
     const total = scopedItems.length;
     const done = scopedItems.filter((i) => i.status === 'done').length;
     const inProgress = scopedItems.filter((i) =>
@@ -258,7 +257,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     ).length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, done, inProgress, pct };
-  }, [scopedItems, activeMilestone, config?.methodology]);
+  }, [scopedItems, activeSprint, config?.methodology]);
 
   const handleDragStart = (e: React.DragEvent, item: BacklogItem) => {
     e.dataTransfer.effectAllowed = 'move';
@@ -438,7 +437,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </div>
 
           <button
-            onClick={() => onQuickAddItem(col.dropTargetStatus || col.statuses[0] || 'draft', config?.methodology !== 'kanban' ? activeMilestone : undefined)}
+            onClick={() => onQuickAddItem(col.dropTargetStatus || col.statuses[0] || 'draft', config?.methodology !== 'kanban' && activeSprint !== 'all' && activeSprint !== 'backlog' ? activeSprint : undefined)}
             title={`Nuevo ítem en ${col.title}`}
             aria-label={`Nuevo ítem en ${col.title}`}
             className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
@@ -535,18 +534,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sprint Goal:</span>
                 <div className="relative flex items-center">
                   <select
-                    value={activeMilestone}
-                    onChange={(e) => setActiveMilestone(e.target.value)}
+                    value={activeSprint}
+                    onChange={(e) => setActiveSprint(e.target.value)}
                     className="appearance-none bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-white/[0.1] rounded-lg pl-2.5 pr-8 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-xs cursor-pointer"
                   >
-                    {availableMilestones.length === 0 && (
-                      <option value="">(Sin Sprints definidos)</option>
-                    )}
-                    {availableMilestones.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
+                    <option value="all">Todos los ítems (Flujo completo)</option>
+                    {availableSprintsList.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
                       </option>
                     ))}
+                    <option value="backlog">Sin Sprint (Backlog)</option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 pointer-events-none" />
                 </div>
@@ -631,7 +629,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       </div>
 
       {/* Sprint Goal Progress Indicator in Scrumban */}
-      {config?.methodology !== 'kanban' && activeMilestone && sprintStats && sprintStats.total > 0 && (
+      {config?.methodology !== 'kanban' && activeSprint && activeSprint !== 'all' && sprintStats && sprintStats.total > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 mb-4 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.04] text-xs md:min-w-[960px] animate-fade-in">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-500 font-bold shrink-0">
@@ -643,7 +641,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   Sprint Goal Activo:
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                  {activeMilestone || 'Sin definir'}
+                  {activeSprint === 'backlog' ? 'Sin Sprint (Backlog)' : activeSprint}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -686,27 +684,34 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         <div className="flex flex-col items-center justify-center p-8 mb-4 rounded-xl border border-dashed border-slate-300 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-center md:min-w-[960px] animate-fade-in">
           <Target className="w-8 h-8 text-indigo-400 mb-2 opacity-80" />
           <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-            El Sprint Goal "{activeMilestone || 'actual'}" no tiene tareas asignadas
+            El Sprint Goal "{activeSprint === 'backlog' ? 'Sin Sprint' : activeSprint || 'actual'}" no tiene tareas asignadas
           </h4>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md">
-            En Scrumban, el Tablero refleja exclusivamente el Sprint Goal en ejecución. Ve a Sprint & Priorización para arrastrar tareas a este sprint o crea una nueva tarea directamente aquí.
+            En Scrumban, el Tablero refleja exclusivamente el Sprint Goal en ejecución. Puedes seleccionar "Todos los ítems" en el selector superior, ir a Sprint & Priorización para planificar tareas o crear una nueva tarea directamente aquí.
           </p>
           <div className="flex items-center gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => setActiveSprint('all')}
+              className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-xs transition-colors"
+            >
+              Ver Todo el Tablero
+            </button>
             {onNavigateToTab && (
               <button
                 type="button"
                 onClick={() => onNavigateToTab('sprint')}
-                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-xs transition-colors"
+                className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] text-xs font-medium transition-colors"
               >
                 Ir a Sprint & Priorización
               </button>
             )}
             <button
               type="button"
-              onClick={() => onQuickAddItem('draft', activeMilestone)}
+              onClick={() => onQuickAddItem('draft', activeSprint !== 'all' && activeSprint !== 'backlog' ? activeSprint : undefined)}
               className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] text-xs font-medium transition-colors"
             >
-              + Crear Tarea en este Sprint
+              + Crear Tarea
             </button>
           </div>
         </div>

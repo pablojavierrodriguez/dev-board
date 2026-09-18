@@ -3,7 +3,7 @@ id: DEV-033
 title: "Refactorización Conceptual y UX: Desacople Sprint/Release, Rediseño ItemModal y Ergonomía de Vistas"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 02:27'
+updated_date: '2026-09-18 06:36'
 labels:
   - ux
   - architecture
@@ -15,7 +15,7 @@ milestone: "0.3.0"
 sprint: "Sprint 1"
 release: "0.3.0"
 targetRelease: "0.3.0"
-order: 30
+order: 120
 targetSprint: "Sprint 1"
 ---
 

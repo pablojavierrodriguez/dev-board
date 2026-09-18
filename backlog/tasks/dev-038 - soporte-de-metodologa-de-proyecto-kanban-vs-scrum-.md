@@ -3,7 +3,7 @@ id: DEV-038
 title: "Soporte de Metodología de Proyecto (Kanban vs Scrum) en Settings para Liberar la Interfaz"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 00:38'
+updated_date: '2026-09-18 06:36'
 labels:
   - ux
   - settings
@@ -15,10 +15,10 @@ priority: high
 type: feature
 milestone: "0.3.0"
 sprint: "Sprint 1"
-targetSprint: "Sprint 1"
 release: "0.3.0"
 targetRelease: "0.3.0"
-order: 22
+order: 70
+targetSprint: "Sprint 1"
 ---
 
 ## Description

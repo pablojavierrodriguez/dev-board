@@ -5,10 +5,10 @@
     "version": "0.3.0",
     "date": "2026-09-18",
     "targetDate": "2026-09-18",
-    "status": "unreleased",
+    "status": "released",
     "title": "v0.3.0 - Workflow Views, Release Planning & UX Ergonomics",
-    "summary": "Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas y asignación dinámica de estados.",
-    "scopeNotes": "Hito enfocado en la experiencia de usuario de equipos ágiles: soporte para Kanban completo o acotado a Sprint, planificación dinámica de releases con seguimiento de metas y persistencia del proyecto activo.",
+    "summary": "Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas, reordenamiento Drag & Drop en backlog y asignación dinámica de estados.",
+    "scopeNotes": "Hito enfocado en la experiencia de usuario de equipos ágiles: soporte para Kanban completo o acotado a Sprint, planificación dinámica de releases con seguimiento de metas, ranking manual condicional y persistencia del proyecto activo.",
     "itemCodes": [
       "DEV-006",
       "DEV-007",
@@ -29,9 +29,10 @@
       "DEV-038",
       "DEV-044",
       "DEV-045",
-      "DEV-046"
+      "DEV-046",
+      "DEV-050"
     ],
-    "markdownContent": "## [0.3.0] — 2026-09-18 🚀 Workflow Views, Release Planning & UX Ergonomics\n\n### 🎯 Resumen\n*Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas, asignación dinámica de estados, estabilidad visual sin CLS, persistencia de prioridad P0 y dirty checking.*",
+    "markdownContent": "## [0.3.0] — 2026-09-18 🚀 Workflow Views, Release Planning, Drag & Drop & UX Ergonomics\n\n### 🎯 Resumen\n*Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas, reordenamiento vertical Drag & Drop en Backlog (DEV-050), asignación dinámica de estados, estabilidad visual sin CLS, persistencia de prioridad P0 y dirty checking.*",
     "createdAt": "2026-09-17T08:50:00.000Z"
   },
   {

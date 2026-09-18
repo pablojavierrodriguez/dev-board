@@ -3,7 +3,7 @@ id: DEV-030
 title: "Persistencia del Último Proyecto Activo y Fallback Seguro"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - ux
   - state
@@ -14,7 +14,10 @@ priority: medium
 type: bug
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "30"
+order: 110
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

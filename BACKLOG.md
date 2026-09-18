@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (23)
+### 📋 Backlog / Draft (22)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -135,26 +135,6 @@ Mecanismos de protección anti-destructiva y gestión segura del ciclo de vida d
 - [ ] #3 Vista o filtro de Papelera accesible para consultar y restaurar tarjetas descartadas
 - [ ] #4 La purga física definitiva de una tarjeta desde la papelera exige un modal de doble confirmación de seguridad
 - [ ] #5 Integración con scripts/backlogMdParser.ts para preservar o archivar el archivo de forma resiliente
-
----
-
-#### [DEV-050] Reordenamiento Drag & Drop en Backlog / Sprint y Priorización con Setting de Ranking Manual Condicional
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
-
-Soporte integral para reordenamiento manual de ítems en la vista de Backlog y Sprint & Priorización:
-1. **Drag & Drop en Backlog:** Permitir arrastrar y soltar verticalmente filas de la tabla de Backlog para priorizarlas interactivamente, al igual que se hace entre columnas del tablero Kanban.
-2. **Ranking Manual Condicional (Setting de Proyecto):** Incorporar en Settings el interruptor `rankingEnabled` (Habilitar Ranking Manual):
-   - **Cuando está ACTIVADO:** El usuario puede reubicar libremente las filas mediante drag & drop, persistiendo el orden manual (`order` / `ranking`).
-   - **Cuando está DESACTIVADO:** Se bloquea el reordenamiento manual; la tabla respeta estrictamente el orden predefinido (ej. por prioridad descendente o por fecha) y oculta los controles de arrastre para evitar alteraciones accidentales.
-3. **Persistencia en Frontmatter:** El valor numérico de ranking se conserva en frontmatter Markdown (`order: 10`, `order: 20`, espaciado para reordenamiento sin colisiones).
-
-**Criterios de Aceptación:**
-- [ ] #1 Soporte de Drag & Drop vertical fluido para reordenar filas en la tabla de Backlog y contenedores de sprint
-- [ ] #2 Setting 'rankingEnabled' en SettingsView para activar o desactivar el ranking manual
-- [ ] #3 Cuando el ranking está desactivado, el arrastre manual queda bloqueado y se respeta el orden estricto de columnas
-- [ ] #4 Al reordenar filas con ranking activo, se actualiza el campo 'order' y se persiste en los archivos Markdown
-- [ ] #5 Rendimiento optimizado a 60 FPS durante la interacción de arrastre en listas largas
 
 ---
 
@@ -445,7 +425,7 @@ Refactorización y simplificación radical del modelo y la interfaz de Releases:
 
 ---
 
-### ✅ Done / Deployed (41)
+### ✅ Done / Deployed (42)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1106,6 +1086,26 @@ Ajustes conceptuales y de eficiencia en la vista de Sprints y Priorización:
 - [x] #2 Al soltar una tarjeta en un contenedor, comprobar si el sprint destino es idéntico al actual y abortar la mutación si no hay cambios
 - [x] #3 Asegurar que el contenedor Backlog se ubica de forma consistente como el último agrupador en la vista
 - [x] #4 En los selectores rápidos de la tabla de SprintView, la opción vacía muestra 'Backlog' en lugar de 'Sin Sprint'
+
+---
+
+#### [DEV-050] Reordenamiento Drag & Drop en Backlog / Sprint y Priorización con Setting de Ranking Manual Condicional
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.0
+
+Soporte integral para reordenamiento manual de ítems en la vista de Backlog y Sprint & Priorización:
+1. **Drag & Drop en Backlog:** Permitir arrastrar y soltar verticalmente filas de la tabla de Backlog para priorizarlas interactivamente, al igual que se hace entre columnas del tablero Kanban.
+2. **Ranking Manual Condicional (Setting de Proyecto):** Incorporar en Settings el interruptor `rankingEnabled` (Habilitar Ranking Manual):
+   - **Cuando está ACTIVADO:** El usuario puede reubicar libremente las filas mediante drag & drop, persistiendo el orden manual (`order` / `ranking`).
+   - **Cuando está DESACTIVADO:** Se bloquea el reordenamiento manual; la tabla respeta estrictamente el orden predefinido (ej. por prioridad descendente o por fecha) y oculta los controles de arrastre para evitar alteraciones accidentales.
+3. **Persistencia en Frontmatter:** El valor numérico de ranking se conserva en frontmatter Markdown (`order: 10`, `order: 20`, espaciado para reordenamiento sin colisiones).
+
+**Criterios de Aceptación:**
+- [x] #1 Soporte de Drag & Drop vertical fluido para reordenar filas en la tabla de Backlog y contenedores de sprint
+- [x] #2 Setting 'rankingEnabled' en SettingsView para activar o desactivar el ranking manual
+- [x] #3 Cuando el ranking está desactivado, el arrastre manual queda bloqueado y se respeta el orden estricto de columnas
+- [x] #4 Al reordenar filas con ranking activo, se actualiza el campo 'order' y se persiste en los archivos Markdown
+- [x] #5 Rendimiento optimizado a 60 FPS durante la interacción de arrastre en listas largas
 
 ---
 

@@ -3,7 +3,7 @@ id: DEV-012
 title: "Generalización de Re-sync Docs para Modalidad Dual (JSON y Backlog.md)"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - sync
   - api
@@ -14,7 +14,10 @@ priority: medium
 type: feature
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "41"
+order: 230
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

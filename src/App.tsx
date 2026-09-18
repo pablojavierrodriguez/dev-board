@@ -469,6 +469,78 @@ export function App() {
     }
   }, [boardData, showToast]);
 
+  const handleReorderBacklogItem = useCallback(async (
+    draggedId: string, 
+    targetSprint: string, 
+    targetIndex: number
+  ) => {
+    if (!boardData) return;
+    const item = boardData.items.find((it) => it.id === draggedId);
+    if (!item) return;
+
+    // Items belonging to target group (excluding dragged item), sorted by order
+    const groupItems = boardData.items
+      .filter((it) => {
+        const itSprint = it.sprint || it.targetSprint || '';
+        return itSprint === targetSprint && it.id !== draggedId;
+      })
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // Clamp insert index
+    const insertIdx = Math.max(0, Math.min(targetIndex, groupItems.length));
+    
+    // Insert dragged item at exact target position
+    const updatedItem = {
+      ...item,
+      sprint: targetSprint,
+      targetSprint: targetSprint
+    };
+    groupItems.splice(insertIdx, 0, updatedItem);
+
+    // Compute sequential orders (10, 20, 30, ...)
+    const orderMap = new Map<string, number>();
+    groupItems.forEach((it, i) => {
+      orderMap.set(it.id, (i + 1) * 10);
+    });
+
+    const newOrder = orderMap.get(draggedId) ?? item.order;
+
+    // Optimistic UI state update
+    const prevItems = [...boardData.items];
+    const newItems = boardData.items.map((it) => {
+      if (it.id === draggedId) {
+        return { ...it, sprint: targetSprint, targetSprint: targetSprint, order: newOrder };
+      }
+      if (orderMap.has(it.id)) {
+        return { ...it, order: orderMap.get(it.id)! };
+      }
+      return it;
+    });
+
+    setBoardData((prev) => (prev ? { ...prev, items: newItems } : null));
+
+    try {
+      // 1. Update dragged item via API
+      await updateItem(draggedId, {
+        sprint: targetSprint,
+        targetSprint: targetSprint,
+        order: newOrder
+      });
+
+      // 2. Persist updated sibling orders in parallel
+      const siblingUpdates = Array.from(orderMap.entries())
+        .filter(([id]) => id !== draggedId)
+        .map(([id, ord]) => updateItem(id, { order: ord }));
+      if (siblingUpdates.length > 0) {
+        await Promise.all(siblingUpdates);
+      }
+      showToast('Orden de tareas actualizado', 'success');
+    } catch (err: any) {
+      setBoardData((prev) => (prev ? { ...prev, items: prevItems } : null));
+      showToast('Error al reordenar tarea: ' + err.message, 'error');
+    }
+  }, [boardData, showToast]);
+
   const handleDeleteItem = useCallback(async (id: string) => {
     if (!boardData) return;
     try {
@@ -842,6 +914,7 @@ export function App() {
             }}
             onUpdateStatus={(id, s) => handleUpdateStatus(id, s)}
             onUpdatePriority={handleUpdatePriority}
+            onReorderItem={handleReorderBacklogItem}
             onUpdateSprint={async (id, newSprint) => {
               const existing = boardData?.items.find((it) => it.id === id);
               const curSprint = existing ? (existing.sprint || existing.targetSprint || '') : '';
@@ -866,6 +939,7 @@ export function App() {
             }}
             onDeleteItem={handleDeleteItem}
             availableSprints={availableSprints}
+            rankingEnabled={config.rankingEnabled !== false}
           />
         )}
 

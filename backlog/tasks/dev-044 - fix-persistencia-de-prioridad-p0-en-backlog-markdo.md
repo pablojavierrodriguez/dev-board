@@ -3,7 +3,7 @@ id: DEV-044
 title: "Fix: Persistencia de Prioridad P0 en Backlog Markdown y Dirty Checking en Edición de Campos"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 01:25'
+updated_date: '2026-09-18 06:36'
 labels:
   - bug
   - parser
@@ -13,6 +13,10 @@ priority: high
 type: bug
 milestone: "0.3.0"
 sprint: "Sprint 1"
+release: "0.3.0"
+targetRelease: "0.3.0"
+order: 40
+targetSprint: "Sprint 1"
 ---
 
 ## Description

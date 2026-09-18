@@ -78,6 +78,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     release: config.enabledTabs?.release !== false
   });
   const [autoSave, setAutoSave] = useState<boolean>(config.autoSave ?? true);
+  const [rankingEnabled, setRankingEnabled] = useState<boolean>(config.rankingEnabled !== false);
   const [showIdeasByDefault, setShowIdeasByDefault] = useState<boolean>(config.kanban?.showIdeasByDefault ?? false);
   const [kanbanEditMode, setKanbanEditMode] = useState<'ampliada' | 'simplificada'>('ampliada');
   const [customColumns, setCustomColumns] = useState<ColumnConfig[]>(() => {
@@ -113,6 +114,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       release: config.enabledTabs?.release !== false
     });
     setAutoSave(config.autoSave ?? true);
+    setRankingEnabled(config.rankingEnabled !== false);
     setShowIdeasByDefault(config.kanban?.showIdeasByDefault ?? false);
     if (config.kanban?.columns && config.kanban.columns.length > 0) {
       setCustomColumns(JSON.parse(JSON.stringify(config.kanban.columns)));
@@ -160,6 +162,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         release: enabledTabs.release
       },
       autoSave,
+      rankingEnabled,
       kanban: {
         ...config.kanban,
         columns: customColumns,
@@ -168,7 +171,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         wipLimits
       }
     };
-  }, [config, theme, density, methodology, defaultView, enabledTabs, autoSave, customColumns, customSimplifiedColumns, showIdeasByDefault, wipLimits]);
+  }, [config, theme, density, methodology, defaultView, enabledTabs, autoSave, rankingEnabled, customColumns, customSimplifiedColumns, showIdeasByDefault, wipLimits]);
 
   // Check if modified (dirty state)
   const isDirty = useMemo(() => {
@@ -1096,6 +1099,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       type="checkbox"
                       checked={autoSave}
                       onChange={(e) => setAutoSave(e.target.checked)}
+                      className="rounded border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
+                    />
+                  </label>
+
+                  {/* Ranking Manual Toggle (DEV-050) */}
+                  <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] cursor-pointer hover:border-indigo-500/30 transition-colors">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        Ranking Manual y Drag & Drop en Backlog
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Permite arrastrar filas en Sprint & Priorización para reordenar tareas libremente y fijar prioridades relativas.
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={rankingEnabled}
+                      onChange={(e) => setRankingEnabled(e.target.checked)}
                       className="rounded border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
                     />
                   </label>

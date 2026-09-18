@@ -3,7 +3,7 @@ id: DEV-006
 title: "Sistema de Configuración y Settings Persistentes (.devboard/config.json y UI)"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - settings
   - configuration
@@ -14,7 +14,10 @@ priority: high
 type: feature
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "35"
+order: 150
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

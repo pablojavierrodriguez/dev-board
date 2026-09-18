@@ -3,7 +3,7 @@ id: DEV-046
 title: "Renombrar Agrupador 'Sin Sprint' a 'Backlog' y Guardado Condicional al Mover Tarjetas entre Agrupadores"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 01:25'
+updated_date: '2026-09-18 06:36'
 labels:
   - ux
   - sprint
@@ -13,6 +13,10 @@ priority: medium
 type: ux
 milestone: "0.3.0"
 sprint: "Sprint 1"
+release: "0.3.0"
+targetRelease: "0.3.0"
+order: 60
+targetSprint: "Sprint 1"
 ---
 
 ## Description

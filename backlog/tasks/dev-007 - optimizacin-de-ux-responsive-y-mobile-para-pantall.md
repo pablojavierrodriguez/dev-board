@@ -3,7 +3,7 @@ id: DEV-007
 title: "Optimización de UX Responsive y Mobile para Pantallas Pequeñas"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - mobile
   - responsive
@@ -14,7 +14,10 @@ priority: high
 type: ux
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "36"
+order: 160
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

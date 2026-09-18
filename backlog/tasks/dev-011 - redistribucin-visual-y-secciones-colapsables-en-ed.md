@@ -3,7 +3,7 @@ id: DEV-011
 title: "Redistribución Visual y Secciones Colapsables en Editor de Card (ItemModal)"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - ux
   - ui
@@ -14,7 +14,10 @@ priority: medium
 type: ux
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "40"
+order: 210
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description

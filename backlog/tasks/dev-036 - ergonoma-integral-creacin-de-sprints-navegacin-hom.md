@@ -3,7 +3,7 @@ id: DEV-036
 title: "Ergonomía Integral: Creación de Sprints, Navegación Home en Logo, Edición Inline de Columnas y Estabilidad de Botón Ideas"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 00:28'
+updated_date: '2026-09-18 06:36'
 labels:
   - ux
   - kanban
@@ -18,7 +18,7 @@ milestone: "0.3.0"
 sprint: "Sprint 1"
 release: "0.3.0"
 targetRelease: "0.3.0"
-order: 19
+order: 20
 targetSprint: "Sprint 1"
 ---
 

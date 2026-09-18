@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef, useLayoutEffect, type FC } from 'react';
-import { 
-  ArrowUpDown, 
-  Layers, 
-  Edit3, 
+import {
+  ArrowUpDown,
+  Layers,
+  Edit3,
   Trash2,
   ChevronDown,
   ChevronRight,
@@ -52,9 +52,11 @@ interface SprintViewProps {
   onUpdateStatus: (id: string, newStatus: ItemStatus) => void;
   onUpdatePriority: (id: string, newPriority: Priority) => void;
   onUpdateSprint?: (id: string, newSprint: string) => void;
+  onReorderItem?: (draggedId: string, targetSprint: string, targetIndex: number) => void;
   onCreateSprint?: (newSprintName: string) => void;
   onDeleteItem: (id: string) => void;
   availableSprints?: string[];
+  rankingEnabled?: boolean;
 }
 
 type GroupBy = 'sprint' | 'priority' | 'module' | 'none';
@@ -81,16 +83,19 @@ export const SprintView: FC<SprintViewProps> = ({
   onUpdateStatus,
   onUpdatePriority,
   onUpdateSprint,
+  onReorderItem,
   onCreateSprint,
   onDeleteItem,
-  availableSprints = []
+  availableSprints = [],
+  rankingEnabled = true
 }) => {
   const [groupBy, setGroupBy] = useState<GroupBy>('sprint');
-  const [sortBy, setSortBy] = useState<'priority' | 'code' | 'status'>('priority');
+  const [sortBy, setSortBy] = useState<'order' | 'priority' | 'code' | 'status'>('order');
   const [sortAsc, setSortAsc] = useState(true);
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const [itemToDelete, setItemToDelete] = useState<BacklogItem | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dropTargetRow, setDropTargetRow] = useState<{ itemId: string; position: 'before' | 'after' } | null>(null);
   const [activeDropGroup, setActiveDropGroup] = useState<string | null>(null);
 
   // New Sprint Modal State (DEV-036)
@@ -106,7 +111,7 @@ export const SprintView: FC<SprintViewProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem('devboard_custom_sprints', JSON.stringify(customSprints));
-    } catch {}
+    } catch { }
   }, [customSprints]);
   const [newSprintModalOpen, setNewSprintModalOpen] = useState(false);
   const [newSprintName, setNewSprintName] = useState('');
@@ -148,7 +153,9 @@ export const SprintView: FC<SprintViewProps> = ({
     // Sort items inside groups with deterministic tie-breaker
     const sorted = [...items].sort((a, b) => {
       let diff = 0;
-      if (sortBy === 'priority') {
+      if (sortBy === 'order') {
+        diff = (a.order ?? 9999) - (b.order ?? 9999);
+      } else if (sortBy === 'priority') {
         diff = normalizePriorityNum(a.priority) - normalizePriorityNum(b.priority);
       } else if (sortBy === 'status') {
         diff = normalizeStatusNum(a.status) - normalizeStatusNum(b.status);
@@ -225,7 +232,7 @@ export const SprintView: FC<SprintViewProps> = ({
     containerTop: number;
   } | null>(null);
 
-  const toggleSort = (field: 'priority' | 'code' | 'status', e?: React.MouseEvent) => {
+  const toggleSort = (field: 'order' | 'priority' | 'code' | 'status', e?: React.MouseEvent) => {
     // Capturar posición del elemento clickeado y scroll del viewport (DEV-063)
     const el = e?.currentTarget as HTMLElement | undefined;
     scrollSnapshotRef.current = {
@@ -286,7 +293,7 @@ export const SprintView: FC<SprintViewProps> = ({
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="w-full flex-1 p-4 sm:p-6 max-w-[1680px] mx-auto"
       style={{ overflowAnchor: 'none' }}
@@ -307,11 +314,10 @@ export const SprintView: FC<SprintViewProps> = ({
               <button
                 key={g.id}
                 onClick={() => setGroupBy(g.id)}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  groupBy === g.id
-                    ? 'bg-white dark:bg-indigo-600/30 text-indigo-600 dark:text-indigo-200 border border-slate-200 dark:border-indigo-500/30 shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${groupBy === g.id
+                  ? 'bg-white dark:bg-indigo-600/30 text-indigo-600 dark:text-indigo-200 border border-slate-200 dark:border-indigo-500/30 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
               >
                 {g.label}
               </button>
@@ -368,8 +374,8 @@ export const SprintView: FC<SprintViewProps> = ({
           const isDropTarget = activeDropGroup === group.key;
 
           return (
-            <div 
-              key={group.key} 
+            <div
+              key={group.key}
               onDragOver={(e) => {
                 if (groupBy === 'sprint' && onUpdateSprint) {
                   e.preventDefault();
@@ -381,25 +387,26 @@ export const SprintView: FC<SprintViewProps> = ({
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                if (draggedItemId && onUpdateSprint && groupBy === 'sprint') {
+                if (draggedItemId && groupBy === 'sprint') {
                   const targetSprintVal = group.key === 'Backlog' || group.key.includes('Sin Sprint') || group.key === 'Sin Asignar' ? '' : group.key;
-                  const item = items.find((it) => it.id === draggedItemId);
-                  const currentSprintVal = item ? (item.sprint || item.targetSprint || '') : '';
-                  if (currentSprintVal !== targetSprintVal) {
+                  if (onReorderItem) {
+                    onReorderItem(draggedItemId, targetSprintVal, group.items.length);
+                    setSortBy('order');
+                  } else if (onUpdateSprint) {
                     onUpdateSprint(draggedItemId, targetSprintVal);
                   }
                 }
                 setActiveDropGroup(null);
                 setDraggedItemId(null);
+                setDropTargetRow(null);
               }}
-              className={`glass-panel rounded-2xl overflow-hidden border transition-all ${
-                isDropTarget
-                  ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-500/[0.03]'
-                  : 'border-slate-200 dark:border-white/[0.07]'
-              }`}
+              className={`glass-panel rounded-2xl overflow-hidden border transition-all ${isDropTarget
+                ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-indigo-500/[0.03]'
+                : 'border-slate-200 dark:border-white/[0.07]'
+                }`}
             >
               {/* Group Header (Clickable to Toggle Collapse) */}
-              <div 
+              <div
                 onClick={() => toggleCollapse(group.key)}
                 className="px-4 py-3 bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.06] flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-colors"
               >
@@ -449,9 +456,9 @@ export const SprintView: FC<SprintViewProps> = ({
                     <span className="text-slate-400">({progressPercent}%)</span>
                   </div>
                   <div className="w-24 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden hidden sm:block">
-                    <div 
-                      className="h-full bg-emerald-500 rounded-full transition-all duration-300" 
-                      style={{ width: `${progressPercent}%` }} 
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                      style={{ width: `${progressPercent}%` }}
                     />
                   </div>
                 </div>
@@ -470,67 +477,130 @@ export const SprintView: FC<SprintViewProps> = ({
                     </p>
                   </div>
                 ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs" style={{ overflowAnchor: 'none' }}>
-                    <thead>
-                      <tr className="border-b border-slate-100 dark:border-white/[0.04] bg-slate-50/50 dark:bg-white/[0.01] text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('priority', e)}>
-                          <div className="flex items-center gap-1">
-                            <span className={sortBy === 'priority' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Prio</span>
-                            <ArrowUpDown className={`w-3 h-3 ${sortBy === 'priority' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
-                          </div>
-                        </th>
-                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('code', e)}>
-                          <div className="flex items-center gap-1">
-                            <span className={sortBy === 'code' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Código</span>
-                            <ArrowUpDown className={`w-3 h-3 ${sortBy === 'code' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
-                          </div>
-                        </th>
-                        <th className="py-2.5 px-4">Título</th>
-                        <th className="py-2.5 px-4">Tipo</th>
-                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('status', e)}>
-                          <div className="flex items-center gap-1">
-                            <span className={sortBy === 'status' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Estado</span>
-                            <ArrowUpDown className={`w-3 h-3 ${sortBy === 'status' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
-                          </div>
-                        </th>
-                        <th className="py-2.5 px-4">Módulo</th>
-                        <th className="py-2.5 px-4">Release / Versión</th>
-                        {groupBy !== 'sprint' && <th className="py-2.5 px-4">Sprint</th>}
-                        <th className="py-2.5 px-4 text-right">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-white/[0.03]">
-                      {group.items.map((item) => {
-                        const typeInfo = typeConfig[item.type] || typeConfig.feature;
-                        const TypeIcon = typeInfo.icon;
-                        const pInfo = priorityConfig[item.priority] || priorityConfig.p2;
-                        const sInfo = statusLabels[item.status] || statusLabels.backlog;
-                        const releaseVal = item.release || item.targetRelease;
-                        const isBeingDragged = draggedItemId === item.id;
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs" style={{ overflowAnchor: 'none' }}>
+                      <thead>
+                        <tr className="border-b border-slate-100 dark:border-white/[0.04] bg-slate-50/50 dark:bg-white/[0.01] text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                          <th className="py-2.5 px-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors w-14" onClick={(e) => toggleSort('order', e)} title="Ordenar por Ranking / Orden">
+                            <div className="flex items-center gap-1">
+                              <span className={sortBy === 'order' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>#</span>
+                              <ArrowUpDown className={`w-3 h-3 ${sortBy === 'order' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
+                            </div>
+                          </th>
+                          <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('priority', e)}>
+                            <div className="flex items-center gap-1">
+                              <span className={sortBy === 'priority' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Prio</span>
+                              <ArrowUpDown className={`w-3 h-3 ${sortBy === 'priority' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
+                            </div>
+                          </th>
+                          <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('code', e)}>
+                            <div className="flex items-center gap-1">
+                              <span className={sortBy === 'code' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Código</span>
+                              <ArrowUpDown className={`w-3 h-3 ${sortBy === 'code' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
+                            </div>
+                          </th>
+                          <th className="py-2.5 px-4">Título</th>
+                          <th className="py-2.5 px-4">Tipo</th>
+                          <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('status', e)}>
+                            <div className="flex items-center gap-1">
+                              <span className={sortBy === 'status' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Estado</span>
+                              <ArrowUpDown className={`w-3 h-3 ${sortBy === 'status' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
+                            </div>
+                          </th>
+                          <th className="py-2.5 px-4">Módulo</th>
+                          <th className="py-2.5 px-4">Release / Versión</th>
+                          {groupBy !== 'sprint' && <th className="py-2.5 px-4">Sprint</th>}
+                          <th className="py-2.5 px-4 text-right">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-white/[0.03]">
+                        {group.items.map((item, rowIdx) => {
+                          const typeInfo = typeConfig[item.type] || typeConfig.feature;
+                          const TypeIcon = typeInfo.icon;
+                          const pInfo = priorityConfig[item.priority] || priorityConfig.p2;
+                          const sInfo = statusLabels[item.status] || statusLabels.backlog;
+                          const releaseVal = item.release || item.targetRelease;
+                          const isBeingDragged = draggedItemId === item.id;
+                          const isDropTargetRow = dropTargetRow?.itemId === item.id;
 
-                        return (
-                          <tr
-                            key={item.id}
-                            draggable={groupBy === 'sprint'}
-                            onDragStart={(e) => {
-                              e.dataTransfer.setData('text/plain', item.id);
-                              setDraggedItemId(item.id);
-                            }}
-                            onDragEnd={() => setDraggedItemId(null)}
-                            className={`hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors group cursor-pointer ${
-                              isBeingDragged ? 'opacity-40 bg-indigo-500/10' : ''
-                            }`}
-                            onClick={() => onClickItem(item)}
-                          >
-                            {/* Priority Column */}
-                            <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-1.5">
-                                {groupBy === 'sprint' && (
-                                  <span className="cursor-grab active:cursor-grabbing text-slate-400/60 hover:text-slate-400 p-0.5" title="Arrastrar a otro sprint">
-                                    <GripVertical className="w-3 h-3" />
+                          return (
+                            <tr
+                              key={item.id}
+                              draggable={rankingEnabled && Boolean(onReorderItem || onUpdateSprint)}
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', item.id);
+                                setDraggedItemId(item.id);
+                              }}
+                              onDragEnd={() => {
+                                setDraggedItemId(null);
+                                setDropTargetRow(null);
+                                setActiveDropGroup(null);
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (draggedItemId && draggedItemId !== item.id) {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const isUpper = e.clientY < rect.top + rect.height / 2;
+                                  setDropTargetRow({ itemId: item.id, position: isUpper ? 'before' : 'after' });
+                                }
+                              }}
+                              onDragLeave={(e) => {
+                                if (dropTargetRow?.itemId === item.id) {
+                                  const related = e.relatedTarget as Node | null;
+                                  if (!e.currentTarget.contains(related)) {
+                                    setDropTargetRow(null);
+                                  }
+                                }
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (draggedItemId && draggedItemId !== item.id) {
+                                  const isUpper = dropTargetRow?.position === 'before';
+                                  const targetSprintVal = group.key === 'Backlog' || group.key.includes('Sin Sprint') || group.key === 'Sin Asignar' ? '' : group.key;
+                                  const insertIdx = isUpper ? rowIdx : rowIdx + 1;
+                                  if (onReorderItem) {
+                                    onReorderItem(draggedItemId, targetSprintVal, insertIdx);
+                                    setSortBy('order');
+                                  } else if (onUpdateSprint) {
+                                    onUpdateSprint(draggedItemId, targetSprintVal);
+                                  }
+                                }
+                                setDraggedItemId(null);
+                                setDropTargetRow(null);
+                                setActiveDropGroup(null);
+                              }}
+                              className={`hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors group cursor-pointer relative ${isBeingDragged ? 'opacity-30 bg-indigo-500/10' : ''
+                                } ${isDropTargetRow && dropTargetRow?.position === 'before'
+                                  ? 'border-t-2 border-indigo-500 bg-indigo-500/[0.05]'
+                                  : ''
+                                } ${isDropTargetRow && dropTargetRow?.position === 'after'
+                                  ? 'border-b-2 border-indigo-500 bg-indigo-500/[0.05]'
+                                  : ''
+                                }`}
+                              onClick={() => onClickItem(item)}
+                            >
+                              {/* Grip & Ranking Column */}
+                              <td className="py-2.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-1 text-slate-400">
+                                  {rankingEnabled && (
+                                    <span
+                                      className="cursor-grab active:cursor-grabbing hover:text-indigo-500 p-0.5 rounded transition-colors"
+                                      title="Arrastrar verticalmente para reordenar o mover de sprint"
+                                    >
+                                      <GripVertical className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] font-mono text-slate-400 font-medium">
+                                    {item.order !== undefined ? item.order : (rowIdx + 1) * 10}
                                   </span>
-                                )}
+                                </div>
+                              </td>
+
+                              {/* Priority Column */}
+                              <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                 <select
                                   value={item.priority}
                                   onChange={(e) => {
@@ -546,132 +616,131 @@ export const SprintView: FC<SprintViewProps> = ({
                                   <option value="p2" className="bg-white dark:bg-[#0e1626] text-yellow-500">P2 🟡</option>
                                   <option value="p3" className="bg-white dark:bg-[#0e1626] text-slate-500">P3 ⚪</option>
                                 </select>
-                              </div>
-                            </td>
+                              </td>
 
-                            {/* Code */}
-                            <td className="py-2.5 px-4 whitespace-nowrap font-mono font-semibold text-slate-800 dark:text-slate-300">
-                              {item.code}
-                            </td>
+                              {/* Code */}
+                              <td className="py-2.5 px-4 whitespace-nowrap font-mono font-semibold text-slate-800 dark:text-slate-300">
+                                {item.code}
+                              </td>
 
-                            {/* Title */}
-                            <td className="py-2.5 px-4 min-w-[280px]">
-                              <div className="font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors line-clamp-1">
-                                {item.title}
-                              </div>
-                              {item.impactedFile && (
-                                <div className="text-[10px] text-slate-500 font-mono truncate max-w-sm">
-                                  {item.impactedFile}
+                              {/* Title */}
+                              <td className="py-2.5 px-4 min-w-[280px]">
+                                <div className="font-medium text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors line-clamp-1">
+                                  {item.title}
                                 </div>
-                              )}
-                            </td>
-
-                            {/* Type */}
-                            <td className="py-2.5 px-4 whitespace-nowrap">
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeInfo.badge}`}>
-                                <TypeIcon className="w-3 h-3" />
-                                <span>{typeInfo.label}</span>
-                              </span>
-                            </td>
-
-                            {/* Status */}
-                            <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                              <select
-                                value={item.status}
-                                onChange={(e) => {
-                                  const newStatus = e.target.value as ItemStatus;
-                                  if (newStatus !== item.status) {
-                                    onUpdateStatus(item.id, newStatus);
-                                  }
-                                }}
-                                className={`px-2 py-0.5 rounded text-[10px] font-medium border cursor-pointer focus:outline-none ${sInfo.color}`}
-                              >
-                                <option value="draft" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Draft</option>
-                                <option value="doing" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Doing</option>
-                                <option value="review" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Review</option>
-                                <option value="ready" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Ready</option>
-                                <option value="done" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Done</option>
-                                <option value="dismissed" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Descartado</option>
-                                <option value="cancelled" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Cancelado</option>
-                              </select>
-                            </td>
-
-                            {/* Module */}
-                            <td className="py-2.5 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400 text-[11px]">
-                              {item.module || '—'}
-                            </td>
-
-                            {/* Release / Versión (DEV-033: Formateo limpio sin doble v) */}
-                            <td className="py-2.5 px-4 whitespace-nowrap">
-                              {releaseVal ? (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 font-mono text-[10px]">
-                                  {releaseVal.startsWith('v') ? releaseVal : `v${releaseVal}`}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 dark:text-slate-600">—</span>
-                              )}
-                            </td>
-
-                            {/* Sprint (visible when not grouped by sprint) */}
-                            {groupBy !== 'sprint' && (
-                              <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                {onUpdateSprint && availableSprints.length > 0 ? (
-                                  <select
-                                    value={item.sprint || item.targetSprint || ''}
-                                    onChange={(e) => {
-                                      const newSprint = e.target.value;
-                                      const curSprint = item.sprint || item.targetSprint || '';
-                                      if (newSprint !== curSprint) {
-                                        onUpdateSprint(item.id, newSprint);
-                                      }
-                                    }}
-                                    className="px-2 py-0.5 rounded text-[10px] font-mono border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 focus:outline-none cursor-pointer"
-                                  >
-                                    <option value="" className="bg-white dark:bg-[#0e1626] text-slate-500">Backlog</option>
-                                    {availableSprints.map((sp) => (
-                                      <option key={sp} value={sp} className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">
-                                        {sp}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  item.sprint || item.targetSprint ? (
-                                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 font-mono text-[10px]">
-                                      {item.sprint || item.targetSprint}
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-400 dark:text-slate-600">—</span>
-                                  )
+                                {item.impactedFile && (
+                                  <div className="text-[10px] text-slate-500 font-mono truncate max-w-sm">
+                                    {item.impactedFile}
+                                  </div>
                                 )}
                               </td>
-                            )}
 
-                            {/* Actions */}
-                            <td className="py-2.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button
-                                  onClick={() => onClickItem(item)}
-                                  title="Editar"
-                                  className="p-1 rounded text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
+                              {/* Type */}
+                              <td className="py-2.5 px-4 whitespace-nowrap">
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeInfo.badge}`}>
+                                  <TypeIcon className="w-3 h-3" />
+                                  <span>{typeInfo.label}</span>
+                                </span>
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={item.status}
+                                  onChange={(e) => {
+                                    const newStatus = e.target.value as ItemStatus;
+                                    if (newStatus !== item.status) {
+                                      onUpdateStatus(item.id, newStatus);
+                                    }
+                                  }}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-medium border cursor-pointer focus:outline-none ${sInfo.color}`}
                                 >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => setItemToDelete(item)}
-                                  title="Eliminar"
-                                  className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
+                                  <option value="draft" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Draft</option>
+                                  <option value="doing" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Doing</option>
+                                  <option value="review" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Review</option>
+                                  <option value="ready" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Ready</option>
+                                  <option value="done" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Done</option>
+                                  <option value="dismissed" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Descartado</option>
+                                  <option value="cancelled" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Cancelado</option>
+                                </select>
+                              </td>
+
+                              {/* Module */}
+                              <td className="py-2.5 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400 text-[11px]">
+                                {item.module || '—'}
+                              </td>
+
+                              {/* Release / Versión (DEV-033: Formateo limpio sin doble v) */}
+                              <td className="py-2.5 px-4 whitespace-nowrap">
+                                {releaseVal ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 font-mono text-[10px]">
+                                    {releaseVal.startsWith('v') ? releaseVal : `v${releaseVal}`}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 dark:text-slate-600">—</span>
+                                )}
+                              </td>
+
+                              {/* Sprint (visible when not grouped by sprint) */}
+                              {groupBy !== 'sprint' && (
+                                <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                  {onUpdateSprint && availableSprints.length > 0 ? (
+                                    <select
+                                      value={item.sprint || item.targetSprint || ''}
+                                      onChange={(e) => {
+                                        const newSprint = e.target.value;
+                                        const curSprint = item.sprint || item.targetSprint || '';
+                                        if (newSprint !== curSprint) {
+                                          onUpdateSprint(item.id, newSprint);
+                                        }
+                                      }}
+                                      className="px-2 py-0.5 rounded text-[10px] font-mono border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 focus:outline-none cursor-pointer"
+                                    >
+                                      <option value="" className="bg-white dark:bg-[#0e1626] text-slate-500">Backlog</option>
+                                      {availableSprints.map((sp) => (
+                                        <option key={sp} value={sp} className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">
+                                          {sp}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    item.sprint || item.targetSprint ? (
+                                      <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 font-mono text-[10px]">
+                                        {item.sprint || item.targetSprint}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 dark:text-slate-600">—</span>
+                                    )
+                                  )}
+                                </td>
+                              )}
+
+                              {/* Actions */}
+                              <td className="py-2.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => onClickItem(item)}
+                                    title="Editar"
+                                    className="p-1 rounded text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setItemToDelete(item)}
+                                    title="Eliminar"
+                                    className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
             </div>
           );
         })}
@@ -701,7 +770,7 @@ export const SprintView: FC<SprintViewProps> = ({
                 </div>
                 <h3 className="text-base font-semibold text-slate-900 dark:text-white">Crear Nuevo Sprint</h3>
               </div>
-              <button 
+              <button
                 type="button"
                 onClick={() => setNewSprintModalOpen(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"

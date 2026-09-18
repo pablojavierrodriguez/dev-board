@@ -3,7 +3,7 @@ id: DEV-027
 title: "Integración de Agent Skills, Reglas y Playbook Operativo (m3 y c3admin)"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels: []
 dependencies: []
 priority: high
@@ -12,7 +12,8 @@ milestone: "0.3.0"
 sprint: "Sprint 1"
 release: "0.3.0"
 targetRelease: "0.3.0"
-order: "16"
+order: 100
+targetSprint: "Sprint 1"
 ---
 
 ## Description

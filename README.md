@@ -192,15 +192,42 @@ In DevBoard, **no task, fix, or evolutionary decision should ever disappear with
 
 ---
 
-## ✨ Features Overview
+## 🛠️ Verification & Backlog Integrity Commands
 
-- **🎨 Linear & Raycast Dark Aesthetic**: Sleek glassmorphism, refined dark color palette, and daylight mode toggle.
-- **🛡️ Native In-App Confirmations**: Zero browser alert/confirm popups. Built-in keyboard accessible `ConfirmModal` (`Esc` to cancel, `Enter` to confirm).
-- **📂 Cross-Platform File Explorer**: Visual folder browser (`FolderPickerModal`) for macOS, Linux, and Windows with automatic Git repository and Backlog.md directory detection.
-- **⚡ Frictionless Status Taxonomy**: Clean agile statuses without spaces or underscores: `draft`, `doing`, `review`, `ready`, `done`.
-- **🎯 Sprint & Prioritization Hub**: Dense table view with progress bars, collapsible groups, and inline status/priority editing.
-- **🚀 Automated Release Assembler**: Package finished items into versioned releases with auto-generated Markdown changelogs.
-- **🛡️ Plan Guard**: Ensures items transitioning to `doing` have documented acceptance criteria and technical implementation plans before code is written.
+DevBoard includes built-in safeguards to guarantee zero desynchronization between source code, acceptance criteria, and documentation:
+
+```bash
+# Verify integrity between code, criteria checkboxes, and task states
+npm run backlog:check
+
+# Auto-reconcile completed tasks and update the consolidated BACKLOG.md
+npm run backlog:sync
+
+# Static UX & Performance audit (zero CLS, layout shifts, touch targets)
+npm run audit:ux
+
+# Production TypeScript, Vite bundle and standalone binaries packaging
+npm run build
+```
+
+---
+
+## ✨ Features Overview (v0.3.0)
+
+- **🎨 Linear & Raycast Aesthetic**: Sleek glassmorphism, refined dark color palette, daylight mode toggle, and zero CLS layout stability.
+- **🔄 Dual Agile Methodologies (Kanban vs Scrumban)**: 
+  - **Kanban**: Continuous value delivery across all items without artificial batching.
+  - **Scrumban**: Targeted Sprint Board focused on active **Sprint Goals** with live progress tracking (`%` completed, items in progress, goal fulfillment indicator).
+- **🎛️ Dynamic Column Modes**:
+  - **Modo Simple (3 columnas)**: Optimized for speed and clarity (*Draft*, *Doing*, *Done*).
+  - **Modo Ampliado (5 columnas)**: Complete quality lifecycle (*Draft*, *Doing*, *Review*, *Ready*, *Done*).
+  - **Discovery Column (Ideas)**: Dedicated toggleable pipeline for discovery items with zero layout shifts.
+- **⚙️ Dedicated Project Settings (`SettingsView`)**: Persistent project configuration saved to `.devboard/config.json` (methodology, column definitions, WIP limits, default views, and theme preferences).
+- **🎯 Sprint & Backlog Prioritization Hub**: Dense table view with collapsible sprint groups, progress bars, inline priority/status editing, and natural sorting.
+- **🚀 Sovereign Release Management**: Track versions in preparation (*unreleased*) vs deployed to production (*released*) with automated changelog compilation.
+- **🛡️ Plan Guard**: Ensures items transitioning to `doing` have documented acceptance criteria, technical plans, or specifications before code is written.
+- **📂 Cross-Platform File Explorer**: Visual folder browser (`FolderPickerModal`) for macOS, Linux, and Windows with automatic repository detection.
+- **🤖 Standalone MCP Bridge**: 9 dedicated MCP tools for AI agents (Antigravity, Cursor, Claude Code) with token-efficient filters and atomic updates.
 
 ---
 
@@ -208,7 +235,7 @@ In DevBoard, **no task, fix, or evolutionary decision should ever disappear with
 
 DevBoard uses DevBoard to manage its own development. 
 
-This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases (`DEV-001` through `DEV-005`).
+This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases across **64+ tasks** (`DEV-001` through `DEV-066`).
 
 ---
 
@@ -241,7 +268,7 @@ Open [http://localhost:4100](http://localhost:4100) in your browser.
 
 - `N`: Create new backlog item
 - `⌘K` / `Ctrl+K`: Focus instant search bar
-- `1` - `4`: Switch tabs (Kanban, Sprint, Releases, Archive)
+- `1` - `5`: Switch tabs (`1`: Kanban/Tablero, `2`: Sprint & Priorización, `3`: Releases, `4`: Archivo, `5`: Configuración)
 - `Esc`: Close modals
 - `⌘+Enter`: Save item / form
 

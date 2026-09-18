@@ -3,7 +3,7 @@ id: DEV-032
 title: "Planificación de Releases con Target Dinámico y Personalizable"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 03:41'
+updated_date: '2026-09-18 06:36'
 labels:
   - releases
   - planning
@@ -14,7 +14,10 @@ priority: high
 type: feature
 milestone: "0.3.0"
 sprint: "Sprint 1"
-order: "32"
+order: 140
+release: "0.3.0"
+targetRelease: "0.3.0"
+targetSprint: "Sprint 1"
 ---
 
 ## Description
