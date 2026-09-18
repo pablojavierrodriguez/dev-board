@@ -147,7 +147,7 @@ export const SprintView: FC<SprintViewProps> = ({
     for (const it of sorted) {
       let key = 'Sin Asignar';
       if (groupBy === 'sprint') {
-        key = it.sprint || it.targetSprint || 'Sin Sprint';
+        key = it.sprint || it.targetSprint || 'Backlog';
       } else if (groupBy === 'priority') {
         key = it.priority.toUpperCase();
       } else if (groupBy === 'module') {
@@ -175,8 +175,8 @@ export const SprintView: FC<SprintViewProps> = ({
     // DEV-033: Ordenamiento natural de los bloques de Sprint
     if (groupBy === 'sprint') {
       result.sort((a, b) => {
-        const isNoSprintA = a.key.includes('Sin Sprint') || a.key === 'Sin Asignar';
-        const isNoSprintB = b.key.includes('Sin Sprint') || b.key === 'Sin Asignar';
+        const isNoSprintA = a.key === 'Backlog' || a.key.includes('Sin Sprint') || a.key === 'Sin Asignar';
+        const isNoSprintB = b.key === 'Backlog' || b.key.includes('Sin Sprint') || b.key === 'Sin Asignar';
         if (isNoSprintA) return 1;
         if (isNoSprintB) return -1;
         return a.key.localeCompare(b.key, undefined, { numeric: true });
@@ -310,8 +310,12 @@ export const SprintView: FC<SprintViewProps> = ({
               onDrop={(e) => {
                 e.preventDefault();
                 if (draggedItemId && onUpdateSprint && groupBy === 'sprint') {
-                  const targetSprintVal = group.key.includes('Sin Sprint') || group.key === 'Sin Asignar' ? '' : group.key;
-                  onUpdateSprint(draggedItemId, targetSprintVal);
+                  const targetSprintVal = group.key === 'Backlog' || group.key.includes('Sin Sprint') || group.key === 'Sin Asignar' ? '' : group.key;
+                  const item = items.find((it) => it.id === draggedItemId);
+                  const currentSprintVal = item ? (item.sprint || item.targetSprint || '') : '';
+                  if (currentSprintVal !== targetSprintVal) {
+                    onUpdateSprint(draggedItemId, targetSprintVal);
+                  }
                 }
                 setActiveDropGroup(null);
                 setDraggedItemId(null);
@@ -457,7 +461,12 @@ export const SprintView: FC<SprintViewProps> = ({
                                 )}
                                 <select
                                   value={item.priority}
-                                  onChange={(e) => onUpdatePriority(item.id, e.target.value as Priority)}
+                                  onChange={(e) => {
+                                    const newPriority = e.target.value as Priority;
+                                    if (newPriority !== item.priority) {
+                                      onUpdatePriority(item.id, newPriority);
+                                    }
+                                  }}
                                   className={`bg-transparent border-0 text-[11px] font-mono cursor-pointer focus:outline-none ${pInfo.text}`}
                                 >
                                   <option value="p0" className="bg-white dark:bg-[#0e1626] text-rose-500">P0 🔴</option>
@@ -497,7 +506,12 @@ export const SprintView: FC<SprintViewProps> = ({
                             <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                               <select
                                 value={item.status}
-                                onChange={(e) => onUpdateStatus(item.id, e.target.value as ItemStatus)}
+                                onChange={(e) => {
+                                  const newStatus = e.target.value as ItemStatus;
+                                  if (newStatus !== item.status) {
+                                    onUpdateStatus(item.id, newStatus);
+                                  }
+                                }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-medium border cursor-pointer focus:outline-none ${sInfo.color}`}
                               >
                                 <option value="draft" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Draft</option>
@@ -532,10 +546,16 @@ export const SprintView: FC<SprintViewProps> = ({
                                 {onUpdateSprint && availableSprints.length > 0 ? (
                                   <select
                                     value={item.sprint || item.targetSprint || ''}
-                                    onChange={(e) => onUpdateSprint(item.id, e.target.value)}
+                                    onChange={(e) => {
+                                      const newSprint = e.target.value;
+                                      const curSprint = item.sprint || item.targetSprint || '';
+                                      if (newSprint !== curSprint) {
+                                        onUpdateSprint(item.id, newSprint);
+                                      }
+                                    }}
                                     className="px-2 py-0.5 rounded text-[10px] font-mono border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 focus:outline-none cursor-pointer"
                                   >
-                                    <option value="" className="bg-white dark:bg-[#0e1626] text-slate-500">Sin Sprint</option>
+                                    <option value="" className="bg-white dark:bg-[#0e1626] text-slate-500">Backlog</option>
                                     {availableSprints.map((sp) => (
                                       <option key={sp} value={sp} className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">
                                         {sp}

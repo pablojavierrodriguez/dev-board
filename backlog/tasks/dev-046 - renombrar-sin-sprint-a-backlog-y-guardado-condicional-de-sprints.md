@@ -1,9 +1,9 @@
 ---
 id: DEV-046
 title: "Renombrar Agrupador 'Sin Sprint' a 'Backlog' y Guardado Condicional al Mover Tarjetas entre Agrupadores"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:02'
+updated_date: '2026-09-18 01:25'
 labels:
   - ux
   - sprint
@@ -11,7 +11,7 @@ labels:
 dependencies: []
 priority: medium
 type: ux
-milestone: "0.3.1"
+milestone: "0.3.0"
 ---
 
 ## Description
@@ -26,10 +26,10 @@ Ajustes conceptuales y de eficiencia en la vista de Sprints y Priorización:
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 En SprintView.tsx, renombrar el grupo de tarjetas no asignadas a 'Backlog' con icono representativo
-- [ ] #2 Al soltar una tarjeta en un contenedor, comprobar si el sprint destino es idéntico al actual y abortar la mutación si no hay cambios
-- [ ] #3 Asegurar que el contenedor Backlog se ubica de forma consistente como el último agrupador en la vista
-- [ ] #4 En los selectores rápidos de la tabla de SprintView, la opción vacía muestra 'Backlog' en lugar de 'Sin Sprint'
+- [x] #1 En SprintView.tsx, renombrar el grupo de tarjetas no asignadas a 'Backlog' con icono representativo
+- [x] #2 Al soltar una tarjeta en un contenedor, comprobar si el sprint destino es idéntico al actual y abortar la mutación si no hay cambios
+- [x] #3 Asegurar que el contenedor Backlog se ubica de forma consistente como el último agrupador en la vista
+- [x] #4 En los selectores rápidos de la tabla de SprintView, la opción vacía muestra 'Backlog' en lugar de 'Sin Sprint'
 <!-- AC:END -->
 
 ## Implementation Plan

@@ -5,6 +5,7 @@ import {
   normalizeStatus,
   normalizePriority,
   formatStatusForMd,
+  formatPriorityForMd,
   generateTaskFilename,
   generateMonolithicBacklogMd
 } from './backlogMdParser.ts';
@@ -98,6 +99,14 @@ assert.strictEqual(reparsed.acceptanceCriteria?.[0].checked, true);
 assert.strictEqual(reparsed.acceptanceCriteria?.[1].checked, false);
 
 console.log('✅ Serialization round-trip passed');
+
+// 3.1. Priority lossless round-trip (DEV-044)
+for (const p of ['p0', 'p1', 'p2', 'p3']) {
+  const formatted = formatPriorityForMd(p);
+  const restored = normalizePriority(formatted);
+  assert.strictEqual(restored, p, `Priority ${p} must round-trip through Markdown (${formatted}) -> ${restored}`);
+}
+console.log('✅ Priority lossless round-trip (p0, p1, p2, p3) passed');
 
 // 4. Filename generation
 assert.strictEqual(

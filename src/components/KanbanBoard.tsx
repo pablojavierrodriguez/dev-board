@@ -54,7 +54,7 @@ export const SIMPLIFIED_BASE_COLUMNS: ColumnConfig[] = [
     color: 'border-emerald-500/30',
     dotColor: 'bg-emerald-500',
     statuses: ['done', 'ready', 'finish'],
-    dropTargetStatus: 'done'
+    dropTargetStatus: 'ready'
   }
 ];
 
@@ -133,14 +133,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [editColTitle, setEditColTitle] = useState<string>('');
 
-  const handleCommitColTitle = (colId: string) => {
-    const trimmed = editColTitle.trim();
-    if (trimmed && onUpdateColumnTitle) {
-      onUpdateColumnTitle(colId, trimmed);
-    }
-    setEditingColId(null);
-  };
-
   // Preference to show/hide raw Ideas in both views (DEV-008 & DEV-036)
   const [showIdeas, setShowIdeas] = useState<boolean>(() => {
     if (config?.kanban?.showIdeasByDefault !== undefined) {
@@ -175,6 +167,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
     return showIdeas ? [IDEAS_COLUMN, ...baseCols] : baseCols;
   }, [viewMode, showIdeas, config]);
+
+  const handleCommitColTitle = (colId: string) => {
+    const trimmed = editColTitle.trim();
+    const currentCol = columns.find((c: ColumnConfig) => c.id === colId);
+    if (trimmed && onUpdateColumnTitle && currentCol?.title !== trimmed) {
+      onUpdateColumnTitle(colId, trimmed);
+    }
+    setEditingColId(null);
+  };
 
   const assignedStatuses = useMemo(() => {
     const set = new Set<ItemStatus>();
@@ -600,7 +601,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             </div>
           )}
 
-          {/* Ideas toggle (DEV-008 & DEV-036: Estable y visible en ambas vistas) */}
+          {/* Ideas toggle (DEV-008 & DEV-036: Estable y visible en ambas vistas, DEV-045: Cero CLS) */}
           <button
             type="button"
             onClick={() => setShowIdeas(!showIdeas)}
@@ -612,7 +613,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             }`}
           >
             <Lightbulb className={`w-3.5 h-3.5 ${showIdeas ? 'text-pink-500 fill-pink-500/20' : 'text-slate-400'}`} />
-            <span>{showIdeas ? 'Ideas Visibles' : '+ Mostrar Ideas'}</span>
+            <span>Ideas</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              showIdeas ? 'bg-pink-500/20 text-pink-500 font-semibold' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
+            }`}>
+              {showIdeas ? 'ON' : 'OFF'}
+            </span>
             {ideasCount > 0 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                 showIdeas ? 'bg-pink-500/20 text-pink-400' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'

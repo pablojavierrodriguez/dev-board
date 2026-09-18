@@ -1,9 +1,9 @@
 ---
 id: DEV-044
 title: "Fix: Persistencia de Prioridad P0 en Backlog Markdown y Dirty Checking en Edición de Campos"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:01'
+updated_date: '2026-09-18 01:25'
 labels:
   - bug
   - parser
@@ -11,7 +11,7 @@ labels:
 dependencies: []
 priority: high
 type: bug
-milestone: "0.3.1"
+milestone: "0.3.0"
 ---
 
 ## Description
@@ -25,10 +25,10 @@ Corrección de dos problemas críticos de sincronización y persistencia en la v
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 En scripts/backlogMdParser.ts, formatPriorityForMd('p0') serializa a 'urgent' o 'critical' y parseBacklogMd normaliza a 'p0'
-- [ ] #2 Al cambiar la prioridad a P0 desde el selector en la vista de Backlog, el valor persiste en disco sin revertirse a P1 tras refrescar
-- [ ] #3 Implementar dirty checking estricto en edición rápida de celdas y nombres de columnas (abortar si el valor no cambia)
-- [ ] #4 Añadir tests unitarios en scripts/test-parser.js verificando ida y vuelta de todas las prioridades (p0, p1, p2, p3)
+- [x] #1 En scripts/backlogMdParser.ts, formatPriorityForMd('p0') serializa a 'urgent' o 'critical' y parseBacklogMd normaliza a 'p0'
+- [x] #2 Al cambiar la prioridad a P0 desde el selector en la vista de Backlog, el valor persiste en disco sin revertirse a P1 tras refrescar
+- [x] #3 Implementar dirty checking estricto en edición rápida de celdas y nombres de columnas (abortar si el valor no cambia)
+- [x] #4 Añadir tests unitarios en scripts/test-parser.js verificando ida y vuelta de todas las prioridades (p0, p1, p2, p3)
 <!-- AC:END -->
 
 ## Implementation Plan

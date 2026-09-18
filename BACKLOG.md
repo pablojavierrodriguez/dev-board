@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (23)
+### 📋 Backlog / Draft (20)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -74,55 +74,6 @@ Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una 
 - [ ] #2 Definir el nombre definitivo del producto y aplicación alineado con la visión de cockpit ágil para todo el equipo
 - [ ] #3 Configurar soporte de alias/binarios duales en package.json (retrocompatibilidad con npx devboard y adopción del nuevo comando)
 - [ ] #4 Actualizar referencias de marca en documentación técnica (README.md, AGENTS.md, docs/)
-
----
-
-#### [DEV-044] Fix: Persistencia de Prioridad P0 en Backlog Markdown y Dirty Checking en Edición de Campos
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.3.1
-
-Corrección de dos problemas críticos de sincronización y persistencia en la vista de Backlog:
-1. **Fix de Prioridad P0 (Causa Raíz):** En `scripts/backlogMdParser.ts`, la función `formatPriorityForMd(p)` mapeaba `p === 'p0'` a `'high'`. Al re-parsear el Markdown, `'high'` era normalizado de vuelta a `'p1'`. Por esta razón, cuando el usuario seleccionaba P0 en el dropdown de prioridad, se mostraba el mensaje de éxito pero el valor se revertía inmediatamente a P1 en disco y en la interfaz. Corregir el mapeo a `'urgent'` o `'critical'` tanto en `formatPriorityForMd` como en el parser.
-2. **Dirty Checking en Edición de Campos:** Al editar valores en celdas, nombres de columna o dropdowns con autoguardado, verificar si el nuevo valor difiere del preexistente (`newValue !== oldValue`). Si el valor es idéntico, abortar la llamada a la API y no emitir eventos redundantes.
-
-**Criterios de Aceptación:**
-- [ ] #1 En scripts/backlogMdParser.ts, formatPriorityForMd('p0') serializa a 'urgent' o 'critical' y parseBacklogMd normaliza a 'p0'
-- [ ] #2 Al cambiar la prioridad a P0 desde el selector en la vista de Backlog, el valor persiste en disco sin revertirse a P1 tras refrescar
-- [ ] #3 Implementar dirty checking estricto en edición rápida de celdas y nombres de columnas (abortar si el valor no cambia)
-- [ ] #4 Añadir tests unitarios en scripts/test-parser.js verificando ida y vuelta de todas las prioridades (p0, p1, p2, p3)
-
----
-
-#### [DEV-045] Estabilidad Visual del Botón de Ideas (Cero CLS) y Estado Destino por Defecto a 'Ready' en Vista Simplificada
-- **Prioridad**: `medium` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.3.1
-
-Mejora de estabilidad visual y coherencia del ciclo de vida en el tablero Kanban:
-1. **Prevención de Layout Shift (CLS) en Botón de Ideas:** En `KanbanBoard.tsx`, el botón de alternar visibilidad de ideas cambiaba de texto dinámicamente (`Ideas Visibles` vs `+ Mostrar Ideas`), lo que alteraba su ancho intrínseco y desplazaba horizontalmente los botones adyacentes de selector de vista (`simplificada` / `ampliada`). El botón debe mantener un ancho o etiqueta fija (ej. icono con texto "Ideas" y dot/badge de estado) para que la barra de controles permanezca perfectamente estática al interactuar.
-2. **Estado al Soltar por Defecto en Vista Simplificada:** En `SIMPLIFIED_BASE_COLUMNS`, el `dropTargetStatus` de la columna `Done` debe ser `ready` en lugar de `done`. El paso formal a `done` depende de la liberación o release del software, no únicamente de finalizar la etapa de desarrollo/QA.
-
-**Criterios de Aceptación:**
-- [ ] #1 Mantener ancho fijo o etiqueta invariable en el botón de toggle de ideas para garantizar cero Cumulative Layout Shift (CLS)
-- [ ] #2 Los botones adyacentes de vista simplificada/ampliada no experimentan ningún desplazamiento al conmutar la visibilidad de ideas
-- [ ] #3 En SIMPLIFIED_BASE_COLUMNS, configurar dropTargetStatus: 'ready' en la columna Done (col-done)
-- [ ] #4 Al arrastrar una tarjeta a la columna Done en vista simplificada, su estado se actualiza a 'ready' por defecto
-
----
-
-#### [DEV-046] Renombrar Agrupador 'Sin Sprint' a 'Backlog' y Guardado Condicional al Mover Tarjetas entre Agrupadores
-- **Prioridad**: `medium` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.3.1
-
-Ajustes conceptuales y de eficiencia en la vista de Sprints y Priorización:
-1. **Renombrar a 'Backlog':** El contenedor de tareas no asignadas a ninguna iteración debe llamarse **"Backlog"** (en lugar de "Sin Sprint" o "Sin Asignar"), alineándose con los estándares metodológicos ágiles y Scrum.
-2. **Guardado Condicional Estricto (Dirty Check en D&D):** Al arrastrar y soltar una tarjeta dentro de un sprint o dentro del contenedor Backlog, comprobar previamente si el valor de asignación de la tarjeta cambió (`item.sprint !== targetSprintVal`). Si la tarjeta se suelta dentro de su mismo contenedor actual, no disparar mutaciones a la API ni alterar los archivos Markdown en disco.
-3. **Posicionamiento:** El contenedor "Backlog" debe situarse siempre como el último bloque en la vista agrupada de Sprints.
-
-**Criterios de Aceptación:**
-- [ ] #1 En SprintView.tsx, renombrar el grupo de tarjetas no asignadas a 'Backlog' con icono representativo
-- [ ] #2 Al soltar una tarjeta en un contenedor, comprobar si el sprint destino es idéntico al actual y abortar la mutación si no hay cambios
-- [ ] #3 Asegurar que el contenedor Backlog se ubica de forma consistente como el último agrupador en la vista
-- [ ] #4 En los selectores rápidos de la tabla de SprintView, la opción vacía muestra 'Backlog' en lugar de 'Sin Sprint'
 
 ---
 
@@ -443,7 +394,7 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### ✅ Done / Deployed (36)
+### ✅ Done / Deployed (39)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1055,5 +1006,54 @@ Diferenciación conceptual y visual estricta entre metodologías de proyecto (Ka
 - [x] #4 En SettingsView, permitir seleccionar la metodología aplicando presets inteligentes pero permitiendo al usuario activar/desactivar pestañas manualmente
 - [x] #5 En Header, navegación móvil y redirección inicial, sincronizar la visibilidad de pestañas y destino del logo según la configuración
 - [x] #6 Validar tipado y build con `npm run build` y auditar visualmente con subagente de navegador
+
+---
+
+#### [DEV-044] Fix: Persistencia de Prioridad P0 en Backlog Markdown y Dirty Checking en Edición de Campos
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.3.0
+
+Corrección de dos problemas críticos de sincronización y persistencia en la vista de Backlog:
+1. **Fix de Prioridad P0 (Causa Raíz):** En `scripts/backlogMdParser.ts`, la función `formatPriorityForMd(p)` mapeaba `p === 'p0'` a `'high'`. Al re-parsear el Markdown, `'high'` era normalizado de vuelta a `'p1'`. Por esta razón, cuando el usuario seleccionaba P0 en el dropdown de prioridad, se mostraba el mensaje de éxito pero el valor se revertía inmediatamente a P1 en disco y en la interfaz. Corregir el mapeo a `'urgent'` o `'critical'` tanto en `formatPriorityForMd` como en el parser.
+2. **Dirty Checking en Edición de Campos:** Al editar valores en celdas, nombres de columna o dropdowns con autoguardado, verificar si el nuevo valor difiere del preexistente (`newValue !== oldValue`). Si el valor es idéntico, abortar la llamada a la API y no emitir eventos redundantes.
+
+**Criterios de Aceptación:**
+- [x] #1 En scripts/backlogMdParser.ts, formatPriorityForMd('p0') serializa a 'urgent' o 'critical' y parseBacklogMd normaliza a 'p0'
+- [x] #2 Al cambiar la prioridad a P0 desde el selector en la vista de Backlog, el valor persiste en disco sin revertirse a P1 tras refrescar
+- [x] #3 Implementar dirty checking estricto en edición rápida de celdas y nombres de columnas (abortar si el valor no cambia)
+- [x] #4 Añadir tests unitarios en scripts/test-parser.js verificando ida y vuelta de todas las prioridades (p0, p1, p2, p3)
+
+---
+
+#### [DEV-045] Estabilidad Visual del Botón de Ideas (Cero CLS) y Estado Destino por Defecto a 'Ready' en Vista Simplificada
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.3.0
+
+Mejora de estabilidad visual y coherencia del ciclo de vida en el tablero Kanban:
+1. **Prevención de Layout Shift (CLS) en Botón de Ideas:** En `KanbanBoard.tsx`, el botón de alternar visibilidad de ideas cambiaba de texto dinámicamente (`Ideas Visibles` vs `+ Mostrar Ideas`), lo que alteraba su ancho intrínseco y desplazaba horizontalmente los botones adyacentes de selector de vista (`simplificada` / `ampliada`). El botón debe mantener un ancho o etiqueta fija (ej. icono con texto "Ideas" y dot/badge de estado) para que la barra de controles permanezca perfectamente estática al interactuar.
+2. **Estado al Soltar por Defecto en Vista Simplificada:** En `SIMPLIFIED_BASE_COLUMNS`, el `dropTargetStatus` de la columna `Done` debe ser `ready` en lugar de `done`. El paso formal a `done` depende de la liberación o release del software, no únicamente de finalizar la etapa de desarrollo/QA.
+
+**Criterios de Aceptación:**
+- [x] #1 Mantener ancho fijo o etiqueta invariable en el botón de toggle de ideas para garantizar cero Cumulative Layout Shift (CLS)
+- [x] #2 Los botones adyacentes de vista simplificada/ampliada no experimentan ningún desplazamiento al conmutar la visibilidad de ideas
+- [x] #3 En SIMPLIFIED_BASE_COLUMNS, configurar dropTargetStatus: 'ready' en la columna Done (col-done)
+- [x] #4 Al arrastrar una tarjeta a la columna Done en vista simplificada, su estado se actualiza a 'ready' por defecto
+
+---
+
+#### [DEV-046] Renombrar Agrupador 'Sin Sprint' a 'Backlog' y Guardado Condicional al Mover Tarjetas entre Agrupadores
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.3.0
+
+Ajustes conceptuales y de eficiencia en la vista de Sprints y Priorización:
+1. **Renombrar a 'Backlog':** El contenedor de tareas no asignadas a ninguna iteración debe llamarse **"Backlog"** (en lugar de "Sin Sprint" o "Sin Asignar"), alineándose con los estándares metodológicos ágiles y Scrum.
+2. **Guardado Condicional Estricto (Dirty Check en D&D):** Al arrastrar y soltar una tarjeta dentro de un sprint o dentro del contenedor Backlog, comprobar previamente si el valor de asignación de la tarjeta cambió (`item.sprint !== targetSprintVal`). Si la tarjeta se suelta dentro de su mismo contenedor actual, no disparar mutaciones a la API ni alterar los archivos Markdown en disco.
+3. **Posicionamiento:** El contenedor "Backlog" debe situarse siempre como el último bloque en la vista agrupada de Sprints.
+
+**Criterios de Aceptación:**
+- [x] #1 En SprintView.tsx, renombrar el grupo de tarjetas no asignadas a 'Backlog' con icono representativo
+- [x] #2 Al soltar una tarjeta en un contenedor, comprobar si el sprint destino es idéntico al actual y abortar la mutación si no hay cambios
+- [x] #3 Asegurar que el contenedor Backlog se ubica de forma consistente como el último agrupador en la vista
+- [x] #4 En los selectores rápidos de la tabla de SprintView, la opción vacía muestra 'Backlog' en lugar de 'Sin Sprint'
 
 ---

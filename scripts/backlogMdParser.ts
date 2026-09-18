@@ -127,7 +127,7 @@ export function normalizePriority(raw: string | undefined | null): 'p0' | 'p1' |
  * Formatea prioridad para Backlog.md frontmatter
  */
 export function formatPriorityForMd(p: 'p0' | 'p1' | 'p2' | 'p3' | string): string {
-  if (p === 'p0') return 'high';
+  if (p === 'p0') return 'urgent';
   if (p === 'p1') return 'high';
   if (p === 'p2') return 'medium';
   if (p === 'p3') return 'low';

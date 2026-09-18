@@ -1,9 +1,9 @@
 ---
 id: DEV-045
 title: "Estabilidad Visual del Botón de Ideas (Cero CLS) y Estado Destino por Defecto a 'Ready' en Vista Simplificada"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:02'
+updated_date: '2026-09-18 01:25'
 labels:
   - ux
   - kanban
@@ -11,7 +11,7 @@ labels:
 dependencies: []
 priority: medium
 type: ux
-milestone: "0.3.1"
+milestone: "0.3.0"
 ---
 
 ## Description
@@ -25,10 +25,10 @@ Mejora de estabilidad visual y coherencia del ciclo de vida en el tablero Kanban
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Mantener ancho fijo o etiqueta invariable en el botón de toggle de ideas para garantizar cero Cumulative Layout Shift (CLS)
-- [ ] #2 Los botones adyacentes de vista simplificada/ampliada no experimentan ningún desplazamiento al conmutar la visibilidad de ideas
-- [ ] #3 En SIMPLIFIED_BASE_COLUMNS, configurar dropTargetStatus: 'ready' en la columna Done (col-done)
-- [ ] #4 Al arrastrar una tarjeta a la columna Done en vista simplificada, su estado se actualiza a 'ready' por defecto
+- [x] #1 Mantener ancho fijo o etiqueta invariable en el botón de toggle de ideas para garantizar cero Cumulative Layout Shift (CLS)
+- [x] #2 Los botones adyacentes de vista simplificada/ampliada no experimentan ningún desplazamiento al conmutar la visibilidad de ideas
+- [x] #3 En SIMPLIFIED_BASE_COLUMNS, configurar dropTargetStatus: 'ready' en la columna Done (col-done)
+- [x] #4 Al arrastrar una tarjeta a la columna Done en vista simplificada, su estado se actualiza a 'ready' por defecto
 <!-- AC:END -->
 
 ## Implementation Plan

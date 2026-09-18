@@ -86,7 +86,7 @@ function normalizePriority(raw) {
   return "p2";
 }
 function formatPriorityForMd(p) {
-  if (p === "p0") return "high";
+  if (p === "p0") return "urgent";
   if (p === "p1") return "high";
   if (p === "p2") return "medium";
   if (p === "p3") return "low";

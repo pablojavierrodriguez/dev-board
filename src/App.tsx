@@ -455,6 +455,8 @@ export function App() {
 
   const handleUpdatePriority = useCallback(async (id: string, newPriority: Priority) => {
     if (!boardData) return;
+    const existing = boardData.items.find((it) => it.id === id);
+    if (existing && existing.priority === newPriority) return;
     try {
       const updated = await updateItem(id, { priority: newPriority });
       setBoardData({
@@ -841,6 +843,9 @@ export function App() {
             onUpdateStatus={(id, s) => handleUpdateStatus(id, s)}
             onUpdatePriority={handleUpdatePriority}
             onUpdateSprint={async (id, newSprint) => {
+              const existing = boardData?.items.find((it) => it.id === id);
+              const curSprint = existing ? (existing.sprint || existing.targetSprint || '') : '';
+              if (curSprint === newSprint) return;
               try {
                 const updated = await updateItem(id, { sprint: newSprint, targetSprint: newSprint });
                 setBoardData((prev) => {
@@ -850,7 +855,7 @@ export function App() {
                     items: prev.items.map((it) => (it.id === id ? { ...it, ...updated } : it))
                   };
                 });
-                showToast(`Tarea ${updated.code} asignada a ${newSprint || 'Sin Sprint'}`, 'info');
+                showToast(`Tarea ${updated.code} asignada a ${newSprint || 'Backlog'}`, 'info');
               } catch (err: any) {
                 showToast(`Error al reasignar sprint: ${err.message}`, 'error');
               }
