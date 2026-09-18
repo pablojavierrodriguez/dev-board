@@ -601,27 +601,27 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             </div>
           )}
 
-          {/* Ideas toggle (DEV-008 & DEV-036: Estable y visible en ambas vistas, DEV-045: Cero CLS) */}
+          {/* Ideas toggle (DEV-008 & DEV-036: Estable y visible en ambas vistas, DEV-045: Cero CLS con ancho fijo w-8) */}
           <button
             type="button"
             onClick={() => setShowIdeas(!showIdeas)}
             title={showIdeas ? 'Ocultar columna Ideas (Discovery)' : 'Mostrar columna Ideas (Discovery)'}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all shrink-0 select-none ${
               showIdeas
-                ? 'bg-pink-500/10 border-pink-500/30 text-pink-600 dark:text-pink-400 shadow-xs font-semibold'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 shadow-xs'
                 : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            <Lightbulb className={`w-3.5 h-3.5 ${showIdeas ? 'text-pink-500 fill-pink-500/20' : 'text-slate-400'}`} />
+            <Lightbulb className={`w-3.5 h-3.5 shrink-0 ${showIdeas ? 'text-emerald-500 fill-emerald-500/20' : 'text-slate-400'}`} />
             <span>Ideas</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-              showIdeas ? 'bg-pink-500/20 text-pink-500 font-semibold' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
+            <span className={`w-8 inline-flex items-center justify-center py-0.5 rounded-full text-[10px] font-mono font-semibold transition-colors ${
+              showIdeas ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400'
             }`}>
               {showIdeas ? 'ON' : 'OFF'}
             </span>
             {ideasCount > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                showIdeas ? 'bg-pink-500/20 text-pink-400' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
+              <span className={`min-w-[18px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+                showIdeas ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
               }`}>
                 {ideasCount}
               </span>

@@ -1201,6 +1201,7 @@ async function handleToolCall(name, args) {
       totalReleases: releases.length,
       releases: releases.map((r) => ({
         version: r.version,
+        status: r.status || (r.version === "0.2.0" ? "released" : "unreleased"),
         date: r.date,
         title: r.title,
         itemCount: Array.isArray(r.itemCodes) ? r.itemCodes.length : 0,

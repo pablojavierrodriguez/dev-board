@@ -73,6 +73,8 @@ export interface BacklogItem {
   mtime?: number; // File modification timestamp (ms) for optimistic concurrency locking
 }
 
+export type ReleaseStatus = 'unreleased' | 'released' | 'planned';
+
 export interface Release {
   id: string;
   projectId: string;
@@ -83,7 +85,7 @@ export interface Release {
   itemCodes: string[];
   markdownContent: string;
   createdAt: string;
-  status?: 'planned' | 'released';
+  status?: ReleaseStatus;
   targetDate?: string;
   scopeNotes?: string;
 }

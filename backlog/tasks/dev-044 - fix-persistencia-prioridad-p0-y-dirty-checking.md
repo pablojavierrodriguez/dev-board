@@ -12,6 +12,7 @@ dependencies: []
 priority: high
 type: bug
 milestone: "0.3.0"
+sprint: "Sprint 1"
 ---
 
 ## Description

@@ -5,7 +5,7 @@
     "version": "0.3.0",
     "date": "2026-09-18",
     "targetDate": "2026-09-18",
-    "status": "released",
+    "status": "unreleased",
     "title": "v0.3.0 - Workflow Views, Release Planning & UX Ergonomics",
     "summary": "Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas y asignación dinámica de estados.",
     "scopeNotes": "Hito enfocado en la experiencia de usuario de equipos ágiles: soporte para Kanban completo o acotado a Sprint, planificación dinámica de releases con seguimiento de metas y persistencia del proyecto activo.",

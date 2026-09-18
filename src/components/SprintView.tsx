@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type FC } from 'react';
+import { useState, useEffect, useMemo, useRef, useLayoutEffect, type FC } from 'react';
 import { 
   ArrowUpDown, 
   Layers, 
@@ -16,6 +16,35 @@ import {
 import type { BacklogItem, ItemStatus, Priority } from '../types';
 import { typeConfig, priorityConfig } from './ItemCard';
 import { ConfirmModal } from './ConfirmModal';
+
+const normalizePriorityNum = (p?: string): number => {
+  if (!p) return 2;
+  const lower = String(p).toLowerCase().trim();
+  if (lower === 'p0' || lower === 'urgent') return 0;
+  if (lower === 'p1' || lower === 'high') return 1;
+  if (lower === 'p2' || lower === 'medium') return 2;
+  if (lower === 'p3' || lower === 'low') return 3;
+  return 2;
+};
+
+const normalizeStatusNum = (s?: string): number => {
+  if (!s) return 99;
+  const sOrder: Record<string, number> = {
+    ideas: 0,
+    backlog: 1,
+    draft: 2,
+    doing: 3,
+    in_progress: 3,
+    review: 4,
+    testing_qa: 5,
+    ready: 6,
+    finish: 7,
+    done: 8,
+    dismissed: 9,
+    cancelled: 10
+  };
+  return sOrder[s.toLowerCase().trim()] ?? 99;
+};
 
 interface SprintViewProps {
   items: BacklogItem[];
@@ -114,28 +143,25 @@ export const SprintView: FC<SprintViewProps> = ({
     setNewSprintName('');
   };
 
-  // Grouping logic with natural sorting
+  // Grouping logic with natural sorting and deterministic tie-breakers (DEV-063)
   const groupedData = useMemo(() => {
-    // Sort items inside groups
+    // Sort items inside groups with deterministic tie-breaker
     const sorted = [...items].sort((a, b) => {
+      let diff = 0;
       if (sortBy === 'priority') {
-        const pOrder: Record<Priority, number> = { p0: 0, p1: 1, p2: 2, p3: 3 };
-        const diff = pOrder[a.priority] - pOrder[b.priority];
-        return sortAsc ? diff : -diff;
+        diff = normalizePriorityNum(a.priority) - normalizePriorityNum(b.priority);
+      } else if (sortBy === 'status') {
+        diff = normalizeStatusNum(a.status) - normalizeStatusNum(b.status);
+      } else if (sortBy === 'code') {
+        diff = a.code.localeCompare(b.code, undefined, { numeric: true });
       }
-      if (sortBy === 'code') {
-        const comp = a.code.localeCompare(b.code, undefined, { numeric: true });
-        return sortAsc ? comp : -comp;
+
+      // Tie-breaker secundario determinista estricto
+      if (diff === 0) {
+        return a.code.localeCompare(b.code, undefined, { numeric: true });
       }
-      if (sortBy === 'status') {
-        const sOrder: Record<ItemStatus, number> = {
-          draft: 0, doing: 1, review: 2, ready: 3, done: 4, dismissed: 5, cancelled: 6,
-          ideas: 0, backlog: 0, in_progress: 1, testing_qa: 2, finish: 3
-        };
-        const diff = sOrder[a.status] - sOrder[b.status];
-        return sortAsc ? diff : -diff;
-      }
-      return 0;
+
+      return sortAsc ? diff : -diff;
     });
 
     if (groupBy === 'none') {
@@ -191,7 +217,24 @@ export const SprintView: FC<SprintViewProps> = ({
     return result;
   }, [items, groupBy, sortBy, sortAsc, availableSprints, customSprints]);
 
-  const toggleSort = (field: 'priority' | 'code' | 'status') => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollSnapshotRef = useRef<{
+    clickedEl?: HTMLElement;
+    clickedTop?: number;
+    windowTop: number;
+    containerTop: number;
+  } | null>(null);
+
+  const toggleSort = (field: 'priority' | 'code' | 'status', e?: React.MouseEvent) => {
+    // Capturar posición del elemento clickeado y scroll del viewport (DEV-063)
+    const el = e?.currentTarget as HTMLElement | undefined;
+    scrollSnapshotRef.current = {
+      clickedEl: el,
+      clickedTop: el ? el.getBoundingClientRect().top : undefined,
+      windowTop: window.scrollY || document.documentElement.scrollTop || 0,
+      containerTop: containerRef.current ? containerRef.current.scrollTop : 0
+    };
+
     if (sortBy === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -199,6 +242,31 @@ export const SprintView: FC<SprintViewProps> = ({
       setSortAsc(true);
     }
   };
+
+  // Anclaje visual inmediato sin saltos de scroll ni layout shifts (DEV-063)
+  useLayoutEffect(() => {
+    if (scrollSnapshotRef.current) {
+      const { clickedEl, clickedTop, windowTop, containerTop } = scrollSnapshotRef.current;
+      scrollSnapshotRef.current = null;
+
+      // 1. Si el usuario clickeó un header en una tabla específica, mantenerlo exactamente en el mismo punto de la pantalla
+      if (clickedEl && typeof clickedTop === 'number' && document.body.contains(clickedEl)) {
+        const newTop = clickedEl.getBoundingClientRect().top;
+        const delta = newTop - clickedTop;
+        if (Math.abs(delta) > 0.5) {
+          window.scrollBy({ top: delta, behavior: 'instant' as ScrollBehavior });
+        }
+      } else {
+        // 2. Si no hay referencia de elemento, restaurar la posición previa
+        if (containerRef.current && containerRef.current.scrollTop !== containerTop) {
+          containerRef.current.scrollTop = containerTop;
+        }
+        if ((window.scrollY || document.documentElement.scrollTop || 0) !== windowTop) {
+          window.scrollTo({ top: windowTop, behavior: 'instant' as ScrollBehavior });
+        }
+      }
+    }
+  }, [sortBy, sortAsc]);
 
   const toggleCollapse = (key: string) => {
     setCollapsedKeys((prev) => {
@@ -218,7 +286,11 @@ export const SprintView: FC<SprintViewProps> = ({
   };
 
   return (
-    <div className="w-full flex-1 p-4 sm:p-6 max-w-[1680px] mx-auto overflow-y-auto">
+    <div 
+      ref={containerRef}
+      className="w-full flex-1 p-4 sm:p-6 max-w-[1680px] mx-auto"
+      style={{ overflowAnchor: 'none' }}
+    >
       {/* Controls: Group By + Collapse/Expand + Count */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-2.5 text-xs">
@@ -399,27 +471,27 @@ export const SprintView: FC<SprintViewProps> = ({
                   </div>
                 ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs" style={{ overflowAnchor: 'none' }}>
                     <thead>
                       <tr className="border-b border-slate-100 dark:border-white/[0.04] bg-slate-50/50 dark:bg-white/[0.01] text-slate-500 dark:text-slate-400 font-mono text-[11px]">
-                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white" onClick={() => toggleSort('priority')}>
+                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('priority', e)}>
                           <div className="flex items-center gap-1">
-                            <span>Prio</span>
-                            <ArrowUpDown className="w-3 h-3" />
+                            <span className={sortBy === 'priority' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Prio</span>
+                            <ArrowUpDown className={`w-3 h-3 ${sortBy === 'priority' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
                           </div>
                         </th>
-                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white" onClick={() => toggleSort('code')}>
+                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('code', e)}>
                           <div className="flex items-center gap-1">
-                            <span>Código</span>
-                            <ArrowUpDown className="w-3 h-3" />
+                            <span className={sortBy === 'code' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Código</span>
+                            <ArrowUpDown className={`w-3 h-3 ${sortBy === 'code' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
                           </div>
                         </th>
                         <th className="py-2.5 px-4">Título</th>
                         <th className="py-2.5 px-4">Tipo</th>
-                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white" onClick={() => toggleSort('status')}>
+                        <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('status', e)}>
                           <div className="flex items-center gap-1">
-                            <span>Estado</span>
-                            <ArrowUpDown className="w-3 h-3" />
+                            <span className={sortBy === 'status' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Estado</span>
+                            <ArrowUpDown className={`w-3 h-3 ${sortBy === 'status' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
                           </div>
                         </th>
                         <th className="py-2.5 px-4">Módulo</th>

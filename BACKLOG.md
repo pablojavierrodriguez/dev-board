@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (20)
+### 📋 Backlog / Draft (23)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -394,7 +394,58 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### ✅ Done / Deployed (39)
+#### [DEV-064] Hardening de MCP Server: Sanitización de Prefijo, Cálculo Robusto de IDs Secuenciales y Herramienta devboard_sync_backlog
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.1
+
+Hardening integral del servidor MCP (`scripts/mcp-server.ts` y binario standalone `bin/devboard-mcp.js`):
+1. **Sanitización de Prefijos de Proyecto:** Eliminar caracteres no alfanuméricos en `codePrefix` (ej. `dev-board` extraía `"DEV-"`, produciendo dobles guiones `DEV--060`). Limpiar con `.replace(/[^A-Z0-9]/g, '')`.
+2. **Cálculo Robusto de IDs Secuenciales:** Reemplazar `tasks.length + 1` por una búsqueda de `max(num) + 1` parseando los códigos existentes mediante regex para evitar colisiones numéricas cuando hay tareas eliminadas o no correlativas.
+3. **Herramienta `devboard_sync_backlog`:** Nueva tool JSON-RPC que reconcilia tareas y genera `BACKLOG.md` sin requerir que agentes de IA ejecuten comandos de shell sueltos (`npm run backlog:sync`).
+
+**Criterios de Aceptación:**
+- [ ] #1 Sanitización de prefijo en mcp-server.ts impidiendo dobles guiones en IDs generados
+- [ ] #2 Cálculo de nuevo ID basado en max(existentes) + 1 con fallback seguro
+- [ ] #3 Implementación de tool devboard_sync_backlog en el servidor MCP
+- [ ] #4 Reconstrucción del binario standalone bin/devboard-mcp.js y validación con scripts/verify-mcp-binary.js
+
+---
+
+#### [DEV-065] Actualización de Skills de Agentes: Guía Estricta Anti-Scripts de Terminal y Ciclo de Vida Unreleased vs Released
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.1
+
+Actualización y enriquecimiento de las Skills del repositorio (`.agents/skills/devboard`, `.agents/skills/rigorous-qa-auditor`, `AGENTS.md`):
+1. **Regla Anti-Scripts Sueltos:** Establecer como principio fundamental que los agentes de IA NO deben ejecutar scripts ad-hoc de Node (`node -e ...`) ni comandos bash destructivos (`mv`, `rm` sobre el backlog) cuando operan en DevBoard. Si una operación falta, debe usarse o proponerse una herramienta MCP.
+2. **Ciclo de Vida de Releases:** Documentar la distinción canónica entre `unreleased` (paquete activo en desarrollo, mutable, changelog vivo) y `released` (histórico inmutable en producción con `releasedAt`).
+3. **Auditoría de Identificadores:** Instrucciones para que el auditor de QA verifique la integridad de prefijos (`DEV-XXX`), evitando duplicidades o formatos corruptos.
+
+**Criterios de Aceptación:**
+- [ ] #1 Actualizar .agents/skills/devboard/SKILL.md con las reglas anti-scripts y el flujo unreleased vs released
+- [ ] #2 Actualizar .agents/skills/rigorous-qa-auditor/SKILL.md con guardrails de integridad de IDs
+- [ ] #3 Reflejar las directivas clave en AGENTS.md
+
+---
+
+#### [DEV-066] Simplificación Conceptual de Releases: Lista Unificada (En Preparación vs Implementado) y Detalle Progresivo
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.1
+
+Refactorización y simplificación radical del modelo y la interfaz de Releases:
+1. **Unificación Conceptual:** 'Planning', 'Target' y 'Unreleased' son conceptualmente lo mismo: una versión **En Preparación**. Eliminar la división artificial en bloques separados redundantes.
+2. **Modelo Binario Puro:**
+   - **En Preparación (Unreleased / Dev):** Trabajo activo, editable, mutable.
+   - **Implementado / Entregado (Released / Prod):** Desplegado a producción, histórico e inmutable.
+3. **Ergonomía de Lista y Detalle Progresivo:** Presentar las versiones en una lista limpia y concisa (vista compacta / feed simple). Desplegar metadatos extensos, notas de cambio y edición únicamente cuando el usuario selecciona o expande una versión específica.
+
+**Criterios de Aceptación:**
+- [ ] #1 Unificar los estados del modelo de Release a exclusivamente 'unreleased' y 'released'
+- [ ] #2 Rediseñar ReleaseAssembler.tsx hacia una vista tipo lista compacta y clara sin divisiones redundantes
+- [ ] #3 Implementar panel de detalle progresivo (drawer o split-view) para inspección y edición bajo demanda
+
+---
+
+### ✅ Done / Deployed (41)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -927,7 +978,7 @@ Reubicar el conmutador de modo de columnas ("Simple" vs "Ampliada") desde el Hea
 ---
 
 #### [DEV-035] Transformación de Configuración a Vista de Página Completa (SettingsView)
-- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Prioridad**: `urgent` | **Tipo**: `ux`
 - **Sprint / Milestone**: 0.3.0
 
 Reemplazar el modal comprimido de configuración (`SettingsModal.tsx`) por una vista de página completa (`SettingsView.tsx`):
@@ -1055,5 +1106,38 @@ Ajustes conceptuales y de eficiencia en la vista de Sprints y Priorización:
 - [x] #2 Al soltar una tarjeta en un contenedor, comprobar si el sprint destino es idéntico al actual y abortar la mutación si no hay cambios
 - [x] #3 Asegurar que el contenedor Backlog se ubica de forma consistente como el último agrupador en la vista
 - [x] #4 En los selectores rápidos de la tabla de SprintView, la opción vacía muestra 'Backlog' en lugar de 'Sin Sprint'
+
+---
+
+#### [DEV-062] Separación de Versiones en Unreleased (Dev) y Released (Producción) en Release Hub y Modelo de Datos
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.0
+
+Corrección conceptual integral del ciclo de vida de versiones: una versión en desarrollo (staging/dev) es 'unreleased' independientemente de si tiene tareas listas o commits. Solo pasa a 'released' (histórico inmutable) al ser explícitamente promovida/desplegada a producción.
+
+**Criterios de Aceptación:**
+- [x] #1 Soporte explícito para status 'unreleased' en Release y migración de v0.3.0 de released a unreleased en releases.json
+- [x] #2 vite.config.ts no asigna releasedAt ni fuerza status done salvo que la versión sea explícitamente 'released'
+- [x] #3 ReleaseAssembler.tsx divide claramente 'Unreleased / En Preparación' de 'Releases Históricos (Producción)'
+- [x] #4 Botón 'Guardar Borrador Unreleased' para actualizar changelog continuo en dev sin sellar histórico
+- [x] #5 Modal/Acción deliberada 'Liberar a Producción' que solicita confirmación antes de marcar como 'released' y registrar releasedAt
+- [x] #6 MCP server (devboard_list_releases) expone el campo status ('unreleased' | 'released' | 'planned') de cada versión
+
+---
+
+#### [DEV-063] Fix: Estabilidad de Scroll, Tie-Breakers Deterministas y Normalización al Ordenar en Vista Sprint
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.3.0
+
+Corrección del comportamiento de salto vertical, parpadeo y desplazamiento involuntario de la pantalla al ordenar por columnas (especialmente Prioridad) en `SprintView.tsx`:
+1. **Comparador Débil y Valores No Normalizados:** Al ordenar por prioridad, si las prioridades coinciden o contienen valores textuales no estándar (`urgent`, `high`, `undefined`), el comparador produce `0` o `NaN`, corrompiendo la estabilidad del ordenamiento y alterando aleatoriamente las alturas de los bloques. Se debe normalizar la prioridad y utilizar un tie-breaker secundario determinista (desempate por `code`).
+2. **Preservación de Scroll del Viewport:** Al hacer click en un header de ordenamiento en una tabla ubicada más abajo en la página (ej. Backlog), el reordenamiento de los grupos superiores altera la altura total y el navegador resetea o desplaza bruscamente `window.scrollY`. Se debe anclar o restaurar de forma fluida e instantánea la posición relativa del viewport al cambiar de orden.
+
+**Criterios de Aceptación:**
+- [x] #1 Normalizar prioridades y aplicar tie-breaker determinista por código en el ordenamiento por prioridad
+- [x] #2 Aplicar tie-breaker determinista por código en el ordenamiento por estado
+- [x] #3 Preservar de forma instantánea y fluida la posición de scroll (`window.scrollY`) antes y después del ordenamiento
+- [x] #4 Prevenir saltos de layout o scroll anchoring errático en las tablas de SprintView
+- [x] #5 Verificación interactiva en navegador confirmando cero saltos de scroll al ordenar
 
 ---

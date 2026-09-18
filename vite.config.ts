@@ -403,13 +403,15 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
         }
       }
 
-      // Asignar targetRelease y releasedAt a las tareas ya liberadas en releases pasados
+      // Asignar targetRelease a tareas de releases, y releasedAt ÚNICAMENTE si el release está liberado (released) a producción
       if (releases.length > 0) {
-        const releaseByCode = new Map<string, { version: string; date: string }>();
+        const releaseByCode = new Map<string, { version: string; date: string; isReleased: boolean }>();
         for (const rel of releases) {
+          const isReleased = rel.status === 'released';
           for (const code of rel.itemCodes || []) {
-            if (!releaseByCode.has(code.toUpperCase())) {
-              releaseByCode.set(code.toUpperCase(), { version: rel.version, date: rel.date });
+            const key = code.toUpperCase();
+            if (!releaseByCode.has(key) || (!releaseByCode.get(key)!.isReleased && isReleased)) {
+              releaseByCode.set(key, { version: rel.version, date: rel.date, isReleased });
             }
           }
         }
@@ -418,7 +420,9 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
           if (releaseByCode.has(key)) {
             const rInfo = releaseByCode.get(key)!;
             it.targetRelease = it.targetRelease || rInfo.version;
-            it.releasedAt = it.releasedAt || (rInfo.date ? new Date(rInfo.date).toISOString() : undefined);
+            if (rInfo.isReleased) {
+              it.releasedAt = it.releasedAt || (rInfo.date ? new Date(rInfo.date).toISOString() : undefined);
+            }
           }
         }
       }
@@ -1383,25 +1387,28 @@ function devBoardApi(): PluginOption {
               if (!project) return sendJson(400, { error: 'Project not found' });
 
               const backlog = readProjectBacklog(project);
-              const isPlanned = body.status === 'planned';
+              const requestedStatus = body.status === 'released' ? 'released' : (body.status === 'planned' ? 'planned' : 'unreleased');
+              const isReleased = requestedStatus === 'released';
+              const isPlanned = requestedStatus === 'planned';
+              const isUnreleased = requestedStatus === 'unreleased';
               const release = {
                 id: body.id || `rel-${(body.version || '1.0.0').replace(/\./g, '-')}-${Date.now()}`,
                 projectId: project.id,
                 version: body.version || '1.0.0',
                 date: body.date || now.split('T')[0],
-                title: body.title || (isPlanned ? `Planificado: ${body.version}` : 'Nuevo Release'),
+                title: body.title || (isPlanned ? `Planificado: ${body.version}` : (isUnreleased ? `En Preparación: v${body.version}` : `Release v${body.version}`)),
                 summary: body.summary || '',
                 itemCodes: body.itemCodes || [],
                 markdownContent: body.markdownContent || '',
                 createdAt: body.createdAt || now,
-                status: isPlanned ? 'planned' : 'released',
+                status: requestedStatus,
                 targetDate: body.targetDate || undefined,
                 scopeNotes: body.scopeNotes || undefined
               };
 
               const itemCodeSet = new Set(release.itemCodes);
-              if (!isPlanned) {
-                // When officially publishing/releasing: mark releasedAt and complete ready tasks
+              if (isReleased) {
+                // When officially publishing/releasing to production: mark releasedAt and complete ready/finish tasks
                 backlog.items = backlog.items.map((it: any) => {
                   if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
                     const updated = {
@@ -1420,14 +1427,14 @@ function devBoardApi(): PluginOption {
                   return it;
                 });
               } else {
-                // When planning: link items to milestone
+                // When unreleased (dev) or planning: associate targetRelease without marking releasedAt or closing tasks
                 backlog.items = backlog.items.map((it: any) => {
                   if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
-                    if (it.milestone !== release.version && it.targetSprint !== release.version) {
+                    if (it.targetRelease !== release.version || (isPlanned && it.milestone !== release.version)) {
                       const updated = {
                         ...it,
-                        milestone: release.version,
                         targetRelease: release.version,
+                        milestone: it.milestone || release.version,
                         updatedAt: now
                       };
                       if (isBacklogMdProject(project)) {

@@ -3,7 +3,7 @@ id: DEV-035
 title: "Transformación de Configuración a Vista de Página Completa (SettingsView)"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-18 00:28'
+updated_date: '2026-09-18 05:02'
 labels:
   - ux
   - architecture
@@ -11,7 +11,7 @@ labels:
 dependencies:
   - DEV-033
   - DEV-034
-priority: medium
+priority: urgent
 type: ux
 milestone: "0.3.0"
 sprint: "Sprint 1"
