@@ -64,6 +64,17 @@ send({
   }
 });
 
+// 5. Call devboard_sync_backlog (DEV-064)
+send({
+  jsonrpc: '2.0',
+  id: 5,
+  method: 'tools/call',
+  params: {
+    name: 'devboard_sync_backlog',
+    arguments: { autoFix: true }
+  }
+});
+
 setTimeout(() => {
   child.kill();
 
@@ -78,26 +89,33 @@ setTimeout(() => {
   if (!initRes || !initRes.result?.serverInfo) {
     throw new Error('Respuesta de initialize no válida');
   }
-  console.log(`✅ [1/4] initialize OK: Servidor ${initRes.result.serverInfo.name} v${initRes.result.serverInfo.version}`);
+  console.log(`✅ [1/5] initialize OK: Servidor ${initRes.result.serverInfo.name} v${initRes.result.serverInfo.version}`);
 
   const toolsRes = responses.find(r => r.id === 2);
   const toolNames = (toolsRes?.result?.tools || []).map(t => t.name);
-  if (!toolNames.includes('devboard_list_releases')) {
-    throw new Error(`devboard_list_releases no encontrado en tools/list: ${toolNames.join(', ')}`);
+  if (!toolNames.includes('devboard_list_releases') || !toolNames.includes('devboard_sync_backlog')) {
+    throw new Error(`devboard_sync_backlog o releases no encontrado en tools/list: ${toolNames.join(', ')}`);
   }
-  console.log(`✅ [2/4] tools/list OK: ${toolNames.length} herramientas disponibles (incluye devboard_list_releases, bulk_update, stats)`);
+  console.log(`✅ [2/5] tools/list OK: ${toolNames.length} herramientas disponibles (incluye devboard_sync_backlog, devboard_list_releases)`);
 
   const releasesRes = responses.find(r => r.id === 3);
   if (!releasesRes || releasesRes.error) {
     throw new Error(`Llamada a devboard_list_releases falló: ${JSON.stringify(releasesRes)}`);
   }
   const releasesData = JSON.parse(releasesRes.result.content[0].text);
-  console.log(`✅ [3/4] devboard_list_releases (DEV-023) OK: Total releases: ${releasesData.totalReleases || 0}`);
+  console.log(`✅ [3/5] devboard_list_releases (DEV-023) OK: Total releases: ${releasesData.totalReleases || 0}`);
 
   const statsRes = responses.find(r => r.id === 4);
   const statsData = JSON.parse(statsRes.result.content[0].text);
-  console.log(`✅ [4/4] devboard_get_stats OK: Total tareas: ${statsData.total}, Open: ${statsData.open}, Completion: ${statsData.completionRate}`);
+  console.log(`✅ [4/5] devboard_get_stats OK: Total tareas: ${statsData.total}, Open: ${statsData.open}, Completion: ${statsData.completionRate}`);
 
-  console.log('🎉 DEV-016 (Empaquetado MCP sin flags) y DEV-023 (Releases en MCP) completamente validados!');
+  const syncRes = responses.find(r => r.id === 5);
+  if (!syncRes || syncRes.error) {
+    throw new Error(`Llamada a devboard_sync_backlog falló: ${JSON.stringify(syncRes)}`);
+  }
+  const syncData = JSON.parse(syncRes.result.content[0].text);
+  console.log(`✅ [5/5] devboard_sync_backlog (DEV-064) OK: Tareas: ${syncData.taskCount}, BacklogPath: ${syncData.backlogPath ? 'presente' : 'null'}`);
+
+  console.log('🎉 DEV-016, DEV-023 y DEV-064 (MCP Hardening & Sync Backlog) completamente validados!');
   process.exit(0);
 }, 2000);

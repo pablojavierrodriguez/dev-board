@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (22)
+### 📋 Backlog / Draft (21)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -374,23 +374,6 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-#### [DEV-064] Hardening de MCP Server: Sanitización de Prefijo, Cálculo Robusto de IDs Secuenciales y Herramienta devboard_sync_backlog
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.3.1
-
-Hardening integral del servidor MCP (`scripts/mcp-server.ts` y binario standalone `bin/devboard-mcp.js`):
-1. **Sanitización de Prefijos de Proyecto:** Eliminar caracteres no alfanuméricos en `codePrefix` (ej. `dev-board` extraía `"DEV-"`, produciendo dobles guiones `DEV--060`). Limpiar con `.replace(/[^A-Z0-9]/g, '')`.
-2. **Cálculo Robusto de IDs Secuenciales:** Reemplazar `tasks.length + 1` por una búsqueda de `max(num) + 1` parseando los códigos existentes mediante regex para evitar colisiones numéricas cuando hay tareas eliminadas o no correlativas.
-3. **Herramienta `devboard_sync_backlog`:** Nueva tool JSON-RPC que reconcilia tareas y genera `BACKLOG.md` sin requerir que agentes de IA ejecuten comandos de shell sueltos (`npm run backlog:sync`).
-
-**Criterios de Aceptación:**
-- [ ] #1 Sanitización de prefijo en mcp-server.ts impidiendo dobles guiones en IDs generados
-- [ ] #2 Cálculo de nuevo ID basado en max(existentes) + 1 con fallback seguro
-- [ ] #3 Implementación de tool devboard_sync_backlog en el servidor MCP
-- [ ] #4 Reconstrucción del binario standalone bin/devboard-mcp.js y validación con scripts/verify-mcp-binary.js
-
----
-
 #### [DEV-065] Actualización de Skills de Agentes: Guía Estricta Anti-Scripts de Terminal y Ciclo de Vida Unreleased vs Released
 - **Prioridad**: `medium` | **Tipo**: `feature`
 - **Sprint / Milestone**: 0.3.1
@@ -425,7 +408,7 @@ Refactorización y simplificación radical del modelo y la interfaz de Releases:
 
 ---
 
-### ✅ Done / Deployed (42)
+### ✅ Done / Deployed (43)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1139,5 +1122,22 @@ Corrección del comportamiento de salto vertical, parpadeo y desplazamiento invo
 - [x] #3 Preservar de forma instantánea y fluida la posición de scroll (`window.scrollY`) antes y después del ordenamiento
 - [x] #4 Prevenir saltos de layout o scroll anchoring errático en las tablas de SprintView
 - [x] #5 Verificación interactiva en navegador confirmando cero saltos de scroll al ordenar
+
+---
+
+#### [DEV-064] Hardening de MCP Server: Sanitización de Prefijo, Cálculo Robusto de IDs Secuenciales y Herramienta devboard_sync_backlog
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.1
+
+Hardening integral del servidor MCP (`scripts/mcp-server.ts` y binario standalone `bin/devboard-mcp.js`):
+1. **Sanitización de Prefijos de Proyecto:** Eliminar caracteres no alfanuméricos en `codePrefix` (ej. `dev-board` extraía `"DEV-"`, produciendo dobles guiones `DEV--060`). Limpiar con `.replace(/[^A-Z0-9]/g, '')`.
+2. **Cálculo Robusto de IDs Secuenciales:** Reemplazar `tasks.length + 1` por una búsqueda de `max(num) + 1` parseando los códigos existentes mediante regex para evitar colisiones numéricas cuando hay tareas eliminadas o no correlativas.
+3. **Herramienta `devboard_sync_backlog`:** Nueva tool JSON-RPC que reconcilia tareas y genera `BACKLOG.md` sin requerir que agentes de IA ejecuten comandos de shell sueltos (`npm run backlog:sync`).
+
+**Criterios de Aceptación:**
+- [x] #1 Sanitización de prefijo en mcp-server.ts impidiendo dobles guiones en IDs generados
+- [x] #2 Cálculo de nuevo ID basado en max(existentes) + 1 con fallback seguro
+- [x] #3 Implementación de tool devboard_sync_backlog en el servidor MCP
+- [x] #4 Reconstrucción del binario standalone bin/devboard-mcp.js y validación con scripts/verify-mcp-binary.js
 
 ---

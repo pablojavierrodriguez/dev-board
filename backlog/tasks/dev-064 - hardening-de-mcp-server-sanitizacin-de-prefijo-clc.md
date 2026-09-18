@@ -1,9 +1,9 @@
 ---
 id: DEV-064
 title: "Hardening de MCP Server: Sanitización de Prefijo, Cálculo Robusto de IDs Secuenciales y Herramienta devboard_sync_backlog"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 02:51'
+updated_date: '2026-09-18 09:27'
 labels:
   - mcp
   - architecture
@@ -13,10 +13,9 @@ priority: high
 type: feature
 milestone: "0.3.1"
 sprint: "Sprint 2"
-targetSprint: "Sprint 2"
 release: "0.3.1"
 targetRelease: "0.3.1"
-order: 10
+order: "10"
 ---
 
 ## Description
@@ -31,10 +30,10 @@ Hardening integral del servidor MCP (`scripts/mcp-server.ts` y binario standalon
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Sanitización de prefijo en mcp-server.ts impidiendo dobles guiones en IDs generados
-- [ ] #2 Cálculo de nuevo ID basado en max(existentes) + 1 con fallback seguro
-- [ ] #3 Implementación de tool devboard_sync_backlog en el servidor MCP
-- [ ] #4 Reconstrucción del binario standalone bin/devboard-mcp.js y validación con scripts/verify-mcp-binary.js
+- [x] #1 Sanitización de prefijo en mcp-server.ts impidiendo dobles guiones en IDs generados
+- [x] #2 Cálculo de nuevo ID basado en max(existentes) + 1 con fallback seguro
+- [x] #3 Implementación de tool devboard_sync_backlog en el servidor MCP
+- [x] #4 Reconstrucción del binario standalone bin/devboard-mcp.js y validación con scripts/verify-mcp-binary.js
 <!-- AC:END -->
 
 ## Implementation Plan

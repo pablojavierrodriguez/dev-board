@@ -428,7 +428,7 @@ function getRegistry() {
       const synthProject = {
         id: synthId,
         name: folderName,
-        codePrefix: folderName.substring(0, 4).toUpperCase(),
+        codePrefix: (folderName.split(/[^A-Za-z0-9]/)[0] || folderName.replace(/[^A-Za-z0-9]/g, "").substring(0, 4)).toUpperCase() || "DEV",
         repoPath: targetRepo,
         storageType: hasMdBacklog ? "markdown" : "json",
         backlogDir: "backlog",
@@ -650,6 +650,17 @@ var TOOLS = [
       properties: {
         projectId: { type: "string", description: "ID del proyecto. Si se omite, usa el proyecto activo." },
         version: { type: "string", description: 'Versi\xF3n espec\xEDfica a consultar (ej: "v1.2.0" o "1.2.0"). Si se omite, devuelve todas.' }
+      }
+    }
+  },
+  {
+    name: "devboard_sync_backlog",
+    description: "Audita y reconcilia autom\xE1ticamente tareas desfasadas con sus criterios de aceptaci\xF3n y regenera el archivo BACKLOG.md consolidado sin requerir comandos de shell.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "ID del proyecto a sincronizar. Si se omite, usa el proyecto activo." },
+        autoFix: { type: "boolean", description: "Si es true, auto-promociona tareas con todos sus ACs cumplidos a Done y reconcilia ACs en tareas cerradas." }
       }
     }
   }
@@ -924,8 +935,19 @@ async function handleToolCall(name, args) {
   if (name === "devboard_create_task") {
     const project = registry.projects.find((p) => p.id === args.projectId) || registry.projects.find((p) => p.id === registry.activeProjectId) || registry.projects[0];
     if (!project) throw new Error("Proyecto no encontrado.");
+    const cleanPrefix = (project.codePrefix || "DEV").replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "DEV";
     const tasks = readTasksForProject(project);
-    const code = `${project.codePrefix}-${String(tasks.length + 1).padStart(3, "0")}`;
+    let maxNum = 0;
+    const regex = new RegExp(`^${cleanPrefix}-(\\d+)`, "i");
+    for (const t of tasks) {
+      const m = (t.code || t.id || "").match(regex);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    }
+    const nextNum = maxNum > 0 ? maxNum + 1 : tasks.length + 1;
+    const code = `${cleanPrefix}-${String(nextNum).padStart(3, "0")}`;
     const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
     const acList = (args.acceptanceCriteria || []).map((text, i) => ({
       index: i + 1,
@@ -1082,6 +1104,84 @@ async function handleToolCall(name, args) {
       ok: true,
       savedPath,
       taskCount: tasks.length
+    };
+  }
+  if (name === "devboard_sync_backlog") {
+    const targetProject = registry.projects.find((p) => p.id === args.projectId) || registry.projects.find((p) => p.id === registry.activeProjectId) || registry.projects[0];
+    if (!targetProject) throw new Error("Proyecto no encontrado.");
+    let fixedCount = 0;
+    const errors = [];
+    const autoFix = args.autoFix !== false;
+    if (targetProject.storageType === "markdown" && targetProject.repoPath) {
+      const tasksDir = getTasksDir(targetProject);
+      if (fs.existsSync(tasksDir)) {
+        const files = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
+        for (const file of files) {
+          const filePath = path.join(tasksDir, file);
+          const content2 = fs.readFileSync(filePath, "utf8");
+          const fmMatch = content2.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+          if (!fmMatch) continue;
+          const fm = fmMatch[1];
+          const statusMatch = fm.match(/^status:\s*['"]?([A-Za-z0-9_-]+)['"]?/m);
+          const idMatch = fm.match(/^id:\s*['"]?([A-Za-z0-9_-]+)['"]?/m);
+          const rawStatus = (statusMatch ? statusMatch[1] : "").toLowerCase();
+          const taskId = idMatch ? idMatch[1] : file.split(" - ")[0];
+          const acBlockMatch = content2.match(/<!-- AC:BEGIN -->([\s\S]*?)<!-- AC:END -->/);
+          if (!acBlockMatch) continue;
+          const acBlock = acBlockMatch[1];
+          const allAcs = acBlock.match(/^-\s*\[([ xX])\]/gm) || [];
+          const checkedAcs = acBlock.match(/^-\s*\[[xX]\]/gm) || [];
+          const totalAcs = allAcs.length;
+          const totalChecked = checkedAcs.length;
+          if (totalAcs > 0 && totalChecked === totalAcs && (rawStatus === "draft" || rawStatus === "doing")) {
+            if (autoFix) {
+              const updatedFm = fm.replace(/^status:\s*.*$/m, "status: Done");
+              const updatedContent = content2.replace(fmMatch[0], `---
+${updatedFm}
+---`);
+              fs.writeFileSync(filePath, updatedContent, "utf8");
+              fixedCount++;
+            } else {
+              errors.push(`${taskId}: Todos los AC completados (${totalChecked}/${totalAcs}) pero status es '${rawStatus}'`);
+            }
+          }
+          if (rawStatus === "done" && totalAcs > 0 && totalChecked < totalAcs) {
+            if (autoFix) {
+              const fixedAcBlock = acBlock.replace(/-\s*\[ \]/g, "- [x]");
+              const updatedContent = content2.replace(acBlock, fixedAcBlock);
+              fs.writeFileSync(filePath, updatedContent, "utf8");
+              fixedCount++;
+            } else {
+              errors.push(`${taskId}: Status es 'done' pero solo tiene ${totalChecked}/${totalAcs} ACs marcados`);
+            }
+          }
+        }
+      }
+    }
+    const allTasks = readTasksForProject(targetProject);
+    const mdTasks = allTasks.map((t) => ({
+      id: t.code || t.id,
+      title: t.title,
+      status: normalizeStatus(t.status),
+      type: t.type,
+      priority: t.priority,
+      milestone: t.milestone || t.targetSprint,
+      description: t.description,
+      acceptanceCriteria: t.acceptanceCriteriaList || []
+    }));
+    const content = generateMonolithicBacklogMd(targetProject.name, mdTasks);
+    let backlogPath = null;
+    if (targetProject.repoPath) {
+      backlogPath = path.join(targetProject.repoPath, "BACKLOG.md");
+      fs.writeFileSync(backlogPath, content, "utf8");
+    }
+    return {
+      ok: true,
+      fixedCount,
+      errorsFound: errors.length,
+      errors,
+      taskCount: allTasks.length,
+      backlogPath
     };
   }
   if (name === "devboard_list_releases") {
