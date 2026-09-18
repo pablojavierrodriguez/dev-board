@@ -1,10 +1,9 @@
 ---
 id: DEV-007
 title: "Optimización de UX Responsive y Mobile para Pantallas Pequeñas"
-status: Draft
-assignee: []
+status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-16'
+updated_date: '2026-09-18 03:41'
 labels:
   - mobile
   - responsive
@@ -13,8 +12,8 @@ labels:
 dependencies: []
 priority: high
 type: ux
-milestone: "v1.2.0"
-order: 36
+milestone: "0.3.0"
+order: "36"
 ---
 
 ## Description
@@ -28,11 +27,11 @@ Se requiere un diseño adaptativo mobile-first: navegación colapsable en Header
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Adaptar Header para mobile: menú colapsable (hamburguesa/drawer) o barra inferior para selector de proyectos y acciones
-- [ ] #2 Implementar vista mobile para el Kanban: selector de columna tipo tabs/pills o swipe horizontal con snap para ver una columna a la vez
-- [ ] #3 Adaptar modales (`ItemModal`, `ProjectModal`, `ConfirmModal`, `SettingsModal`) a modo bottom-sheet o pantalla completa en pantallas < 640px
-- [ ] #4 Garantizar áreas táctiles mínimas de 44x44px para botones e interactivos en mobile
-- [ ] #5 Eliminar cualquier scroll horizontal indeseado a nivel de ventana (`overflow-x-hidden` seguro en layout principal)
+- [x] #1 Adaptar Header para mobile: menú colapsable (hamburguesa/drawer) o barra inferior para selector de proyectos y acciones
+- [x] #2 Implementar vista mobile para el Kanban: selector de columna tipo tabs/pills o swipe horizontal con snap para ver una columna a la vez
+- [x] #3 Adaptar modales (`ItemModal`, `ProjectModal`, `ConfirmModal`, `SettingsModal`) a modo bottom-sheet o pantalla completa en pantallas < 640px
+- [x] #4 Garantizar áreas táctiles mínimas de 44x44px para botones e interactivos en mobile
+- [x] #5 Eliminar cualquier scroll horizontal indeseado a nivel de ventana (`overflow-x-hidden` seguro en layout principal)
 <!-- AC:END -->
 
 ## Implementation Plan

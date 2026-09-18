@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseBacklogMd, serializeBacklogMd, generateTaskFilename, normalizeStatus, normalizePriority } from './backlogMdParser.ts';
+import { parseBacklogMd, serializeBacklogMd, generateTaskFilename, normalizeStatus, normalizePriority, generateMonolithicBacklogMd } from './backlogMdParser.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -178,6 +178,24 @@ async function main() {
   }
 
   let tasks = loadTasks(project);
+
+  // Modo Exportar a BACKLOG.md consolidado
+  if (args[0] === 'export' || args.includes('--export')) {
+    const md = generateMonolithicBacklogMd(project.name, tasks.map(t => t._raw || {
+      id: t.id || t.code,
+      title: t.title,
+      status: t.status,
+      type: t.type,
+      priority: t.priority,
+      milestone: t.milestone,
+      description: t.description || '',
+      acceptanceCriteria: t.acceptanceCriteria || []
+    }));
+    const exportPath = path.join(project.repoPath || process.cwd(), 'BACKLOG.md');
+    fs.writeFileSync(exportPath, md, 'utf8');
+    console.log(`📄 Backlog consolidado exportado exitosamente a: ${exportPath}`);
+    return;
+  }
 
   // Modo Estadísticas / Dashboard
   if (showStats) {

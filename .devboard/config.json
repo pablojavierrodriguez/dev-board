@@ -1,0 +1,124 @@
+{
+  "theme": "dark",
+  "density": "comfortable",
+  "autoSave": true,
+  "kanban": {
+    "showIdeasByDefault": false,
+    "columns": [
+      {
+        "id": "col-draft",
+        "title": "Draft",
+        "subtitle": "Backlog & Triaged",
+        "color": "border-slate-300 dark:border-slate-700/60",
+        "dotColor": "bg-indigo-500",
+        "statuses": [
+          "draft",
+          "ideas",
+          "backlog"
+        ],
+        "dropTargetStatus": "draft"
+      },
+      {
+        "id": "col-doing",
+        "title": "Doing",
+        "subtitle": "Desarrollo activo",
+        "color": "border-amber-500/30",
+        "dotColor": "bg-amber-500",
+        "statuses": [
+          "doing",
+          "in_progress"
+        ],
+        "dropTargetStatus": "doing"
+      },
+      {
+        "id": "col-review",
+        "title": "Review",
+        "subtitle": "Testing & Code Review",
+        "color": "border-purple-500/30",
+        "dotColor": "bg-purple-500",
+        "statuses": [
+          "review",
+          "testing_qa"
+        ],
+        "dropTargetStatus": "review"
+      },
+      {
+        "id": "col-ready",
+        "title": "Ready",
+        "subtitle": "Ready for deploy",
+        "color": "border-teal-500/30",
+        "dotColor": "bg-teal-500",
+        "statuses": [
+          "ready",
+          "finish"
+        ],
+        "dropTargetStatus": "ready"
+      },
+      {
+        "id": "col-done",
+        "title": "Done",
+        "subtitle": "Deployed & Cerrado",
+        "color": "border-emerald-500/30",
+        "dotColor": "bg-emerald-500",
+        "statuses": [
+          "done"
+        ],
+        "dropTargetStatus": "done"
+      }
+    ],
+    "wipLimits": {
+      "col-doing": 0,
+      "col-review": 0,
+      "col-ready": 0
+    },
+    "simplifiedColumns": [
+      {
+        "id": "col-draft",
+        "title": "Backlog",
+        "subtitle": "Priorizado y Refinado",
+        "color": "border-slate-300 dark:border-slate-700/60",
+        "dotColor": "bg-indigo-500",
+        "statuses": [
+          "draft",
+          "backlog"
+        ],
+        "dropTargetStatus": "draft"
+      },
+      {
+        "id": "col-doing",
+        "title": "In Progress",
+        "subtitle": "Doing & Review",
+        "color": "border-amber-500/30",
+        "dotColor": "bg-amber-500",
+        "statuses": [
+          "doing",
+          "in_progress",
+          "review",
+          "testing_qa"
+        ],
+        "dropTargetStatus": "doing"
+      },
+      {
+        "id": "col-done",
+        "title": "Done",
+        "subtitle": "Deployed & Liberado",
+        "color": "border-emerald-500/30",
+        "dotColor": "bg-emerald-500",
+        "statuses": [
+          "done",
+          "ready",
+          "finish"
+        ],
+        "dropTargetStatus": "ready"
+      }
+    ]
+  },
+  "version": "1.0.0",
+  "defaultView": "kanban",
+  "enabledTabs": {
+    "kanban": true,
+    "sprint": true,
+    "release": true
+  },
+  "methodology": "scrumban"
+}

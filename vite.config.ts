@@ -31,6 +31,8 @@ interface ProjectMeta {
   isDemo?: boolean;
   storageType?: 'json' | 'markdown';
   backlogDir?: string;
+  docsPath?: string;
+  hasDocs?: boolean;
   createdAt: string;
   error?: string;
 }
@@ -75,6 +77,30 @@ function isBacklogMdProject(project: ProjectMeta): boolean {
 function getBacklogTasksDir(project: ProjectMeta): string {
   const dir = project.backlogDir || 'backlog';
   return path.join(project.repoPath || '', dir, 'tasks');
+}
+
+function getProjectDocsPath(project: ProjectMeta): string | null {
+  if (project.docsPath && fs.existsSync(project.docsPath)) {
+    return project.docsPath;
+  }
+  if (project.repoPath) {
+    const defaultDocs = path.join(project.repoPath, 'docs');
+    if (fs.existsSync(defaultDocs)) {
+      try {
+        const files = fs.readdirSync(defaultDocs);
+        const hasDocFiles = files.some(f =>
+          ['quality_log.md', 'backlog.md', 'release_notes.md'].includes(f.toLowerCase()) ||
+          f.toLowerCase() === 'specs'
+        );
+        if (hasDocFiles) return defaultDocs;
+      } catch {}
+    }
+  }
+  if (project.id === 'dom') {
+    const fallback = process.env.M3_DOCS_DIR || '/Users/adrisol/Pablo/code/m3/docs';
+    if (fs.existsSync(fallback)) return fallback;
+  }
+  return null;
 }
 
 function getSafeInitialBrowseDir(): string {
@@ -153,6 +179,54 @@ function getProjectBacklogPath(project: ProjectMeta): string {
     return path.join(project.repoPath, '.devboard/backlog.json');
   }
   return path.resolve(__dirname, `data/${project.id}-backlog.json`);
+}
+
+function getConfigFilepath(project?: ProjectMeta): string {
+  if (project?.repoPath) {
+    return path.join(project.repoPath, '.devboard/config.json');
+  }
+  return path.resolve(__dirname, '.devboard/config.json');
+}
+
+const DEFAULT_CONFIG = {
+  theme: 'dark',
+  density: 'comfortable',
+  autoSave: true,
+  kanban: {
+    showIdeasByDefault: false,
+    wipLimits: {
+      'col-doing': 0,
+      'col-review': 0,
+      'col-ready': 0
+    }
+  },
+  version: '1.0.0'
+};
+
+function readProjectConfig(project?: ProjectMeta): any {
+  const configFile = getConfigFilepath(project);
+  try {
+    if (fs.existsSync(configFile)) {
+      const raw = fs.readFileSync(configFile, 'utf8');
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_CONFIG, ...parsed, _filepath: configFile };
+    }
+  } catch (err: any) {
+    console.warn(`[DevBoard Config] Failed to read ${configFile}:`, err.message);
+  }
+  return { ...DEFAULT_CONFIG, _filepath: configFile };
+}
+
+function writeProjectConfig(config: any, project?: ProjectMeta): string {
+  const configFile = getConfigFilepath(project);
+  const dir = path.dirname(configFile);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  const toSave = { ...config };
+  delete toSave._filepath;
+  fs.writeFileSync(configFile, JSON.stringify(toSave, null, 2), 'utf8');
+  return configFile;
 }
 
 function parseReleaseNotesMd(repoPath: string, projectPrefix?: string, knownItems: any[] = []): any[] {
@@ -269,6 +343,9 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
           const raw = fs.readFileSync(fullPath, 'utf8');
           const fallbackId = filename.split(' - ')[0] || filename.replace(/\.md$/, '');
           const task = parseBacklogMd(raw, fallbackId);
+          const rawFm = task.rawExtraFrontmatter || {};
+          const sprintVal = rawFm.sprint || rawFm.targetSprint || (task.milestone && task.milestone.toLowerCase().includes('sprint') ? task.milestone : undefined);
+          const releaseVal = rawFm.release || rawFm.targetRelease || (task.milestone && !task.milestone.toLowerCase().includes('sprint') ? task.milestone : undefined);
 
           items.push({
             id: task.id || fallbackId,
@@ -279,17 +356,19 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
             type: task.type || 'feature',
             priority: normalizePriority(task.priority),
             status: task.status, // normalized: draft, doing, review, ready, done, dismissed
-            targetSprint: task.milestone || undefined,
-            targetRelease: task.rawExtraFrontmatter?.targetRelease || undefined,
-            milestone: task.milestone || undefined,
-            impactedFile: task.rawExtraFrontmatter?.impactedFile || undefined,
-            risk: task.rawExtraFrontmatter?.risk || undefined,
-            fix: task.rawExtraFrontmatter?.fix || undefined,
+            sprint: sprintVal,
+            release: releaseVal,
+            targetSprint: sprintVal,
+            targetRelease: releaseVal,
+            milestone: task.milestone || releaseVal || sprintVal,
+            impactedFile: rawFm.impactedFile || undefined,
+            risk: rawFm.risk || undefined,
+            fix: rawFm.fix || undefined,
             acceptanceCriteriaList: task.acceptanceCriteria || [],
             implementationPlan: task.implementationPlan || '',
             assignees: task.assignees || [],
             labels: task.labels || [],
-            order: task.rawExtraFrontmatter?.order !== undefined ? Number(task.rawExtraFrontmatter.order) : order++,
+            order: rawFm.order !== undefined ? Number(rawFm.order) : order++,
             createdAt: task.createdDate || new Date().toISOString(),
             updatedAt: task.updatedDate || new Date().toISOString(),
             mtime: Math.round(fileStat.mtimeMs)
@@ -454,7 +533,7 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
     assignees: item.assignees || existingTask.assignees || [],
     labels: item.labels || existingTask.labels || [],
     dependencies: item.dependencies || existingTask.dependencies || [],
-    milestone: item.targetSprint || item.milestone || existingTask.milestone,
+    milestone: item.release || item.targetRelease || item.milestone || existingTask.milestone,
     createdDate: item.createdAt || existingTask.createdDate,
     updatedDate: item.updatedAt || new Date().toISOString(),
     description: item.description !== undefined ? item.description : (existingTask.description || ''),
@@ -469,7 +548,17 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
 
   if (item.impactedFile) taskData.rawExtraFrontmatter!.impactedFile = item.impactedFile;
   if (item.risk) taskData.rawExtraFrontmatter!.risk = item.risk;
-  if (item.targetRelease) taskData.rawExtraFrontmatter!.targetRelease = item.targetRelease;
+  if (item.fix) taskData.rawExtraFrontmatter!.fix = item.fix;
+  if (item.sprint || item.targetSprint) {
+    const sVal = item.sprint || item.targetSprint;
+    taskData.rawExtraFrontmatter!.sprint = sVal;
+    taskData.rawExtraFrontmatter!.targetSprint = sVal;
+  }
+  if (item.release || item.targetRelease) {
+    const rVal = item.release || item.targetRelease;
+    taskData.rawExtraFrontmatter!.release = rVal;
+    taskData.rawExtraFrontmatter!.targetRelease = rVal;
+  }
   if (item.order !== undefined) taskData.rawExtraFrontmatter!.order = item.order;
 
   const content = serializeBacklogMd(taskData);
@@ -609,7 +698,7 @@ function devBoardApi(): PluginOption {
     for (const dir of dirsToWatch) {
       try {
         const watcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
-          if (filename && (filename.startsWith('.') || filename.endsWith('.log') || filename.endsWith('.tmp') || filename.includes('.git'))) {
+          if (filename && (filename.endsWith('.log') || filename.endsWith('.tmp') || filename.includes('.git') || (filename.startsWith('.') && !filename.includes('devboard') && !filename.includes('backlog')))) {
             return;
           }
           notifyChange(dir, filename);
@@ -683,6 +772,36 @@ function devBoardApi(): PluginOption {
           try {
             const registry = getRegistry();
 
+            // GET /api/settings (DEV-006)
+            if (req.method === 'GET' && pathname === '/api/settings') {
+              const urlObj = new URL(`http://localhost${url}`);
+              const projectId = urlObj.searchParams.get('projectId');
+              const project = registry.projects.find(p => p.id === (projectId || registry.activeProjectId)) || registry.projects[0];
+              const config = readProjectConfig(project);
+              return sendJson(200, { ok: true, config, projectId: project?.id });
+            }
+
+            // POST /api/settings (DEV-006 & DEV-009)
+            if (req.method === 'POST' && pathname === '/api/settings') {
+              const body = await getBody();
+              const projectId = body.projectId || registry.activeProjectId;
+              const project = registry.projects.find(p => p.id === projectId) || registry.projects[0];
+              const configToSave = body.config || body;
+              const savedPath = writeProjectConfig(configToSave, project);
+              
+              broadcastSse('settings_changed', {
+                projectId: project?.id,
+                config: configToSave,
+                timestamp: Date.now()
+              });
+
+              return sendJson(200, {
+                ok: true,
+                config: readProjectConfig(project),
+                savedPath
+              });
+            }
+
             // GET /api/data
             if (req.method === 'GET' && url === '/api/data') {
               const allItems: any[] = [];
@@ -691,13 +810,20 @@ function devBoardApi(): PluginOption {
 
               for (const p of registry.projects) {
                 const backlog = readProjectBacklog(p);
-                resolvedProjects.push(backlog.project || p);
+                const proj = backlog.project || p;
+                const docsPath = getProjectDocsPath(proj);
+                resolvedProjects.push({
+                  ...proj,
+                  docsPath: docsPath || undefined,
+                  hasDocs: Boolean(docsPath)
+                });
                 allItems.push(...(backlog.items || []));
                 allReleases.push(...(backlog.releases || []));
               }
 
               return sendJson(200, {
                 projects: resolvedProjects,
+                activeProjectId: registry.activeProjectId,
                 items: allItems,
                 releases: allReleases,
                 lastUpdated: new Date().toISOString()
@@ -734,10 +860,11 @@ function devBoardApi(): PluginOption {
                 module: body.module || undefined,
                 impactedFile: body.impactedFile || undefined,
                 risk: body.risk || undefined,
-                fix: body.fix || undefined,
-                targetSprint: body.targetSprint || undefined,
-                targetRelease: body.targetRelease || undefined,
-                milestone: body.targetSprint || body.milestone || undefined,
+                sprint: body.sprint || body.targetSprint || undefined,
+                release: body.release || body.targetRelease || undefined,
+                targetSprint: body.sprint || body.targetSprint || undefined,
+                targetRelease: body.release || body.targetRelease || undefined,
+                milestone: body.release || body.targetRelease || body.milestone || undefined,
                 acceptanceCriteriaList: body.acceptanceCriteriaList || [],
                 implementationPlan: body.implementationPlan || '',
                 assignees: body.assignees || [],
@@ -798,6 +925,16 @@ function devBoardApi(): PluginOption {
                     updatedAt: now,
                     completedAt: isNowDone && !wasDone ? now : (isNowDone ? existing.completedAt : undefined)
                   };
+
+                  if (body.sprint !== undefined) {
+                    updatedItem.sprint = body.sprint || undefined;
+                    updatedItem.targetSprint = body.sprint || undefined;
+                  }
+                  if (body.release !== undefined) {
+                    updatedItem.release = body.release || undefined;
+                    updatedItem.targetRelease = body.release || undefined;
+                    updatedItem.milestone = body.release || undefined;
+                  }
 
                   if (isBacklogMdProject(p)) {
                     saveBacklogMdItem(p, updatedItem);
@@ -884,9 +1021,11 @@ function devBoardApi(): PluginOption {
                   description: it.description || '',
                   type: it.type || 'feature',
                   priority: normalizePriority(it.priority || 'p2'),
-                  status: normalizeStatus(it.status || 'ready'),
                   module: it.module || undefined,
-                  targetSprint: it.milestone || undefined,
+                  sprint: it.sprint || it.targetSprint || (it.milestone?.toLowerCase().includes('sprint') ? it.milestone : undefined),
+                  release: it.release || it.targetRelease || (it.milestone && !it.milestone.toLowerCase().includes('sprint') ? it.milestone : undefined),
+                  targetSprint: it.sprint || it.targetSprint || it.milestone || undefined,
+                  targetRelease: it.release || it.targetRelease || undefined,
                   milestone: it.milestone || undefined,
                   order: order++,
                   createdAt: now,
@@ -1011,6 +1150,18 @@ function devBoardApi(): PluginOption {
 
               saveRegistry(registry);
               return sendJson(200, { ok: true, id, remainingProjects: registry.projects });
+            }
+
+            // POST /api/projects/active
+            if (req.method === 'POST' && url === '/api/projects/active') {
+              const body = await getBody();
+              const { projectId } = body || {};
+              if (projectId && registry.projects.some(p => p.id === projectId)) {
+                registry.activeProjectId = projectId;
+                saveRegistry(registry);
+                return sendJson(200, { ok: true, activeProjectId: projectId });
+              }
+              return sendJson(400, { error: 'Invalid or missing projectId' });
             }
 
             // GET /api/fs/browse?dir=...
@@ -1232,46 +1383,84 @@ function devBoardApi(): PluginOption {
               if (!project) return sendJson(400, { error: 'Project not found' });
 
               const backlog = readProjectBacklog(project);
+              const isPlanned = body.status === 'planned';
               const release = {
                 id: body.id || `rel-${(body.version || '1.0.0').replace(/\./g, '-')}-${Date.now()}`,
                 projectId: project.id,
                 version: body.version || '1.0.0',
                 date: body.date || now.split('T')[0],
-                title: body.title || 'Nuevo Release',
+                title: body.title || (isPlanned ? `Planificado: ${body.version}` : 'Nuevo Release'),
                 summary: body.summary || '',
                 itemCodes: body.itemCodes || [],
                 markdownContent: body.markdownContent || '',
-                createdAt: now
+                createdAt: body.createdAt || now,
+                status: isPlanned ? 'planned' : 'released',
+                targetDate: body.targetDate || undefined,
+                scopeNotes: body.scopeNotes || undefined
               };
 
               const itemCodeSet = new Set(release.itemCodes);
-              backlog.items = backlog.items.map((it: any) => {
-                if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
-                  const updated = {
-                    ...it,
-                    targetRelease: release.version,
-                    releasedAt: now,
-                    status: it.status === 'ready' || it.status === 'finish' ? 'done' : it.status,
-                    completedAt: it.completedAt || now,
-                    updatedAt: now
-                  };
-                  if (isBacklogMdProject(project)) {
-                    saveBacklogMdItem(project, updated);
+              if (!isPlanned) {
+                // When officially publishing/releasing: mark releasedAt and complete ready tasks
+                backlog.items = backlog.items.map((it: any) => {
+                  if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
+                    const updated = {
+                      ...it,
+                      targetRelease: release.version,
+                      releasedAt: now,
+                      status: it.status === 'ready' || it.status === 'finish' ? 'done' : it.status,
+                      completedAt: it.completedAt || now,
+                      updatedAt: now
+                    };
+                    if (isBacklogMdProject(project)) {
+                      saveBacklogMdItem(project, updated);
+                    }
+                    return updated;
                   }
-                  return updated;
-                }
-                return it;
-              });
+                  return it;
+                });
+              } else {
+                // When planning: link items to milestone
+                backlog.items = backlog.items.map((it: any) => {
+                  if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
+                    if (it.milestone !== release.version && it.targetSprint !== release.version) {
+                      const updated = {
+                        ...it,
+                        milestone: release.version,
+                        targetRelease: release.version,
+                        updatedAt: now
+                      };
+                      if (isBacklogMdProject(project)) {
+                        saveBacklogMdItem(project, updated);
+                      }
+                      return updated;
+                    }
+                  }
+                  return it;
+                });
+              }
 
-              const existingIdx = backlog.releases.findIndex((r: any) => r.version === release.version);
+              const existingIdx = backlog.releases.findIndex((r: any) => r.id === release.id || r.version === release.version);
               if (existingIdx >= 0) {
-                backlog.releases[existingIdx] = release;
+                backlog.releases[existingIdx] = { ...backlog.releases[existingIdx], ...release };
               } else {
                 backlog.releases.unshift(release);
               }
 
               writeProjectBacklog(project, backlog);
               return sendJson(201, { ok: true, release });
+            }
+
+            // DELETE /api/releases/:id
+            if (req.method === 'DELETE' && url.startsWith('/api/releases/')) {
+              const releaseId = decodeURIComponent(url.replace('/api/releases/', '').split('?')[0]);
+              const project = registry.projects.find(p => p.id === registry.activeProjectId) || registry.projects[0];
+              if (!project) return sendJson(400, { error: 'Project not found' });
+              const backlog = readProjectBacklog(project);
+              const initialCount = backlog.releases.length;
+              backlog.releases = (backlog.releases || []).filter((r: any) => r.id !== releaseId && r.version !== releaseId);
+              writeProjectBacklog(project, backlog);
+              return sendJson(200, { ok: true, deleted: initialCount > backlog.releases.length });
             }
 
             // POST /api/releases/sync-legacy
@@ -1305,17 +1494,67 @@ function devBoardApi(): PluginOption {
               });
             }
 
-            // POST /api/import
+            // POST /api/import (DEV-012)
             if (req.method === 'POST' && url === '/api/import') {
               try {
-                const targetProject = registry.projects.find(p => p.id === 'dom') || registry.projects[0];
-                const targetFile = targetProject?.repoPath
-                  ? path.join(targetProject.repoPath, '.devboard/backlog.json')
-                  : path.resolve(__dirname, 'data/dom-backlog.json');
+                const body = await getBody().catch(() => ({}));
+                const projectId = body.projectId || registry.activeProjectId || registry.projects[0]?.id;
+                const targetProject = registry.projects.find(p => p.id === projectId) || registry.projects[0];
+                if (!targetProject) {
+                  return sendJson(404, { ok: false, error: 'Proyecto no encontrado' });
+                }
 
-                runMigration(process.env.M3_DOCS_DIR || '/Users/adrisol/Pablo/code/m3/docs', targetFile);
-                return sendJson(200, { ok: true });
+                const docsDir = body.docsPath || getProjectDocsPath(targetProject);
+                if (!docsDir || !fs.existsSync(docsDir)) {
+                  return sendJson(400, {
+                    ok: false,
+                    error: `El proyecto "${targetProject.name}" no tiene una carpeta de documentación vinculada (/docs) válida o existente.`
+                  });
+                }
+
+                if (isBacklogMdProject(targetProject)) {
+                  // Importación directa a tareas Markdown individuales
+                  const boardData: any = runMigration(docsDir, null, targetProject as any);
+                  let updatedCount = 0;
+                  for (const item of (boardData.items || [])) {
+                    item.projectId = targetProject.id;
+                    saveBacklogMdItem(targetProject, item);
+                    updatedCount++;
+                  }
+
+                  if (boardData.releases && boardData.releases.length > 0 && targetProject.repoPath) {
+                    const releasesPath = path.join(targetProject.repoPath, targetProject.backlogDir || 'backlog', 'releases.json');
+                    try {
+                      if (!fs.existsSync(path.dirname(releasesPath))) fs.mkdirSync(path.dirname(releasesPath), { recursive: true });
+                      fs.writeFileSync(releasesPath, JSON.stringify(boardData.releases, null, 2), 'utf8');
+                    } catch (relErr: any) {
+                      console.warn('[DevBoard] Error saving releases during import:', relErr.message);
+                    }
+                  }
+
+                  return sendJson(200, {
+                    ok: true,
+                    projectId: targetProject.id,
+                    projectName: targetProject.name,
+                    importedCount: updatedCount,
+                    releasesCount: boardData.releases?.length || 0,
+                    storageType: 'markdown'
+                  });
+                } else {
+                  // Almacenamiento JSON
+                  const targetFile = getProjectBacklogPath(targetProject);
+                  const boardData: any = runMigration(docsDir, targetFile, targetProject as any);
+                  return sendJson(200, {
+                    ok: true,
+                    projectId: targetProject.id,
+                    projectName: targetProject.name,
+                    importedCount: boardData.items?.length || 0,
+                    releasesCount: boardData.releases?.length || 0,
+                    storageType: 'json'
+                  });
+                }
               } catch (importErr: any) {
+                console.error('[DevBoard API] Error in /api/import:', importErr);
                 return sendJson(500, { ok: false, error: importErr.message });
               }
             }

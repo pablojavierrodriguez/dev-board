@@ -12,6 +12,10 @@ export interface ParsedLegacyItem {
   type: 'feature' | 'bug' | 'tech_debt' | 'ux';
   milestone?: string;
   module?: string;
+  sprint?: string;
+  release?: string;
+  targetSprint?: string;
+  targetRelease?: string;
   selected: boolean;
 }
 
@@ -105,6 +109,9 @@ export function parseLegacyMarkdown(rawContent: string, defaultMilestone?: strin
       // Clean up title
       title = title.replace(/^[:\-\s]+/, '').trim();
 
+      const isSprintHeading = currentHeading.toLowerCase().includes('sprint');
+      const isReleaseHeading = /(v\d|\d+\.\d+)/i.test(currentHeading);
+
       currentItem = {
         tempId: `IMPORT-${String(counter++).padStart(3, '0')}`,
         title: title || 'Sin título',
@@ -114,6 +121,10 @@ export function parseLegacyMarkdown(rawContent: string, defaultMilestone?: strin
         type,
         milestone: currentHeading || undefined,
         module: currentModule || undefined,
+        sprint: isSprintHeading ? currentHeading : undefined,
+        release: isReleaseHeading ? currentHeading : undefined,
+        targetSprint: isSprintHeading ? currentHeading : undefined,
+        targetRelease: isReleaseHeading ? currentHeading : undefined,
         selected: true
       };
       continue;

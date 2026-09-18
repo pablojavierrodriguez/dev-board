@@ -1,10 +1,9 @@
 ---
 id: DEV-010
 title: "Fix de Desplazamiento Horizontal Inestable en Selector de Navegación de Pestañas"
-status: Draft
-assignee: []
+status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-16'
+updated_date: '2026-09-18 03:41'
 labels:
   - bugfix
   - layout
@@ -13,8 +12,8 @@ labels:
 dependencies: []
 priority: high
 type: bug
-milestone: "v1.2.0"
-order: 39
+milestone: "0.3.0"
+order: "39"
 ---
 
 ## Description
@@ -29,10 +28,10 @@ La navegación debe permanecer centrada o fija sin saltos visuales molestos al i
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Estabilizar el layout del Header mediante un sistema de 3 columnas fijas (ej. CSS Grid `grid-cols-[1fr_auto_1fr]` o flexboxes balanceados)
-- [ ] #2 Garantizar que el selector central de navegación (`<nav>`) no se mueva horizontalmente al cambiar de proyecto (independientemente de la longitud de su nombre o badge)
-- [ ] #3 Garantizar que el selector central de navegación (`<nav>`) permanezca completamente estático al cambiar entre pestañas (Tablero, Sprint, Releases, Archivo)
-- [ ] #4 Preservar la visibilidad y estética de los botones de acciones y selectores en desktop y mobile
+- [x] #1 Estabilizar el layout del Header mediante un sistema de 3 columnas fijas (ej. CSS Grid `grid-cols-[1fr_auto_1fr]` o flexboxes balanceados)
+- [x] #2 Garantizar que el selector central de navegación (`<nav>`) no se mueva horizontalmente al cambiar de proyecto (independientemente de la longitud de su nombre o badge)
+- [x] #3 Garantizar que el selector central de navegación (`<nav>`) permanezca completamente estático al cambiar entre pestañas (Tablero, Sprint, Releases, Archivo)
+- [x] #4 Preservar la visibilidad y estética de los botones de acciones y selectores en desktop y mobile
 <!-- AC:END -->
 
 ## Implementation Plan

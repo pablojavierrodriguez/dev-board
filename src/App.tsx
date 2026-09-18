@@ -8,7 +8,9 @@ import type {
   Priority, 
   Project, 
   Release, 
-  ViewMode 
+  ViewMode,
+  DevBoardConfig,
+  ActiveTab
 } from './types';
 import { 
   fetchBoardData, 
@@ -24,7 +26,11 @@ import {
   exportMonolithicMd,
   exportProjectJson,
   restoreDemoProject,
-  subscribeToBoardEvents
+  deleteReleaseApi,
+  subscribeToBoardEvents,
+  setActiveProjectApi,
+  fetchSettings,
+  saveSettings
 } from './api';
 import { Header } from './components/Header';
 import { FilterBar } from './components/FilterBar';
@@ -36,15 +42,43 @@ import { ItemModal } from './components/ItemModal';
 import { ProjectModal } from './components/ProjectModal';
 import { PlanGuardModal } from './components/PlanGuardModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
+import { SettingsView } from './components/SettingsView';
 import { ToastContainer, type ToastMessage } from './components/Toast';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, LayoutGrid, Target, Rocket, Archive } from 'lucide-react';
 
 export function App() {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('dom');
-  const [activeTab, setActiveTab] = useState<'kanban' | 'sprint' | 'release' | 'archive'>('kanban');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('devboard_active_project_id');
+      if (saved) return saved;
+    } catch {}
+    return 'dev-board';
+  });
+
+  useEffect(() => {
+    if (selectedProjectId && selectedProjectId !== 'all') {
+      try {
+        localStorage.setItem('devboard_active_project_id', selectedProjectId);
+      } catch {}
+      setActiveProjectApi(selectedProjectId).catch(() => {});
+    }
+  }, [selectedProjectId]);
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    try {
+      const saved = localStorage.getItem('devboard_active_tab');
+      if (saved === 'kanban' || saved === 'sprint' || saved === 'release' || saved === 'archive' || saved === 'settings') return saved;
+    } catch {}
+    return 'kanban';
+  });
   const [viewMode, setViewMode] = useState<ViewMode>('simplificada');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('devboard_active_tab', activeTab);
+    } catch {}
+  }, [activeTab]);
 
   // Theme state: default dark mode, persist in localStorage
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -88,8 +122,60 @@ export function App() {
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<BacklogItem | null>(null);
   const [defaultNewStatus, setDefaultNewStatus] = useState<ItemStatus>('backlog');
+  const [defaultNewSprint, setDefaultNewSprint] = useState<string>('');
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [importWizardOpen, setImportWizardOpen] = useState(false);
+
+  // Settings / Config State (DEV-006 & DEV-009)
+  const [config, setConfig] = useState<DevBoardConfig>({});
+
+  // Computed tab visibility helpers
+  const isKanbanTabEnabled = config?.enabledTabs?.kanban !== undefined
+    ? config.enabledTabs.kanban
+    : config?.methodology !== 'scrum';
+
+  const isSprintTabEnabled = config?.enabledTabs?.sprint !== undefined
+    ? config.enabledTabs.sprint
+    : config?.methodology !== 'kanban';
+
+  const isReleaseTabEnabled = config?.enabledTabs?.release !== false;
+
+  // Auto-redirect activeTab if current tab became disabled
+  useEffect(() => {
+    if (activeTab === 'kanban' && !isKanbanTabEnabled) {
+      const fallback = isSprintTabEnabled ? 'sprint' : (isReleaseTabEnabled ? 'release' : 'settings');
+      setActiveTab(fallback);
+    } else if (activeTab === 'sprint' && !isSprintTabEnabled) {
+      const fallback = isKanbanTabEnabled ? 'kanban' : (isReleaseTabEnabled ? 'release' : 'settings');
+      setActiveTab(fallback);
+    } else if (activeTab === 'release' && !isReleaseTabEnabled) {
+      const fallback = isKanbanTabEnabled ? 'kanban' : (isSprintTabEnabled ? 'sprint' : 'settings');
+      setActiveTab(fallback);
+    }
+  }, [activeTab, isKanbanTabEnabled, isSprintTabEnabled, isReleaseTabEnabled]);
+
+  const loadSettings = useCallback(async (projId?: string) => {
+    try {
+      const cfg = await fetchSettings(projId && projId !== 'all' ? projId : undefined);
+      setConfig(cfg);
+      if (cfg.theme && (cfg.theme === 'dark' || cfg.theme === 'light')) {
+        setIsDarkMode(cfg.theme === 'dark');
+      }
+    } catch (err: any) {
+      console.warn('[DevBoard] Failed to load config:', err.message);
+    }
+  }, []);
+
+  const handleSaveConfig = useCallback(async (newConfig: DevBoardConfig) => {
+    const saved = await saveSettings(
+      newConfig, 
+      selectedProjectId !== 'all' ? selectedProjectId : undefined
+    );
+    setConfig(saved);
+    if (saved.theme && (saved.theme === 'dark' || saved.theme === 'light')) {
+      setIsDarkMode(saved.theme === 'dark');
+    }
+  }, [selectedProjectId]);
 
   // Plan Guard Modal (validates plan/spec before in_progress)
   const [planGuardOpen, setPlanGuardOpen] = useState(false);
@@ -111,6 +197,32 @@ export function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const handleUpdateColumnTitle = useCallback(async (colId: string, newTitle: string) => {
+    if (!config) return;
+    const currentColumns = config.kanban?.columns || (viewMode === 'simplificada' ? SIMPLIFIED_COLUMNS : EXPANDED_COLUMNS);
+    const updatedCols = currentColumns.map((col) => {
+      if (col.id === colId) {
+        return { ...col, title: newTitle };
+      }
+      return col;
+    });
+
+    const updatedConfig: DevBoardConfig = {
+      ...config,
+      kanban: {
+        ...config.kanban,
+        columns: updatedCols
+      }
+    };
+
+    try {
+      await handleSaveConfig(updatedConfig);
+      showToast(`Columna actualizada a "${newTitle}"`, 'success');
+    } catch (err: any) {
+      showToast(`Error al actualizar columna: ${err.message}`, 'error');
+    }
+  }, [config, viewMode, handleSaveConfig, showToast]);
+
   const [liveConnected, setLiveConnected] = useState<boolean>(false);
 
   // Initial & Live Load
@@ -121,7 +233,14 @@ export function App() {
       setBoardData(data);
       if (data.projects.length > 0 && selectedProjectId !== 'all') {
         const exists = data.projects.some((p) => p.id === selectedProjectId);
-        if (!exists) setSelectedProjectId(data.projects[0].id);
+        if (!exists) {
+          const serverActive = data.activeProjectId && data.projects.some(p => p.id === data.activeProjectId) ? data.activeProjectId : null;
+          const fallback = serverActive || data.projects.find(p => p.id === 'dev-board')?.id || data.projects[0].id;
+          setSelectedProjectId(fallback);
+          try {
+            localStorage.setItem('devboard_active_project_id', fallback);
+          } catch {}
+        }
       }
     } catch (err: any) {
       if (!silent) showToast(`Error al cargar datos: ${err.message}`, 'error');
@@ -132,9 +251,10 @@ export function App() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    loadSettings(selectedProjectId);
+  }, [selectedProjectId]);
 
-  // SSE Real-time Live Watcher Subscription (DEV-014)
+  // SSE Real-time Live Watcher Subscription (DEV-014 & DEV-006)
   useEffect(() => {
     const unsubscribe = subscribeToBoardEvents((event) => {
       if (event.type === 'connected') {
@@ -144,15 +264,24 @@ export function App() {
       } else if (event.type === 'backlog_changed') {
         loadData(true);
         showToast('Tablero sincronizado con cambios en disco', 'info');
+      } else if (event.type === 'settings_changed') {
+        loadSettings(selectedProjectId);
+        showToast('Configuración sincronizada con cambios en disco', 'info');
       }
     });
 
     return unsubscribe;
-  }, [loadData, showToast]);
+  }, [loadData, loadSettings, selectedProjectId, showToast]);
 
-  // Keyboard Shortcuts: 'N' for new item, '1'-'4' for tabs
+  // Keyboard Shortcuts: 'N' for new item, '1'-'4' for tabs, '⌘+,' for settings
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setActiveTab((prev) => (prev === 'settings' ? (config?.defaultView === 'settings' ? 'kanban' : (config?.defaultView || 'kanban')) : 'settings'));
+        return;
+      }
+
       const target = e.target as HTMLElement;
       if (
         target.tagName === 'INPUT' ||
@@ -183,19 +312,23 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Re-sync from m3 docs
+  // Re-sync from project docs (DEV-012)
   const handleResyncDocs = useCallback(async () => {
     setIsResyncing(true);
     try {
-      const refreshed = await triggerResync();
+      const result = await triggerResync(selectedProjectId);
+      const refreshed = await fetchBoardData();
       setBoardData(refreshed);
-      showToast('¡Datos sincronizados exitosamente desde /docs de m3!', 'success');
+      showToast(
+        `¡${result.projectName || 'Proyecto'} sincronizado: ${result.importedCount} tareas actualizadas!`,
+        'success'
+      );
     } catch (err: any) {
-      showToast(`Fallo al sincronizar: ${err.message}`, 'error');
+      showToast(`Fallo al sincronizar docs: ${err.message}`, 'error');
     } finally {
       setIsResyncing(false);
     }
-  }, [showToast]);
+  }, [selectedProjectId, showToast]);
 
   // Item Handlers
   const handleUpdateStatus = useCallback(async (
@@ -466,7 +599,18 @@ export function App() {
   const handleArchiveRelease = useCallback(async (releaseData: Partial<Release>, itemCodes: string[]) => {
     const created = await createRelease(releaseData, itemCodes);
     await loadData();
-    showToast(`Release v${created.version} archivado exitosamente`, 'success');
+    const actionLabel = releaseData.status === 'planned' ? 'planificado y guardado' : 'archivado exitosamente';
+    showToast(`Release v${created.version} ${actionLabel}`, 'success');
+  }, [loadData, showToast]);
+
+  const handleDeleteRelease = useCallback(async (releaseId: string) => {
+    try {
+      await deleteReleaseApi(releaseId);
+      await loadData();
+      showToast('Release eliminado del registro', 'info');
+    } catch (err: any) {
+      showToast(`Error al eliminar release: ${err.message}`, 'error');
+    }
   }, [loadData, showToast]);
 
   const handleRestoreItem = useCallback(async (id: string, targetStatus: ItemStatus) => {
@@ -489,6 +633,48 @@ export function App() {
     }
     return Array.from(set).sort();
   }, [allProjectItems]);
+
+  // User-created sprints (DEV-036)
+  const [customSprints, setCustomSprints] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('devboard_custom_sprints');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('devboard_custom_sprints', JSON.stringify(customSprints));
+    } catch {}
+  }, [customSprints]);
+
+  // Unique sprints for autocomplete (DEV-033 & DEV-036)
+  const availableSprints = useMemo(() => {
+    const set = new Set<string>();
+    for (const cs of customSprints) {
+      if (cs) set.add(cs);
+    }
+    for (const it of allProjectItems) {
+      if (it.sprint) set.add(it.sprint);
+      else if (it.targetSprint) set.add(it.targetSprint);
+    }
+    return Array.from(set).sort();
+  }, [allProjectItems, customSprints]);
+
+  // Unique releases for autocomplete (DEV-033)
+  const availableReleases = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of boardData?.releases || []) {
+      if (r.version) set.add(r.version);
+    }
+    for (const it of allProjectItems) {
+      if (it.release) set.add(it.release);
+      else if (it.targetRelease) set.add(it.targetRelease);
+    }
+    return Array.from(set).sort();
+  }, [allProjectItems, boardData]);
 
   // Metrics
   const stats = useMemo(() => {
@@ -554,7 +740,7 @@ export function App() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       
       {/* Header */}
       <Header
@@ -563,8 +749,6 @@ export function App() {
         onSelectProject={setSelectedProjectId}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-        viewMode={viewMode}
-        onChangeViewMode={setViewMode}
         onNewItem={() => {
           setEditingItem(null);
           setDefaultNewStatus('draft');
@@ -580,14 +764,13 @@ export function App() {
         onRestoreDemo={handleRestoreDemo}
         onConvertToMd={handleConvertToMd}
         onConvertToJson={handleConvertToJson}
-        onExportMonolithic={handleExportMonolithic}
-        onExportJson={handleExportJson}
         onOpenImportWizard={() => setImportWizardOpen(true)}
         liveConnected={liveConnected}
+        config={config}
       />
 
       {/* Filter Bar (Active in Kanban, Sprint, and Archive tabs) */}
-      {activeTab !== 'release' && (
+      {activeTab !== 'release' && activeTab !== 'settings' && (
         <FilterBar
           filters={filters}
           onChangeFilters={setFilters}
@@ -622,20 +805,26 @@ export function App() {
       })()}
 
       {/* Main Tab Content */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         {activeTab === 'kanban' && (
           <KanbanBoard
             items={visibleItems}
             viewMode={viewMode}
+            onChangeViewMode={setViewMode}
+            config={config}
+            availableSprints={availableSprints}
+            onNavigateToTab={setActiveTab}
+            onUpdateColumnTitle={handleUpdateColumnTitle}
             onUpdateStatus={(id, status, targetColId, targetIndex) => handleUpdateStatus(id, status, false, targetColId, targetIndex)}
             onDeleteItem={handleDeleteItem}
             onClickItem={(item) => {
               setEditingItem(item);
               setItemModalOpen(true);
             }}
-            onQuickAddItem={(status) => {
+            onQuickAddItem={(status, defaultSprint) => {
               setEditingItem(null);
               setDefaultNewStatus(status);
+              setDefaultNewSprint(defaultSprint || '');
               setItemModalOpen(true);
             }}
             onShowToast={showToast}
@@ -651,7 +840,27 @@ export function App() {
             }}
             onUpdateStatus={(id, s) => handleUpdateStatus(id, s)}
             onUpdatePriority={handleUpdatePriority}
+            onUpdateSprint={async (id, newSprint) => {
+              try {
+                const updated = await updateItem(id, { sprint: newSprint, targetSprint: newSprint });
+                setBoardData((prev) => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    items: prev.items.map((it) => (it.id === id ? { ...it, ...updated } : it))
+                  };
+                });
+                showToast(`Tarea ${updated.code} asignada a ${newSprint || 'Sin Sprint'}`, 'info');
+              } catch (err: any) {
+                showToast(`Error al reasignar sprint: ${err.message}`, 'error');
+              }
+            }}
+            onCreateSprint={(newSprint) => {
+              setCustomSprints((prev) => Array.from(new Set([...prev, newSprint])));
+              showToast(`Sprint "${newSprint}" creado. Arrastra tareas a su contenedor para planificarlo.`, 'success');
+            }}
             onDeleteItem={handleDeleteItem}
+            availableSprints={availableSprints}
           />
         )}
 
@@ -661,6 +870,7 @@ export function App() {
             releases={releases}
             projectId={selectedProjectId}
             onArchiveRelease={handleArchiveRelease}
+            onDeleteRelease={handleDeleteRelease}
             onShowToast={showToast}
           />
         )}
@@ -676,6 +886,19 @@ export function App() {
             }}
           />
         )}
+
+        {activeTab === 'settings' && (
+          <SettingsView
+            config={config}
+            onSaveConfig={handleSaveConfig}
+            currentProject={projects.find(p => p.id === selectedProjectId)}
+            onBack={() => setActiveTab(config?.defaultView === 'settings' ? 'kanban' : (config?.defaultView || 'kanban'))}
+            onShowToast={showToast}
+            onOpenImportWizard={() => setImportWizardOpen(true)}
+            onExportMonolithic={handleExportMonolithic}
+            onExportJson={handleExportJson}
+          />
+        )}
       </main>
 
       {/* Item Detail / Edit / Create Modal */}
@@ -684,13 +907,19 @@ export function App() {
         onClose={() => {
           setItemModalOpen(false);
           setEditingItem(null);
+          setDefaultNewSprint('');
         }}
         item={editingItem}
         defaultStatus={defaultNewStatus}
+        defaultSprint={defaultNewSprint}
         projects={projects}
         availableModules={availableModules}
+        availableSprints={availableSprints}
+        availableReleases={availableReleases}
         onSave={handleSaveItem}
         onDelete={handleDeleteItem}
+        activeProjectId={selectedProjectId !== 'all' ? selectedProjectId : projects[0]?.id}
+        config={config}
       />
 
       {/* Project Modal */}
@@ -723,6 +952,73 @@ export function App() {
           showToast('Tareas importadas exitosamente desde archivo legacy', 'success');
         }}
       />
+
+      {/* Mobile Bottom Navigation Bar (DEV-007) */}
+      <nav 
+        aria-label="Navegación principal móvil"
+        className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 dark:bg-[#090d15]/95 backdrop-blur-lg border-t border-slate-200 dark:border-white/[0.08] px-2 py-1 flex items-center justify-around shadow-lg"
+      >
+        {isKanbanTabEnabled && (
+          <button
+            onClick={() => setActiveTab('kanban')}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl transition-all min-h-[48px] active:scale-95 ${
+              activeTab === 'kanban'
+                ? 'text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-500/10'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <LayoutGrid className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">{config?.methodology === 'scrumban' ? 'Sprint Board' : 'Tablero'}</span>
+          </button>
+        )}
+
+        {isSprintTabEnabled && (
+          <button
+            onClick={() => setActiveTab('sprint')}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl transition-all min-h-[48px] active:scale-95 ${
+              activeTab === 'sprint'
+                ? 'text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-500/10'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Target className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">Sprint</span>
+          </button>
+        )}
+
+        {isReleaseTabEnabled && (
+          <button
+            onClick={() => setActiveTab('release')}
+            className={`flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl transition-all min-h-[48px] active:scale-95 ${
+              activeTab === 'release'
+                ? 'text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-500/10'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Rocket className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">Releases</span>
+          </button>
+        )}
+
+        <button
+          onClick={() => setActiveTab('archive')}
+          className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl transition-all min-h-[48px] active:scale-95 ${
+            activeTab === 'archive'
+              ? 'text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-500/10'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <div className="relative">
+            <Archive className="w-5 h-5 mb-0.5" />
+            {archivedCount > 0 && (
+              <span className="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center text-[9px] font-bold rounded-full bg-indigo-600 text-white">
+                {archivedCount}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] tracking-tight">Archivo</span>
+        </button>
+      </nav>
 
       {/* Floating Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

@@ -14,22 +14,22 @@ import {
   Moon,
   Trash2,
   FileCode,
-  Download,
   RotateCcw,
   Database,
-  Upload
+  Upload,
+  Settings,
+  Menu,
+  X
 } from 'lucide-react';
-import type { Project, ViewMode } from '../types';
+import type { Project, DevBoardConfig, ActiveTab } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 interface HeaderProps {
   projects: Project[];
   selectedProjectId: string;
   onSelectProject: (id: string) => void;
-  activeTab: 'kanban' | 'sprint' | 'release' | 'archive';
-  onSelectTab: (tab: 'kanban' | 'sprint' | 'release' | 'archive') => void;
-  viewMode: ViewMode;
-  onChangeViewMode: (mode: ViewMode) => void;
+  activeTab: ActiveTab;
+  onSelectTab: (tab: ActiveTab) => void;
   onNewItem: () => void;
   onNewProject: () => void;
   onDeleteProject?: (id: string) => void;
@@ -41,10 +41,9 @@ interface HeaderProps {
   onToggleTheme: () => void;
   onConvertToMd?: (projectId: string) => void;
   onConvertToJson?: (projectId: string) => void;
-  onExportMonolithic?: (projectId: string) => void;
-  onExportJson?: (projectId: string) => void;
   onOpenImportWizard?: () => void;
   liveConnected?: boolean;
+  config?: DevBoardConfig;
 }
 
 export const Header: FC<HeaderProps> = ({
@@ -53,8 +52,6 @@ export const Header: FC<HeaderProps> = ({
   onSelectProject,
   activeTab,
   onSelectTab,
-  viewMode,
-  onChangeViewMode,
   onNewItem,
   onNewProject,
   onResyncDocs,
@@ -66,12 +63,12 @@ export const Header: FC<HeaderProps> = ({
   onRestoreDemo,
   onConvertToMd,
   onConvertToJson,
-  onExportMonolithic,
-  onExportJson,
   onOpenImportWizard,
-  liveConnected = false
+  liveConnected = false,
+  config
 }) => {
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [projectToConvertMd, setProjectToConvertMd] = useState<Project | null>(null);
   const [projectToConvertJson, setProjectToConvertJson] = useState<Project | null>(null);
@@ -100,21 +97,38 @@ export const Header: FC<HeaderProps> = ({
 
   const hasDemoProject = projects.some(p => p.isDemo || p.id === 'demo');
 
+  const isKanbanEnabled = config?.enabledTabs?.kanban !== undefined
+    ? config.enabledTabs.kanban
+    : config?.methodology !== 'scrum';
+
+  const isSprintEnabled = config?.enabledTabs?.sprint !== undefined
+    ? config.enabledTabs.sprint
+    : config?.methodology !== 'kanban';
+
+  const isReleaseEnabled = config?.enabledTabs?.release !== false;
+
+  const defaultHomeTab: ActiveTab = config?.defaultView || (config?.methodology === 'scrum' ? 'sprint' : 'kanban');
+
   return (
     <>
       <header className="sticky top-0 z-30 w-full border-b border-slate-200 dark:border-white/[0.08] bg-white/90 dark:bg-[#090d15]/85 backdrop-blur-md transition-colors">
-        <div className="max-w-[1680px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <div className="max-w-[1680px] mx-auto px-4 sm:px-6 h-14 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
           
           {/* Left: Brand + Project Selector */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-500/25 border border-indigo-400/30">
+          <div className="flex items-center gap-4 justify-self-start min-w-0">
+            <button
+              type="button"
+              onClick={() => onSelectTab(defaultHomeTab)}
+              title={`Ir al inicio (${defaultHomeTab === 'sprint' ? 'Sprint & Priorización' : 'Tablero'})`}
+              className="flex items-center gap-2.5 group cursor-pointer text-left focus:outline-none"
+            >
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-500/25 border border-indigo-400/30 group-hover:scale-105 transition-transform">
                 <Layers className="w-4 h-4 text-white" />
               </div>
-              <span className="font-semibold text-sm tracking-tight text-slate-800 dark:text-white hidden sm:inline">
+              <span className="font-semibold text-sm tracking-tight text-slate-800 dark:text-white hidden sm:inline group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                 DevBoard
               </span>
-            </div>
+            </button>
 
             <div className="h-4 w-px bg-slate-200 dark:bg-white/10 hidden sm:block" />
 
@@ -277,50 +291,6 @@ export const Header: FC<HeaderProps> = ({
                             </div>
                           </button>
                         )}
-
-                        <div className="px-1.5 pt-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                          Exportar & Descargas
-                        </div>
-                        {onExportMonolithic && (
-                          <button
-                            onClick={() => {
-                              setProjectMenuOpen(false);
-                              onExportMonolithic(currentProject.id);
-                            }}
-                            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] text-left text-[11px] transition-colors"
-                          >
-                            <Download className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Reporte de documentación (BACKLOG.md)</span>
-                          </button>
-                        )}
-                        {onExportJson && (
-                          <button
-                            onClick={() => {
-                              setProjectMenuOpen(false);
-                              onExportJson(currentProject.id);
-                            }}
-                            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] text-left text-[11px] transition-colors"
-                          >
-                            <Download className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Copia de seguridad completa (backlog.json)</span>
-                          </button>
-                        )}
-
-                        <div className="px-1.5 pt-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-                          Importar & Migración
-                        </div>
-                        {onOpenImportWizard && (
-                          <button
-                            onClick={() => {
-                              setProjectMenuOpen(false);
-                              onOpenImportWizard();
-                            }}
-                            className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-left text-[11px] font-medium transition-colors"
-                          >
-                            <Upload className="w-3.5 h-3.5 text-indigo-400" />
-                            <span>Importar backlog legacy (TODO.md / BACKLOG.md)</span>
-                          </button>
-                        )}
                       </div>
                     )}
                   </div>
@@ -330,88 +300,52 @@ export const Header: FC<HeaderProps> = ({
           </div>
 
           {/* Center: Navigation Tabs */}
-          <nav className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] p-1 rounded-xl">
-            <button
-              onClick={() => onSelectTab('kanban')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'kanban'
-                  ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <Kanban className="w-3.5 h-3.5" />
-              <span>Tablero</span>
-            </button>
-
-            <button
-              onClick={() => onSelectTab('sprint')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'sprint'
-                  ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <Target className="w-3.5 h-3.5" />
-              <span>Sprint & Priorización</span>
-            </button>
-
-            <button
-              onClick={() => onSelectTab('release')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'release'
-                  ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <Rocket className="w-3.5 h-3.5" />
-              <span>Releases</span>
-            </button>
-
-            <button
-              onClick={() => onSelectTab('archive')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                activeTab === 'archive'
-                  ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <Archive className="w-3.5 h-3.5" />
-              <span>Archivo</span>
-              {archivedCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
-                  {archivedCount}
-                </span>
-              )}
-            </button>
-          </nav>
-
-          {/* Right: Kanban View Mode Switcher + Theme Switcher + Actions */}
-          <div className="flex items-center gap-2.5">
-            {activeTab === 'kanban' && (
-              <div className="hidden md:flex items-center bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] p-0.5 rounded-lg text-[11px]">
-                <button
-                  onClick={() => onChangeViewMode('simplificada')}
-                  className={`px-2.5 py-1 rounded-md transition-all font-medium ${
-                    viewMode === 'simplificada'
-                      ? 'bg-white dark:bg-indigo-600/30 text-indigo-600 dark:text-indigo-200 border border-slate-200 dark:border-indigo-500/30 shadow-xs'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  ⚡ Simple
-                </button>
-                <button
-                  onClick={() => onChangeViewMode('ampliada')}
-                  className={`px-2.5 py-1 rounded-md transition-all font-medium ${
-                    viewMode === 'ampliada'
-                      ? 'bg-white dark:bg-indigo-600/30 text-indigo-600 dark:text-indigo-200 border border-slate-200 dark:border-indigo-500/30 shadow-xs'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  🔍 Ampliada
-                </button>
-              </div>
+          <nav className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] p-1 rounded-xl justify-self-center">
+            {isKanbanEnabled && (
+              <button
+                onClick={() => onSelectTab('kanban')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeTab === 'kanban'
+                    ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <Kanban className="w-3.5 h-3.5" />
+                <span>{config?.methodology === 'scrumban' ? 'Sprint Board' : 'Tablero'}</span>
+              </button>
             )}
 
+            {isSprintEnabled && (
+              <button
+                onClick={() => onSelectTab('sprint')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeTab === 'sprint'
+                    ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <Target className="w-3.5 h-3.5" />
+                <span>Sprint & Priorización</span>
+              </button>
+            )}
+
+            {isReleaseEnabled && (
+              <button
+                onClick={() => onSelectTab('release')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeTab === 'release'
+                    ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                <span>Releases</span>
+              </button>
+            )}
+          </nav>
+
+          {/* Right: Actions, Live Sync, Archive, Theme Switcher & Settings */}
+          <div className="flex items-center gap-2.5 justify-self-end">
             {/* Live Sync Status Indicator (DEV-014) */}
             <div 
               title={liveConnected ? 'Sincronización en vivo activa (SSE conectado al backend)' : 'Reconectando con el servidor local...'}
@@ -430,12 +364,12 @@ export const Header: FC<HeaderProps> = ({
               <span className="hidden xl:inline">{liveConnected ? 'Live Sync' : 'Reconectando...'}</span>
             </div>
 
-            {/* Theme Switcher Toggle Button */}
+            {/* Theme Switcher Toggle Button (hidden on mobile, in drawer) */}
             <button
               onClick={onToggleTheme}
               title={isDarkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
               aria-label={isDarkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
-              className="relative p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.09] border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 transition-all duration-200 transform active:scale-90 hover:shadow-sm"
+              className="hidden sm:flex relative p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.09] border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 transition-all duration-200 transform active:scale-90 hover:shadow-sm"
             >
               <div className="w-3.5 h-3.5 relative flex items-center justify-center">
                 {isDarkMode ? (
@@ -446,32 +380,204 @@ export const Header: FC<HeaderProps> = ({
               </div>
             </button>
 
-            {/* Resync button */}
+            {/* Settings Button */}
             <button
-              onClick={onResyncDocs}
-              disabled={isResyncing}
-              title="Re-sincronizar /docs de m3"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.03] dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50"
+              onClick={() => onSelectTab(activeTab === 'settings' ? (config?.defaultView || 'kanban') : 'settings')}
+              title={activeTab === 'settings' ? 'Volver al tablero' : 'Configuración de DevBoard (⌘+,)'}
+              aria-label="Configuración de DevBoard"
+              className={`hidden sm:flex relative p-1.5 rounded-lg border text-xs font-medium transition-all duration-200 transform active:scale-90 ${
+                activeTab === 'settings'
+                  ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 ring-1 ring-indigo-500/20'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.09] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400'
+              }`}
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-slate-500 dark:text-slate-400 ${isResyncing ? 'animate-spin text-indigo-500' : ''}`} />
-              <span className="hidden lg:inline">{isResyncing ? 'Sincronizando...' : 'Re-sync /docs'}</span>
+              <Settings className="w-3.5 h-3.5" />
             </button>
+
+            {/* Archivo discrete icon button (DEV-033) */}
+            <button
+              onClick={() => onSelectTab(activeTab === 'archive' ? (config?.defaultView || 'kanban') : 'archive')}
+              title={activeTab === 'archive' ? 'Volver al tablero' : `Ver tareas archivadas (${archivedCount})`}
+              aria-label="Ver tareas archivadas"
+              className={`hidden sm:flex relative p-1.5 rounded-lg border text-xs font-medium transition-all duration-200 transform active:scale-90 ${
+                activeTab === 'archive'
+                  ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.09] border-slate-200 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              {archivedCount > 0 && (
+                <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 text-[9px] font-mono font-bold rounded-full bg-slate-500 dark:bg-slate-600 text-white flex items-center justify-center shadow-xs">
+                  {archivedCount}
+                </span>
+              )}
+            </button>
+
+            {/* Resync button (DEV-012, hidden on mobile, in drawer) */}
+            {currentProject?.hasDocs && (
+              <button
+                onClick={onResyncDocs}
+                disabled={isResyncing}
+                title={`Re-sincronizar /docs de ${currentProject.name}`}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.03] dark:hover:bg-white/[0.08] border border-slate-200 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-slate-500 dark:text-slate-400 ${isResyncing ? 'animate-spin text-indigo-500' : ''}`} />
+                <span className="hidden lg:inline">{isResyncing ? 'Sincronizando...' : 'Re-sync /docs'}</span>
+              </button>
+            )}
 
             {/* New item button */}
             <button
               onClick={onNewItem}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/25 transition-all active:scale-[0.98]"
+              aria-label="Crear nuevo ítem"
+              className="min-h-[40px] sm:min-h-[36px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/25 transition-all active:scale-[0.98]"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Nuevo Ítem</span>
+              <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline">Nuevo Ítem</span>
               <kbd className="hidden sm:inline px-1.5 py-0.5 rounded bg-indigo-700/50 text-[10px] font-mono border border-indigo-400/30 ml-0.5">
                 N
               </kbd>
+            </button>
+
+            {/* Mobile Hamburger Menu Trigger (DEV-007) */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Abrir menú de opciones"
+              title="Menú móvil"
+              className="md:hidden min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.09] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
+            >
+              <Menu className="w-4 h-4" />
             </button>
           </div>
 
         </div>
       </header>
+
+      {/* Mobile Drawer (DEV-007) */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-50 md:hidden flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div 
+            className="w-full max-w-xs h-full bg-white dark:bg-[#0d1322] border-l border-slate-200 dark:border-white/10 shadow-2xl p-5 flex flex-col justify-between overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm">
+                    <Layers className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-bold text-sm tracking-tight text-slate-800 dark:text-white">
+                    DevBoard
+                  </span>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Cerrar menú"
+                  title="Cerrar"
+                  className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Quick Actions List */}
+              <div className="mt-4 space-y-1">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-1">
+                  Acciones Rápidas
+                </div>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onNewItem();
+                  }}
+                  className="w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+                >
+                  <Plus className="w-4 h-4 text-indigo-500" />
+                  <span>Crear Nuevo Ítem</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onNewProject();
+                  }}
+                  className="w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+                >
+                  <FolderPlus className="w-4 h-4 text-emerald-500" />
+                  <span>Nuevo Proyecto</span>
+                </button>
+
+                {currentProject?.hasDocs && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onResyncDocs();
+                    }}
+                    disabled={isResyncing}
+                    className="w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 text-indigo-500 ${isResyncing ? 'animate-spin' : ''}`} />
+                    <span>{isResyncing ? 'Sincronizando docs...' : `Re-sync /docs (${currentProject.name})`}</span>
+                  </button>
+                )}
+
+                {onOpenImportWizard && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenImportWizard();
+                    }}
+                    className="w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+                  >
+                    <Upload className="w-4 h-4 text-violet-500" />
+                    <span>Importar Backlog Markdown</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onSelectTab('settings');
+                  }}
+                  className={`w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                    activeTab === 'settings'
+                      ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <Settings className="w-4 h-4 text-indigo-500" />
+                  <span>Configuración del Espacio de Trabajo</span>
+                </button>
+
+                <button
+                  onClick={onToggleTheme}
+                  className="w-full min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                    <span>Tema {isDarkMode ? 'Claro' : 'Oscuro'}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 uppercase font-mono">{isDarkMode ? 'Dark' : 'Light'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Live Sync Footer */}
+            <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${liveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                <span>{liveConnected ? 'Live Sync Activo' : 'Reconectando...'}</span>
+              </div>
+              <span className="text-[10px] font-mono opacity-60">v0.3.0</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirm Modal for Deleting/Unlinking Project */}
       <ConfirmModal

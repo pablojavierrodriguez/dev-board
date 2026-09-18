@@ -171,8 +171,20 @@ function parseBacklogMd(content, defaultId = "") {
             result.priority = cleanVal;
             break;
           case "milestone":
-          case "sprint":
             result.milestone = cleanVal;
+            break;
+          case "sprint":
+          case "targetsprint":
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter.sprint = cleanVal;
+            }
+            break;
+          case "release":
+          case "targetrelease":
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter.release = cleanVal;
+              result.rawExtraFrontmatter.targetRelease = cleanVal;
+            }
             break;
           case "created_date":
           case "createdat":

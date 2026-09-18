@@ -1,10 +1,9 @@
 ---
 id: DEV-008
 title: "Simplificación de Vista Kanban: Columna Ideas Opcional y Oculta por Defecto"
-status: Draft
-assignee: []
+status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-16'
+updated_date: '2026-09-18 03:41'
 labels:
   - kanban
   - ux
@@ -13,8 +12,8 @@ labels:
 dependencies: []
 priority: medium
 type: feature
-milestone: "v1.2.0"
-order: 37
+milestone: "0.3.0"
+order: "37"
 ---
 
 ## Description
@@ -29,11 +28,11 @@ El selector de vistas existente de la barra superior debe mantenerse intacto con
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Ocultar por defecto la columna de Ideas al entrar en la vista Simplificada
-- [ ] #2 Mantener intacto el selector de 2 opciones (Simple / Ampliada) en la barra superior
-- [ ] #3 Renderizar por defecto las columnas base: Backlog, In Progress (Doing + Review) y Done en vista Simple
-- [ ] #4 Añadir un botón o toggle explícito accesible (ej. en la cabecera del Kanban o toolbar) para mostrar/ocultar la columna Ideas a demanda
-- [ ] #5 Persistir la preferencia de visibilidad de Ideas (en local storage o en `.devboard/config.json`)
+- [x] #1 Ocultar por defecto la columna de Ideas al entrar en la vista Simplificada
+- [x] #2 Mantener intacto el selector de 2 opciones (Simple / Ampliada) en la barra superior
+- [x] #3 Renderizar por defecto las columnas base: Backlog, In Progress (Doing + Review) y Done en vista Simple
+- [x] #4 Añadir un botón o toggle explícito accesible (ej. en la cabecera del Kanban o toolbar) para mostrar/ocultar la columna Ideas a demanda
+- [x] #5 Persistir la preferencia de visibilidad de Ideas (en local storage o en `.devboard/config.json`)
 <!-- AC:END -->
 
 ## Implementation Plan

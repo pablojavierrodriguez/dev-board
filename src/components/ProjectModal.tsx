@@ -90,11 +90,14 @@ export const ProjectModal: FC<ProjectModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
         <div 
-          className="w-full max-w-lg glass-panel bg-[#0d1322]/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden"
+          className="w-full max-w-lg glass-panel bg-[#0d1322]/95 rounded-t-2xl sm:rounded-2xl border-t sm:border border-white/10 shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-none flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Mobile bottom-sheet handle */}
+          <div className="w-12 h-1 bg-white/20 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
           <div className="px-5 py-4 border-b border-white/[0.08] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
@@ -104,7 +107,9 @@ export const ProjectModal: FC<ProjectModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded text-slate-400 hover:text-white transition-colors"
+              aria-label="Cerrar modal"
+              title="Cerrar (Esc)"
+              className="h-9 w-9 flex items-center justify-center rounded text-slate-400 hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -228,18 +233,18 @@ export const ProjectModal: FC<ProjectModalProps> = ({
               />
             </div>
 
-            <div className="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/[0.08] pb-6 sm:pb-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 font-medium transition-colors"
+                className="min-h-[44px] sm:min-h-[36px] px-3.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 transition-colors active:scale-[0.98]"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || !name.trim() || !codePrefix.trim()}
-                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium shadow-md shadow-indigo-600/25 transition-all"
+                className="min-h-[44px] sm:min-h-[36px] px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium shadow-md shadow-indigo-600/25 transition-all active:scale-[0.98]"
               >
                 {isSubmitting ? 'Creando...' : 'Crear Proyecto'}
               </button>

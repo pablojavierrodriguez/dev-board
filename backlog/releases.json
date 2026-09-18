@@ -1,5 +1,37 @@
 [
   {
+    "id": "rel-0-3-0",
+    "projectId": "dev-board",
+    "version": "0.3.0",
+    "date": "2026-09-18",
+    "targetDate": "2026-09-18",
+    "status": "released",
+    "title": "v0.3.0 - Workflow Views, Release Planning & UX Ergonomics",
+    "summary": "Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas y asignación dinámica de estados.",
+    "scopeNotes": "Hito enfocado en la experiencia de usuario de equipos ágiles: soporte para Kanban completo o acotado a Sprint, planificación dinámica de releases con seguimiento de metas y persistencia del proyecto activo.",
+    "itemCodes": [
+      "DEV-006",
+      "DEV-007",
+      "DEV-008",
+      "DEV-009",
+      "DEV-010",
+      "DEV-011",
+      "DEV-012",
+      "DEV-027",
+      "DEV-030",
+      "DEV-031",
+      "DEV-032",
+      "DEV-033",
+      "DEV-034",
+      "DEV-035",
+      "DEV-036",
+      "DEV-037",
+      "DEV-038"
+    ],
+    "markdownContent": "## [0.3.0] — 2026-09-18 🚀 Workflow Views, Release Planning & UX Ergonomics\n\n### 🎯 Resumen\n*Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas, asignación dinámica de estados y persistencia contextual de proyectos.*",
+    "createdAt": "2026-09-17T08:50:00.000Z"
+  },
+  {
     "id": "rel-0-2-0",
     "projectId": "dev-board",
     "version": "0.2.0",

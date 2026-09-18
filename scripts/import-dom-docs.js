@@ -9,7 +9,13 @@ const M3_DOCS_DIR = process.env.M3_DOCS_DIR || '/Users/adrisol/Pablo/code/m3/doc
 const DATA_DIR = path.join(__dirname, '../data');
 const OUT_FILE = path.join(DATA_DIR, 'dev-board.json');
 
-export function runMigration(docsDir = M3_DOCS_DIR, targetFile = OUT_FILE) {
+/**
+ * @param {string} [docsDir]
+ * @param {string | null} [targetFile]
+ * @param {any} [projectMeta]
+ * @returns {{ projects: any[], items: any[], releases: any[], lastUpdated: string }}
+ */
+export function runMigration(docsDir = M3_DOCS_DIR, targetFile = OUT_FILE, projectMeta = null) {
   console.log(`[DevBoard Migrator] Starting migration from: ${docsDir}`);
 
   if (!fs.existsSync(docsDir)) {
@@ -62,11 +68,7 @@ export function runMigration(docsDir = M3_DOCS_DIR, targetFile = OUT_FILE) {
     return a.code.localeCompare(b.code, undefined, { numeric: true });
   });
 
-  items.forEach((item, index) => {
-    item.order = index + 1;
-  });
-
-  const project = {
+  const project = projectMeta || {
     id: 'dom',
     name: 'DOM (Personal Finances)',
     codePrefix: 'DOM',
@@ -75,6 +77,13 @@ export function runMigration(docsDir = M3_DOCS_DIR, targetFile = OUT_FILE) {
     createdAt: '2026-09-01T00:00:00.000Z'
   };
 
+  items.forEach((item, index) => {
+    item.order = index + 1;
+    if (projectMeta) {
+      item.projectId = projectMeta.id;
+    }
+  });
+
   const boardData = {
     projects: [project],
     items,
@@ -82,12 +91,13 @@ export function runMigration(docsDir = M3_DOCS_DIR, targetFile = OUT_FILE) {
     lastUpdated: new Date().toISOString()
   };
 
-  if (!fs.existsSync(path.dirname(targetFile))) {
-    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+  if (targetFile) {
+    if (!fs.existsSync(path.dirname(targetFile))) {
+      fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    }
+    fs.writeFileSync(targetFile, JSON.stringify(boardData, null, 2), 'utf8');
+    console.log(`[DevBoard Migrator] Migration successfully written to ${targetFile}`);
   }
-
-  fs.writeFileSync(targetFile, JSON.stringify(boardData, null, 2), 'utf8');
-  console.log(`[DevBoard Migrator] Migration successfully written to ${targetFile}`);
   console.log(`[DevBoard Migrator] Summary: ${items.length} items, ${releases.length} releases, 1 project.`);
 
   return boardData;

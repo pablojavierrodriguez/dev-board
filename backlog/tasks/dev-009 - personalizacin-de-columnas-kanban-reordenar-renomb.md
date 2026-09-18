@@ -1,10 +1,9 @@
 ---
 id: DEV-009
 title: "Personalización de Columnas Kanban: Reordenar, Renombrar, Mapeo de Estados y WIP Limits"
-status: Draft
-assignee: []
+status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-16'
+updated_date: '2026-09-18 03:41'
 labels:
   - kanban
   - workflow
@@ -13,8 +12,8 @@ labels:
 dependencies: []
 priority: medium
 type: feature
-milestone: "v1.2.0"
-order: 38
+milestone: "0.3.0"
+order: "38"
 ---
 
 ## Description
@@ -31,12 +30,12 @@ Permitir a los usuarios personalizar dinámicamente la configuración del tabler
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Configuración dinámica de columnas con título editable y orden personalizable
-- [ ] #2 Asignación flexible de estados a columnas visuales
-- [ ] #3 Validación de estados huérfanos: mostrar banner de advertencia si algún estado activo no está asignado a ninguna columna
-- [ ] #4 Soporte para WIP Limits numéricos por columna (ej. `doing: 10`, `review: 5`)
-- [ ] #5 Indicadores visuales en la cabecera de la columna cuando se alcanza o sobrepasa el WIP limit (ej. badge amarillo/rojo `11/10 WIP`)
-- [ ] #6 Guardado de la configuración en `.devboard/config.json` o settings del proyecto
+- [x] #1 Configuración dinámica de columnas con título editable y orden personalizable
+- [x] #2 Asignación flexible de estados a columnas visuales
+- [x] #3 Validación de estados huérfanos: mostrar banner de advertencia si algún estado activo no está asignado a ninguna columna
+- [x] #4 Soporte para WIP Limits numéricos por columna (ej. `doing: 10`, `review: 5`)
+- [x] #5 Indicadores visuales en la cabecera de la columna cuando se alcanza o sobrepasa el WIP limit (ej. badge amarillo/rojo `11/10 WIP`)
+- [x] #6 Guardado de la configuración en `.devboard/config.json` o settings del proyecto
 <!-- AC:END -->
 
 ## Implementation Plan

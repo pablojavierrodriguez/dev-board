@@ -1,7 +1,7 @@
 {
   "name": "dev-board",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "bin": {
     "devboard": "./bin/devboard.js",
@@ -20,6 +20,7 @@
     "tasks": "node --experimental-strip-types scripts/devboard-cli.ts list --open",
     "backlog:check": "node scripts/verify-backlog-sync.js",
     "backlog:sync": "node scripts/verify-backlog-sync.js --fix",
+    "audit:ux": "node scripts/audit-ux-code.cjs",
     "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {

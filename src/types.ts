@@ -17,6 +17,8 @@ export type ItemStatus =
 
 export type ViewMode = "simplificada" | "ampliada";
 
+export type ActiveTab = 'kanban' | 'sprint' | 'release' | 'archive' | 'settings';
+
 export type StorageType = "json" | "markdown";
 
 export interface Project {
@@ -28,6 +30,8 @@ export interface Project {
   isDemo?: boolean;
   storageType?: StorageType;
   backlogDir?: string;
+  docsPath?: string;
+  hasDocs?: boolean;
   createdAt: string;
   error?: string;
 }
@@ -51,8 +55,10 @@ export interface BacklogItem {
   impactedFile?: string;
   risk?: string;
   fix?: string;
-  targetSprint?: string;
-  targetRelease?: string;
+  sprint?: string; // e.g. "Sprint 1", "Sprint 2"
+  release?: string; // e.g. "0.3.0", "v1.0.0"
+  targetSprint?: string; // Backward compatibility
+  targetRelease?: string; // Backward compatibility
   milestone?: string;
   sourceDoc?: string;
   acceptanceCriteriaList?: AcceptanceCriterion[];
@@ -77,10 +83,14 @@ export interface Release {
   itemCodes: string[];
   markdownContent: string;
   createdAt: string;
+  status?: 'planned' | 'released';
+  targetDate?: string;
+  scopeNotes?: string;
 }
 
 export interface BoardData {
   projects: Project[];
+  activeProjectId?: string;
   items: BacklogItem[];
   releases: Release[];
   lastUpdated: string;
@@ -94,6 +104,32 @@ export interface ColumnConfig {
   dotColor: string;
   statuses: ItemStatus[]; // Which statuses map into this column
   dropTargetStatus: ItemStatus; // Default status when dropped here
+  wipLimit?: number; // Optional Work-In-Progress limit (DEV-009)
+}
+
+export interface KanbanSettings {
+  columns?: ColumnConfig[];
+  simplifiedColumns?: ColumnConfig[];
+  expandedColumns?: ColumnConfig[];
+  showIdeasByDefault?: boolean;
+  wipLimits?: Record<string, number>; // colId -> maxItems
+}
+
+export type ProjectMethodology = 'kanban' | 'scrum' | 'scrumban';
+
+export interface DevBoardConfig {
+  theme?: 'dark' | 'light' | 'system';
+  density?: 'comfortable' | 'compact';
+  methodology?: ProjectMethodology;
+  defaultView?: 'kanban' | 'sprint' | 'release' | 'settings';
+  enabledTabs?: {
+    kanban?: boolean;
+    sprint?: boolean;
+    release?: boolean;
+  };
+  kanban?: KanbanSettings;
+  autoSave?: boolean;
+  version?: string;
 }
 
 export interface FilterState {

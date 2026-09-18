@@ -83,11 +83,14 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
   const styles = getVariantStyles();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
       <div 
-        className="w-full max-w-md bg-white dark:bg-[#0f172a] rounded-2xl shadow-2xl border border-slate-200 dark:border-white/10 overflow-hidden animate-in zoom-in-95 duration-200"
+        className="w-full max-w-md bg-white dark:bg-[#0f172a] rounded-t-2xl sm:rounded-2xl shadow-2xl border-t sm:border border-slate-200 dark:border-white/10 overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile bottom-sheet handle */}
+        <div className="w-12 h-1 bg-slate-300 dark:bg-white/20 rounded-full mx-auto my-2 sm:hidden" />
+
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className={`p-3 rounded-xl border shrink-0 ${styles.iconBg}`}>
@@ -101,7 +104,9 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
                 </h3>
                 <button
                   onClick={onClose}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+                  aria-label="Cerrar modal"
+                  title="Cerrar (Esc)"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 h-9 w-9 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -120,12 +125,12 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
           </div>
         </div>
 
-        <div className="px-6 py-3.5 bg-slate-50/80 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-end gap-2.5">
+        <div className="px-6 py-3.5 bg-slate-50/80 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-end gap-2.5 pb-6 sm:pb-3.5">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-white/[0.06] transition-colors"
+            className="min-h-[44px] sm:min-h-[36px] px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-white/[0.06] transition-colors active:scale-[0.98]"
           >
             {cancelText}
           </button>
@@ -134,7 +139,7 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
             type="button"
             onClick={handleConfirm}
             disabled={loading}
-            className={`px-4 py-1.5 rounded-lg text-xs font-medium shadow-md transition-all flex items-center gap-1.5 ${styles.confirmBtn} ${
+            className={`min-h-[44px] sm:min-h-[36px] px-5 py-2 rounded-lg text-xs font-medium shadow-md transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] ${styles.confirmBtn} ${
               loading ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >

@@ -1,4 +1,4 @@
-import type { BacklogItem, BoardData, Project, Release, StorageType } from './types';
+import type { BacklogItem, BoardData, Project, Release, StorageType, DevBoardConfig } from './types';
 
 const API_BASE = '/api';
 
@@ -132,15 +132,31 @@ export async function syncLegacyReleases(projectId?: string): Promise<{ ok: bool
   return res.json();
 }
 
-export async function triggerResync(): Promise<BoardData> {
+export async function deleteReleaseApi(id: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/releases/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  return res.ok;
+}
+
+export async function triggerResync(projectId?: string): Promise<{
+  ok: boolean;
+  projectId: string;
+  projectName: string;
+  importedCount: number;
+  releasesCount: number;
+  storageType?: string;
+}> {
   const res = await fetch(`${API_BASE}/import`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectId }),
   });
   if (!res.ok) {
-    throw new Error(`Error syncing docs: ${res.statusText}`);
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `Error syncing docs: ${res.statusText}`);
   }
-  const data = await res.json();
-  return data.data;
+  return await res.json();
 }
 
 export async function convertProjectToMd(projectId: string): Promise<{ ok: boolean; message: string; convertedCount: number }> {
@@ -311,5 +327,41 @@ export async function importLegacyBacklog(params: {
     throw new Error(data.error || `Error importing legacy backlog: ${res.statusText}`);
   }
   return res.json();
+}
+
+export async function fetchSettings(projectId?: string): Promise<DevBoardConfig> {
+  const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+  const res = await fetch(`${API_BASE}/settings${query}`);
+  if (!res.ok) {
+    throw new Error(`Error fetching settings: ${res.statusText}`);
+  }
+  const data = await res.json();
+  return data.config;
+}
+
+export async function saveSettings(config: DevBoardConfig, projectId?: string): Promise<DevBoardConfig> {
+  const res = await fetch(`${API_BASE}/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config, projectId }),
+  });
+  if (!res.ok) {
+    throw new Error(`Error saving settings: ${res.statusText}`);
+  }
+  const data = await res.json();
+  return data.config;
+}
+
+export async function setActiveProjectApi(projectId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/projects/active`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 

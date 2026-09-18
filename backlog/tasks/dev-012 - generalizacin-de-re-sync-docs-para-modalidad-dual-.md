@@ -1,10 +1,9 @@
 ---
 id: DEV-012
 title: "Generalización de Re-sync Docs para Modalidad Dual (JSON y Backlog.md)"
-status: Draft
-assignee: []
+status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-16'
+updated_date: '2026-09-18 03:41'
 labels:
   - sync
   - api
@@ -13,8 +12,8 @@ labels:
 dependencies: []
 priority: medium
 type: feature
-milestone: "v1.2.0"
-order: 41
+milestone: "0.3.0"
+order: "41"
 ---
 
 ## Description
@@ -33,10 +32,10 @@ Se debe contextualizar la sincronización:
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Parametrizar el endpoint `POST /api/import` para recibir `projectId` del proyecto activo
-- [ ] #2 Implementar lógica de importación hacia archivos Markdown individuales para proyectos con `storageType: 'backlog-md'`
-- [ ] #3 Ocultar o desactivar el botón "Re-sync /docs" en `Header.tsx` si el proyecto seleccionado no tiene docs vinculados
-- [ ] #4 Proporcionar retroalimentación visual al usuario (toast o banner) indicando qué proyecto se sincronizó y cuántas tareas se actualizaron
+- [x] #1 Parametrizar el endpoint `POST /api/import` para recibir `projectId` del proyecto activo
+- [x] #2 Implementar lógica de importación hacia archivos Markdown individuales para proyectos con `storageType: 'backlog-md'`
+- [x] #3 Ocultar o desactivar el botón "Re-sync /docs" en `Header.tsx` si el proyecto seleccionado no tiene docs vinculados
+- [x] #4 Proporcionar retroalimentación visual al usuario (toast o banner) indicando qué proyecto se sincronizó y cuántas tareas se actualizaron
 <!-- AC:END -->
 
 ## Implementation Plan

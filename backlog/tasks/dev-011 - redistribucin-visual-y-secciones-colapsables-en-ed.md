@@ -1,10 +1,9 @@
 ---
 id: DEV-011
 title: "Redistribución Visual y Secciones Colapsables en Editor de Card (ItemModal)"
-status: Draft
-assignee: []
+status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-16'
+updated_date: '2026-09-18 03:41'
 labels:
   - ux
   - ui
@@ -13,8 +12,8 @@ labels:
 dependencies: []
 priority: medium
 type: ux
-milestone: "v1.2.0"
-order: 40
+milestone: "0.3.0"
+order: "40"
 ---
 
 ## Description
@@ -35,11 +34,11 @@ Actualmente, el modal apila todos los campos verticalmente en un único scroll l
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Implementar secciones colapsables (acordeón o tabs) con estado recordado para AC, Plan Técnico y Metadatos
-- [ ] #2 Incorporar inputs editables para campos omitidos actualmente (`risk` y `fix`)
-- [ ] #3 Mostrar indicador resumen en el encabezado de la sección de AC (ej. "3 de 5 criterios completados")
-- [ ] #4 Mejorar el aprovechamiento horizontal en pantallas medianas y grandes con un layout en 2 columnas o panel lateral
-- [ ] #5 Mantener atajos de teclado (`⌘+Enter` para guardar, `Esc` para cancelar)
+- [x] #1 Implementar secciones colapsables (acordeón o tabs) con estado recordado para AC, Plan Técnico y Metadatos
+- [x] #2 Incorporar inputs editables para campos omitidos actualmente (`risk` y `fix`)
+- [x] #3 Mostrar indicador resumen en el encabezado de la sección de AC (ej. "3 de 5 criterios completados")
+- [x] #4 Mejorar el aprovechamiento horizontal en pantallas medianas y grandes con un layout en 2 columnas o panel lateral
+- [x] #5 Mantener atajos de teclado (`⌘+Enter` para guardar, `Esc` para cancelar)
 <!-- AC:END -->
 
 ## Implementation Plan

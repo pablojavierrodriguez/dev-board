@@ -6,7 +6,14 @@ import {
   ChevronDown, 
   ChevronRight,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  Calendar,
+  Target,
+  Plus,
+  Edit2,
+  Trash2,
+  Sparkles,
+  X
 } from 'lucide-react';
 import type { BacklogItem, Release } from '../types';
 import { syncLegacyReleases } from '../api';
@@ -16,6 +23,7 @@ interface ReleaseAssemblerProps {
   releases: Release[];
   projectId: string;
   onArchiveRelease: (release: Partial<Release>, itemCodes: string[]) => Promise<void>;
+  onDeleteRelease?: (id: string) => Promise<void>;
   onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -24,6 +32,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   releases,
   projectId,
   onArchiveRelease,
+  onDeleteRelease,
   onShowToast
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
@@ -48,6 +57,87 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   const [expandedReleaseId, setExpandedReleaseId] = useState<string | null>(null);
   const [showAlreadyReleased, setShowAlreadyReleased] = useState(false);
   const [isSyncingReleases, setIsSyncingReleases] = useState(false);
+
+  // Split releases into Planned (targets in progress) and Published (historical) (DEV-032)
+  const plannedReleases = useMemo(() => {
+    return releases.filter((r) => r.status === 'planned');
+  }, [releases]);
+
+  const publishedReleases = useMemo(() => {
+    return releases.filter((r) => r.status !== 'planned');
+  }, [releases]);
+
+  // Planning Modal State (DEV-032)
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [planVersion, setPlanVersion] = useState(defaultVersion);
+  const [planTitle, setPlanTitle] = useState('');
+  const [planTargetDate, setPlanTargetDate] = useState(todayStr);
+  const [planScopeNotes, setPlanScopeNotes] = useState('');
+
+  const openNewPlanModal = () => {
+    setPlanId(null);
+    setPlanVersion(defaultVersion);
+    setPlanTitle('');
+    setPlanTargetDate(todayStr);
+    setPlanScopeNotes('');
+    setPlannerOpen(true);
+  };
+
+  const openEditPlanModal = (rel: Release) => {
+    setPlanId(rel.id);
+    setPlanVersion(rel.version);
+    setPlanTitle(rel.title.replace(/^Planificado:\s*/i, ''));
+    setPlanTargetDate(rel.targetDate || rel.date || todayStr);
+    setPlanScopeNotes(rel.scopeNotes || rel.summary || '');
+    setPlannerOpen(true);
+  };
+
+  const handleSavePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!planVersion.trim()) {
+      onShowToast('La versión es requerida', 'error');
+      return;
+    }
+    const cleanVer = planVersion.trim().replace(/^v/i, '');
+    const planData: Partial<Release> = {
+      id: planId || `rel-${cleanVer.replace(/\./g, '-')}-${Date.now()}`,
+      projectId: projectId === 'all' ? (items[0]?.projectId || 'dev-board') : projectId,
+      version: cleanVer,
+      title: planTitle.trim() || `Planificado: v${cleanVer}`,
+      summary: planScopeNotes.trim(),
+      scopeNotes: planScopeNotes.trim(),
+      targetDate: planTargetDate || todayStr,
+      date: planTargetDate || todayStr,
+      status: 'planned'
+    };
+    try {
+      await onArchiveRelease(planData, []);
+      setPlannerOpen(false);
+      onShowToast(`Release target v${cleanVer} guardado exitosamente`, 'success');
+    } catch (err: any) {
+      onShowToast(err.message || 'Error al guardar release planificado', 'error');
+    }
+  };
+
+  const handleLoadPlannedIntoAssembler = (rel: Release) => {
+    setVersion(rel.version);
+    setTitle(rel.title.replace(/^Planificado:\s*/i, ''));
+    setSummary(rel.scopeNotes || rel.summary || '');
+    setDate(todayStr);
+
+    const matchingCodes = items
+      .filter((it) => it.milestone === rel.version || it.targetSprint === rel.version || (rel.itemCodes || []).includes(it.code))
+      .map((it) => it.code);
+
+    if (matchingCodes.length > 0) {
+      setSelectedCodes(new Set(matchingCodes));
+    }
+    onShowToast(`Release v${rel.version} cargado en el ensamblador con ${matchingCodes.length} tareas asociadas.`, 'info');
+
+    const el = document.getElementById('release-assembler-form');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
 
   // Set of all task codes already included in any release
   const releasedCodeSet = useMemo(() => {
@@ -284,8 +374,166 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
         </div>
       </div>
 
+      {/* Planned Releases & Targets Section (DEV-032) */}
+      <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 bg-gradient-to-b from-indigo-500/[0.04] to-transparent space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+              <Target className="w-4 h-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+                Releases en Planificación & Targets
+                <span className="px-2 py-0.2 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  {plannedReleases.length}
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">
+                Planifica versiones objetivo, fechas meta estimadas y supervisa el avance del alcance antes del despliegue.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={openNewPlanModal}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/20 transition-all self-start sm:self-auto"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Planificar Próximo Release</span>
+          </button>
+        </div>
+
+        {plannedReleases.length === 0 ? (
+          <div className="py-8 text-center rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] space-y-2">
+            <Sparkles className="w-6 h-6 text-indigo-400 mx-auto opacity-70" />
+            <p className="text-xs text-slate-300 font-medium">
+              No tienes ningún release planificado actualmente.
+            </p>
+            <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+              Define tu próximo hito objetivo (ej: <span className="font-mono text-indigo-400">0.3.0</span> o <span className="font-mono text-indigo-400">0.4.0</span>), fecha límite estimada y objetivos para monitorear el avance del ciclo.
+            </p>
+            <button
+              onClick={openNewPlanModal}
+              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-xs font-medium text-slate-200 border border-white/[0.1] transition-all"
+            >
+              <Plus className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Crear Target de Release</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {plannedReleases.map((rel) => {
+              const targetItems = items.filter(
+                (it) =>
+                  it.milestone === rel.version ||
+                  it.targetSprint === rel.version ||
+                  (rel.itemCodes || []).includes(it.code)
+              );
+              const total = targetItems.length;
+              const done = targetItems.filter((it) => it.status === 'done').length;
+              const inProgress = targetItems.filter((it) =>
+                ['doing', 'in_progress', 'review', 'testing_qa', 'ready'].includes(it.status)
+              ).length;
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+              return (
+                <div
+                  key={rel.id}
+                  className="rounded-xl border border-indigo-500/30 bg-slate-900/60 dark:bg-white/[0.02] p-4 flex flex-col justify-between space-y-4 relative overflow-hidden transition-all hover:border-indigo-500/50"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-bold text-sm px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                          v{rel.version}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                          Target en Planificación
+                        </span>
+                        {rel.targetDate && (
+                          <span className="flex items-center gap-1 text-[11px] font-mono text-slate-400">
+                            <Calendar className="w-3 h-3 text-slate-500" />
+                            Meta: {rel.targetDate}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => openEditPlanModal(rel)}
+                          title="Editar Target"
+                          className="p-1 rounded-md text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        {onDeleteRelease && (
+                          <button
+                            onClick={() => onDeleteRelease(rel.id)}
+                            title="Eliminar Plan"
+                            className="p-1 rounded-md text-slate-400 hover:text-red-400 hover:bg-white/[0.06] transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-semibold text-slate-200">
+                        {rel.title.replace(/^Planificado:\s*/i, '')}
+                      </h4>
+                      {rel.scopeNotes && (
+                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                          {rel.scopeNotes}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Progress Bar & Stats */}
+                    <div className="p-3 rounded-lg bg-black/20 border border-white/[0.04] space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-medium">Progreso del Target:</span>
+                        <span className="font-semibold text-slate-200">
+                          {done} / {total} tareas ({pct}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 ${
+                            pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                        <span className="text-emerald-400">● {done} completadas</span>
+                        <span className="text-amber-400">● {inProgress} en curso</span>
+                        <span className="text-slate-500">● {Math.max(0, total - done - inProgress)} pendientes</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {targetItems.length} tareas vinculadas
+                    </span>
+                    <button
+                      onClick={() => handleLoadPlannedIntoAssembler(rel)}
+                      className="flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition-all"
+                    >
+                      <Rocket className="w-3.5 h-3.5" />
+                      <span>Cargar en Ensamblador</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Main Grid: Left Selector & Form / Right Markdown Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div id="release-assembler-form" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Form & Item Checklist (7 cols) */}
         <div className="lg:col-span-7 space-y-5">
@@ -482,7 +730,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-200">
-              Historial de Releases ({releases.length})
+              Historial de Releases Publicados ({publishedReleases.length})
             </h3>
             <p className="text-xs text-slate-400">
               Releases archivados formalmente con sus notas de versión históricas.
@@ -491,7 +739,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
         </div>
 
         <div className="space-y-3">
-          {releases.map((rel) => {
+          {publishedReleases.map((rel) => {
             const isExpanded = expandedReleaseId === rel.id;
 
             return (
@@ -529,6 +777,20 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                     <span className="font-mono bg-white/[0.04] px-2 py-0.5 rounded border border-white/[0.05]">
                       {rel.itemCodes.length} ítems
                     </span>
+                    {onDeleteRelease && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`¿Eliminar release v${rel.version} del registro histórico?`)) {
+                            onDeleteRelease(rel.id);
+                          }
+                        }}
+                        title="Eliminar release del historial"
+                        className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-white/[0.05] transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -562,13 +824,107 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
             );
           })}
 
-          {releases.length === 0 && (
+          {publishedReleases.length === 0 && (
             <div className="py-6 text-center text-slate-500 text-xs">
-              Aún no se han registrado releases.
+              Aún no se han registrado releases publicados en este proyecto.
             </div>
           )}
         </div>
       </div>
+
+      {/* Target Planning Modal (DEV-032) */}
+      {plannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div className="glass-panel max-w-lg w-full rounded-2xl border border-white/[0.1] bg-[#0d131f] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-sm font-semibold text-slate-100">
+                  {planId ? 'Editar Release Target' : 'Planificar Nuevo Release'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setPlannerOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePlan} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    Versión Target <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={planVersion}
+                    onChange={(e) => setPlanVersion(e.target.value)}
+                    placeholder="0.3.0"
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                    Fecha Objetivo Estimada
+                  </label>
+                  <input
+                    type="date"
+                    value={planTargetDate}
+                    onChange={(e) => setPlanTargetDate(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  Título del Release Target
+                </label>
+                <input
+                  type="text"
+                  value={planTitle}
+                  onChange={(e) => setPlanTitle(e.target.value)}
+                  placeholder="Ej: Sprint UX & Estabilización de Navegación"
+                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                  Alcance & Notas de Objetivos (Scope Notes)
+                </label>
+                <textarea
+                  rows={3}
+                  value={planScopeNotes}
+                  onChange={(e) => setPlanScopeNotes(e.target.value)}
+                  placeholder="Describe los objetivos clave, módulos a entregar o criterios de éxito para este release..."
+                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 resize-none"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPlannerOpen(false)}
+                  className="px-3.5 py-1.5 rounded-lg border border-white/[0.08] text-xs text-slate-300 hover:bg-white/[0.04] transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/25 transition-all"
+                >
+                  Guardar Target
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
