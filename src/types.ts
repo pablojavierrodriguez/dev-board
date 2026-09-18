@@ -114,6 +114,8 @@ export interface KanbanSettings {
   simplifiedColumns?: ColumnConfig[];
   expandedColumns?: ColumnConfig[];
   showIdeasByDefault?: boolean;
+  showDoneHistoryByDefault?: boolean;
+  doneHistoryLimit?: number;
   wipLimits?: Record<string, number>; // colId -> maxItems
 }
 

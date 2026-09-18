@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Lightbulb, AlertTriangle, Layers, Target, CheckCircle2, Clock, ChevronDown, Pencil } from 'lucide-react';
+import { Plus, Lightbulb, AlertTriangle, Layers, Target, CheckCircle2, Clock, ChevronDown, Pencil, Archive } from 'lucide-react';
 import type { BacklogItem, ItemStatus, ViewMode, ColumnConfig, DevBoardConfig, ActiveTab } from '../types';
 import { ItemCard } from './ItemCard';
 
@@ -152,6 +152,25 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     } catch {}
   }, [showIdeas]);
 
+  // Preference to show/hide historical Done cards (DEV-058)
+  const [showDoneHistory, setShowDoneHistory] = useState<boolean>(() => {
+    if (config?.kanban?.showDoneHistoryByDefault !== undefined) {
+      return config.kanban.showDoneHistoryByDefault;
+    }
+    try {
+      const stored = localStorage.getItem('devboard_kanban_show_done_history');
+      return stored !== null ? JSON.parse(stored) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('devboard_kanban_show_done_history', JSON.stringify(showDoneHistory));
+    } catch {}
+  }, [showDoneHistory]);
+
   const columns = useMemo(() => {
     let baseCols: ColumnConfig[];
     if (viewMode === 'simplificada') {
@@ -259,6 +278,49 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return { total, done, inProgress, pct };
   }, [scopedItems, activeSprint, config?.methodology]);
 
+  // Done history classification (DEV-058)
+  const isItemHistoricalDone = useMemo(() => {
+    const recentLimit = config?.kanban?.doneHistoryLimit ?? 5;
+    const currentSprint = (activeSprint && activeSprint !== 'all' && activeSprint !== 'backlog')
+      ? activeSprint
+      : (availableSprintsList[0] || null);
+
+    return (item: BacklogItem): boolean => {
+      const isDone = item.status === 'done' || item.status === 'finish';
+      if (!isDone) return false;
+
+      // Viewing all sprints
+      if (activeSprint === 'all' && currentSprint) {
+        const itemSprint = item.sprint || item.targetSprint;
+        if (itemSprint && itemSprint !== currentSprint) return true;
+        if (!itemSprint) {
+          const unsprintedDone = scopedItems.filter(
+            (i) => (i.status === 'done' || i.status === 'finish') && !i.sprint && !i.targetSprint
+          );
+          const idx = unsprintedDone.indexOf(item);
+          if (idx >= recentLimit) return true;
+        }
+      }
+
+      // In simplified view or scoped to specific iteration:
+      if (viewMode === 'simplificada') {
+        if (currentSprint) {
+          const itemSprint = item.sprint || item.targetSprint;
+          if (itemSprint && itemSprint !== currentSprint) return true;
+        }
+        const doneInScope = scopedItems.filter((i) => i.status === 'done' || i.status === 'finish');
+        const idx = doneInScope.indexOf(item);
+        if (idx >= recentLimit) return true;
+      }
+
+      return false;
+    };
+  }, [activeSprint, availableSprintsList, viewMode, scopedItems, config?.kanban?.doneHistoryLimit]);
+
+  const totalHistoricalDoneCount = useMemo(() => {
+    return scopedItems.filter(isItemHistoricalDone).length;
+  }, [scopedItems, isItemHistoricalDone]);
+
   const handleDragStart = (e: React.DragEvent, item: BacklogItem) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', item.id);
@@ -343,7 +405,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const renderColumn = (col: ColumnConfig, isMobile: boolean = false) => {
     const limit = config?.kanban?.wipLimits?.[col.id] ?? col.wipLimit ?? 0;
-    const colItems = scopedItems
+    const isDoneCol = col.id === 'col-done' || col.statuses.includes('done');
+    const colRawItems = scopedItems
       .filter((item) => {
         if (col.id === 'col-ideas') {
           return item.status === 'ideas' || item.labels?.includes('idea');
@@ -360,6 +423,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         return col.statuses.includes(item.status);
       })
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const hiddenDoneCount = isDoneCol && !showDoneHistory
+      ? colRawItems.filter(isItemHistoricalDone).length
+      : 0;
+
+    const colItems = isDoneCol && !showDoneHistory
+      ? colRawItems.filter((item) => !isItemHistoricalDone(item))
+      : colRawItems;
+
     const isDropActive = activeDropColumn === col.id;
     const isOverWip = limit > 0 && colItems.length > limit;
     const isAtWip = limit > 0 && colItems.length === limit;
@@ -432,6 +504,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             ) : (
               <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-200 dark:bg-white/[0.06] text-slate-700 dark:text-slate-400 border border-slate-300 dark:border-white/[0.04]">
                 {colItems.length}
+                {hiddenDoneCount > 0 && (
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 ml-1 font-semibold">
+                    (+{hiddenDoneCount})
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -445,6 +522,42 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {/* Historical Done Indicator Banner (DEV-058) */}
+        {isDoneCol && hiddenDoneCount > 0 && !showDoneHistory && (
+          <div className="mb-2.5 p-2 rounded-xl bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between gap-2 text-xs transition-all">
+            <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 min-w-0">
+              <Archive className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+              <span className="truncate text-[11px] font-medium">
+                +{hiddenDoneCount} {hiddenDoneCount === 1 ? 'tarea histórica archivada' : 'tareas históricas archivadas'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDoneHistory(true)}
+              className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline shrink-0 px-1 py-0.5"
+            >
+              Ver histórico
+            </button>
+          </div>
+        )}
+        {isDoneCol && showDoneHistory && totalHistoricalDoneCount > 0 && (
+          <div className="mb-2.5 p-2 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/30 flex items-center justify-between gap-2 text-xs transition-all">
+            <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 min-w-0">
+              <Archive className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
+              <span className="truncate text-[11px] font-medium">
+                Mostrando {totalHistoricalDoneCount} históricas
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDoneHistory(false)}
+              className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:underline shrink-0 px-1 py-0.5"
+            >
+              Ocultar
+            </button>
+          </div>
+        )}
 
         {/* Items List */}
         <div 
@@ -625,6 +738,33 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </span>
             )}
           </button>
+
+          {/* Done History toggle (DEV-058) */}
+          <button
+            type="button"
+            onClick={() => setShowDoneHistory(!showDoneHistory)}
+            title={showDoneHistory ? 'Ocultar tareas históricas de Done' : 'Mostrar tareas históricas de Done'}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all shrink-0 select-none ${
+              showDoneHistory
+                ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Archive className={`w-3.5 h-3.5 shrink-0 ${showDoneHistory ? 'text-indigo-500 fill-indigo-500/20' : 'text-slate-400'}`} />
+            <span>Histórico Done</span>
+            <span className={`w-8 inline-flex items-center justify-center py-0.5 rounded-full text-[10px] font-mono font-semibold transition-colors ${
+              showDoneHistory ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400'
+            }`}>
+              {showDoneHistory ? 'ON' : 'OFF'}
+            </span>
+            {totalHistoricalDoneCount > 0 && (
+              <span className={`min-w-[18px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
+                showDoneHistory ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
+              }`}>
+                {totalHistoricalDoneCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -739,6 +879,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 if (showIdeas && (item.status === 'ideas' || item.labels?.includes('idea'))) return false;
                 if (viewMode === 'simplificada' && !showIdeas && item.status === 'ideas') return false;
                 return col.statuses.includes(item.status);
+              }
+              if ((col.id === 'col-done' || col.statuses.includes('done')) && !showDoneHistory) {
+                if (isItemHistoricalDone(item)) return false;
               }
               return col.statuses.includes(item.status);
             }).length;

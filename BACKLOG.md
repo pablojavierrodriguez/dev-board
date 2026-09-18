@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (18)
+### 📋 Backlog / Draft (17)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -272,26 +272,6 @@ Evolución integral del módulo de Releases hacia un centro de control y auditor
 
 ---
 
-#### [DEV-058] Política de Visualización Limpia en Tablero: Ocultamiento por Defecto de Cards en 'Done' y Toggle de Histórico
-- **Prioridad**: `medium` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.3.2
-
-Optimización de la visualización de tareas finalizadas en el tablero Kanban (especialmente en la vista simplificada y en el tablero de sprint goal):
-1. **Problema de Acumulación:** En tableros ágiles, acumular decenas de tarjetas históricas cerradas en la columna `Done` no aporta valor operativo al día a día del equipo y satura la pantalla, provocando desorden y lentitud de renderizado.
-2. **Ocultamiento por Defecto:**
-   - En la vista simplificada y tableros acotados a sprint, ocultar por defecto las tarjetas en `done` que pertenezcan a iteraciones pasadas o finalizadas hace más de un intervalo configurable.
-   - Mostrar un indicador limpio y sutil al tope de la columna Done con el conteo de tarjetas históricas archivadas (ej: "+18 tareas completadas anteriormente").
-3. **Toggle Bajo Demanda (Estilo Ideas):** Incorporar un botón o selector interactivo (similar al de Ideas) para mostrar u ocultar el histórico de Done cuando el usuario explícitamente desee auditarlo.
-
-**Criterios de Aceptación:**
-- [ ] #1 En vista simplificada, no acumular tareas finalizadas históricas en la columna Done por defecto
-- [ ] #2 Indicador visual sutil al tope de la columna con el conteo de tareas completadas ocultas
-- [ ] #3 Botón interactivo o toggle para revelar el histórico completo de Done bajo demanda
-- [ ] #4 Persistencia de la preferencia de visualización en Settings (.devboard/config.json)
-- [ ] #5 Reducción comprobable del número de nodos DOM y mejora en fluidez de render
-
----
-
 #### [DEV-059] Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)
 - **Prioridad**: `medium` | **Tipo**: `feature`
 - **Sprint / Milestone**: 0.5.0
@@ -353,7 +333,7 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### ✅ Done / Deployed (46)
+### ✅ Done / Deployed (47)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1055,6 +1035,26 @@ Rediseño integral de ergonomía y distribución visual en el modal de creación
 - [x] #3 Sidebar lateral derecha compacta y alineada para atributos clave (tipo, prioridad, estado, padre, sprint, release)
 - [x] #4 Entradas de criterios de aceptación con altura cómoda y auto-creación fluida
 - [x] #5 Adaptación responsive elegante a bottom-sheet en pantallas móviles
+
+---
+
+#### [DEV-058] Política de Visualización Limpia en Tablero: Ocultamiento por Defecto de Cards en 'Done' y Toggle de Histórico
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.3.2
+
+Optimización de la visualización de tareas finalizadas en el tablero Kanban (especialmente en la vista simplificada y en el tablero de sprint goal):
+1. **Problema de Acumulación:** En tableros ágiles, acumular decenas de tarjetas históricas cerradas en la columna `Done` no aporta valor operativo al día a día del equipo y satura la pantalla, provocando desorden y lentitud de renderizado.
+2. **Ocultamiento por Defecto:**
+   - En la vista simplificada y tableros acotados a sprint, ocultar por defecto las tarjetas en `done` que pertenezcan a iteraciones pasadas o finalizadas hace más de un intervalo configurable.
+   - Mostrar un indicador limpio y sutil al tope de la columna Done con el conteo de tarjetas históricas archivadas (ej: "+18 tareas completadas anteriormente").
+3. **Toggle Bajo Demanda (Estilo Ideas):** Incorporar un botón o selector interactivo (similar al de Ideas) para mostrar u ocultar el histórico de Done cuando el usuario explícitamente desee auditarlo.
+
+**Criterios de Aceptación:**
+- [x] #1 En vista simplificada, no acumular tareas finalizadas históricas en la columna Done por defecto
+- [x] #2 Indicador visual sutil al tope de la columna con el conteo de tareas completadas ocultas
+- [x] #3 Botón interactivo o toggle para revelar el histórico completo de Done bajo demanda
+- [x] #4 Persistencia de la preferencia de visualización en Settings (.devboard/config.json)
+- [x] #5 Reducción comprobable del número de nodos DOM y mejora en fluidez de render
 
 ---
 

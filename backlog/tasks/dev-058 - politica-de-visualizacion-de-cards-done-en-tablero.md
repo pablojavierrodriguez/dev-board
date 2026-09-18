@@ -1,9 +1,9 @@
 ---
 id: DEV-058
 title: "Política de Visualización Limpia en Tablero: Ocultamiento por Defecto de Cards en 'Done' y Toggle de Histórico"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:08'
+updated_date: '2026-09-18 10:57'
 labels:
   - ux
   - kanban
@@ -33,11 +33,11 @@ Optimización de la visualización de tareas finalizadas en el tablero Kanban (e
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 En vista simplificada, no acumular tareas finalizadas históricas en la columna Done por defecto
-- [ ] #2 Indicador visual sutil al tope de la columna con el conteo de tareas completadas ocultas
-- [ ] #3 Botón interactivo o toggle para revelar el histórico completo de Done bajo demanda
-- [ ] #4 Persistencia de la preferencia de visualización en Settings (.devboard/config.json)
-- [ ] #5 Reducción comprobable del número de nodos DOM y mejora en fluidez de render
+- [x] #1 En vista simplificada, no acumular tareas finalizadas históricas en la columna Done por defecto
+- [x] #2 Indicador visual sutil al tope de la columna con el conteo de tareas completadas ocultas
+- [x] #3 Botón interactivo o toggle para revelar el histórico completo de Done bajo demanda
+- [x] #4 Persistencia de la preferencia de visualización en Settings (.devboard/config.json)
+- [x] #5 Reducción comprobable del número de nodos DOM y mejora en fluidez de render
 <!-- AC:END -->
 
 ## Implementation Plan

@@ -80,6 +80,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [autoSave, setAutoSave] = useState<boolean>(config.autoSave ?? true);
   const [rankingEnabled, setRankingEnabled] = useState<boolean>(config.rankingEnabled !== false);
   const [showIdeasByDefault, setShowIdeasByDefault] = useState<boolean>(config.kanban?.showIdeasByDefault ?? false);
+  const [showDoneHistoryByDefault, setShowDoneHistoryByDefault] = useState<boolean>(config.kanban?.showDoneHistoryByDefault ?? false);
   const [kanbanEditMode, setKanbanEditMode] = useState<'ampliada' | 'simplificada'>('ampliada');
   const [customColumns, setCustomColumns] = useState<ColumnConfig[]>(() => {
     if (config.kanban?.columns && config.kanban.columns.length > 0) {
@@ -116,6 +117,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setAutoSave(config.autoSave ?? true);
     setRankingEnabled(config.rankingEnabled !== false);
     setShowIdeasByDefault(config.kanban?.showIdeasByDefault ?? false);
+    setShowDoneHistoryByDefault(config.kanban?.showDoneHistoryByDefault ?? false);
     if (config.kanban?.columns && config.kanban.columns.length > 0) {
       setCustomColumns(JSON.parse(JSON.stringify(config.kanban.columns)));
     } else {
@@ -168,10 +170,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         columns: customColumns,
         simplifiedColumns: customSimplifiedColumns,
         showIdeasByDefault,
+        showDoneHistoryByDefault,
         wipLimits
       }
     };
-  }, [config, theme, density, methodology, defaultView, enabledTabs, autoSave, rankingEnabled, customColumns, customSimplifiedColumns, showIdeasByDefault, wipLimits]);
+  }, [config, theme, density, methodology, defaultView, enabledTabs, autoSave, rankingEnabled, customColumns, customSimplifiedColumns, showIdeasByDefault, showDoneHistoryByDefault, wipLimits]);
 
   // Check if modified (dirty state)
   const isDirty = useMemo(() => {
@@ -814,6 +817,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     type="checkbox"
                     checked={showIdeasByDefault}
                     onChange={(e) => setShowIdeasByDefault(e.target.checked)}
+                    className="rounded border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+              </div>
+
+              {/* Done History Toggle (DEV-058) */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08]">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      Mostrar Histórico de "Done" por defecto
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Por defecto se ocultan las tareas cerradas de sprints e iteraciones pasadas para maximizar el rendimiento y reducir ruido visual.
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={showDoneHistoryByDefault}
+                    onChange={(e) => setShowDoneHistoryByDefault(e.target.checked)}
                     className="rounded border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-0 w-4 h-4 cursor-pointer"
                   />
                 </label>

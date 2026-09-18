@@ -194,6 +194,7 @@ const DEFAULT_CONFIG = {
   autoSave: true,
   kanban: {
     showIdeasByDefault: false,
+    showDoneHistoryByDefault: false,
     wipLimits: {
       'col-doing': 0,
       'col-review': 0,

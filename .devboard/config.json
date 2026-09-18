@@ -4,6 +4,7 @@
   "autoSave": true,
   "kanban": {
     "showIdeasByDefault": false,
+    "showDoneHistoryByDefault": false,
     "columns": [
       {
         "id": "col-draft",
