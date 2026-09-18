@@ -38,6 +38,11 @@ npm run audit:ux
 - Revisa `src/` buscando colisiones de scroll, botones sin `aria-label`, falta de `min-w-0` y touch targets insuficientes.
 - No deben quedar advertencias no justificadas.
 
+### 4. Integridad de Identificadores y Nomenclatura (DEV-064 y DEV-065)
+- **Formato Canónico:** Validar que los identificadores sigan estrictamente el formato `[A-Z0-9]+-\d{3,}` (ej: `DEV-065`, `FEAT-012`), impidiendo prefijos con dobles guiones (`DEV--060`) o caracteres especiales corruptos.
+- **Trazabilidad Archivo vs Frontmatter:** Verificar que el ID en frontmatter (`id: DEV-XXX`) coincida exactamente con el prefijo numérico del archivo Markdown (`dev-xxx - <slug>.md`).
+- **Cero Colisiones:** Comprobar que no existan IDs duplicados en el backlog activo ni en `releases.json`.
+
 ---
 
 ## 🌐 Batería de Validación en Vivo (Browser Subagent / Localhost 4100)

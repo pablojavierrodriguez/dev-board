@@ -1,9 +1,9 @@
 ---
 id: DEV-065
 title: "Actualización de Skills de Agentes: Guía Estricta Anti-Scripts de Terminal y Ciclo de Vida Unreleased vs Released"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 02:51'
+updated_date: '2026-09-18 09:29'
 labels:
   - agent-skills
   - playbook
@@ -32,9 +32,9 @@ Actualización y enriquecimiento de las Skills del repositorio (`.agents/skills/
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Actualizar .agents/skills/devboard/SKILL.md con las reglas anti-scripts y el flujo unreleased vs released
-- [ ] #2 Actualizar .agents/skills/rigorous-qa-auditor/SKILL.md con guardrails de integridad de IDs
-- [ ] #3 Reflejar las directivas clave en AGENTS.md
+- [x] #1 Actualizar .agents/skills/devboard/SKILL.md con las reglas anti-scripts y el flujo unreleased vs released
+- [x] #2 Actualizar .agents/skills/rigorous-qa-auditor/SKILL.md con guardrails de integridad de IDs
+- [x] #3 Reflejar las directivas clave en AGENTS.md
 <!-- AC:END -->
 
 ## Implementation Plan

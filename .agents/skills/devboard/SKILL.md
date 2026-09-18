@@ -63,13 +63,15 @@ O si estás desarrollando en el workspace local de `dev-board`:
 | **`devboard_create_task`** | Registra una nueva tarea en el backlog. | `title`, `description`, `type`, `priority`, `acceptanceCriteria`, `milestone` |
 | **`devboard_update_task`** | Actualiza estado, plan o tilda criterios (AC). | `taskId`, `status`, `toggleAcIndex`, `implementationPlan` |
 | **`devboard_export_backlog`**| Genera o actualiza el archivo `BACKLOG.md` consolidado. | `projectId` |
+| **`devboard_sync_backlog`** | Audita y reconcilia tareas desfasadas con criterios de aceptación y regenera `BACKLOG.md` nativamente. | `projectId`, `autoFix` |
 
 ---
 
 ## 3. Consulta, Análisis y Mutaciones Eficientes (Token-Efficient)
 
 > [!IMPORTANT]
-> **REGLA DE ORO:** **NUNCA ejecutes scripts de terminal ad-hoc como `node -e 'fs.readFileSync(...)'`** para inspeccionar o actualizar `.devboard/backlog.json` o `backlog/tasks/`. Rompen el desacoplamiento entre Markdown y JSON y saturan el contexto de tokens.
+> **REGLA DE ORO ESTRICTA:** **NUNCA ejecutes scripts de terminal ad-hoc como `node -e 'fs.readFileSync(...)'` ni comandos destructivos de bash (`mv`, `rm` sobre `backlog/`)** para inspeccionar o actualizar `.devboard/backlog.json` o `backlog/tasks/`.
+> Cualquier operación sobre tareas, estados o consolidación debe realizarse a través de las herramientas MCP provistas (`devboard_update_task`, `devboard_sync_backlog`, etc.). Esto garantiza desacoplamiento, integridad de archivos Markdown y previene saturación de tokens en la ventana de contexto.
 
 ### A. Obtener Métricas y Salud del Backlog
 Para ver el estado general y desglose por prefijos (`FEAT`, `BUG`, `SPEC`, `CORE`, etc.):
@@ -168,6 +170,12 @@ Cuando termines la implementación y las pruebas automáticas pasen:
 - **`ready`**: Merged y listo para deploy o empaquetado en release.
 - **`done`**: Desplegado en producción o liberado en una versión.
 - **`dismissed` / `cancelled`**: Archivadas fuera del tablero.
+
+### Ciclo de Vida Canónico de Versiones y Releases (DEV-062 y DEV-065)
+- **`unreleased` (En Preparación / Staging / Dev):**
+  La versión activa actualmente en desarrollo. Es **mutable**, permite incorporar o retirar tarjetas, y sus notas de cambio evolucionan continuamente a medida que se completan requerimientos.
+- **`released` (Implementado / Producción):**
+  La versión ha sido desplegada formalmente y etiquetada en Git. Representa un **histórico inmutable** con fecha oficial de cierre (`releasedAt`), inamovible para garantizar trazabilidad y auditoría.
 
 ---
 

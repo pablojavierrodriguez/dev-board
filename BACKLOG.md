@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (21)
+### 📋 Backlog / Draft (20)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -374,22 +374,6 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-#### [DEV-065] Actualización de Skills de Agentes: Guía Estricta Anti-Scripts de Terminal y Ciclo de Vida Unreleased vs Released
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.3.1
-
-Actualización y enriquecimiento de las Skills del repositorio (`.agents/skills/devboard`, `.agents/skills/rigorous-qa-auditor`, `AGENTS.md`):
-1. **Regla Anti-Scripts Sueltos:** Establecer como principio fundamental que los agentes de IA NO deben ejecutar scripts ad-hoc de Node (`node -e ...`) ni comandos bash destructivos (`mv`, `rm` sobre el backlog) cuando operan en DevBoard. Si una operación falta, debe usarse o proponerse una herramienta MCP.
-2. **Ciclo de Vida de Releases:** Documentar la distinción canónica entre `unreleased` (paquete activo en desarrollo, mutable, changelog vivo) y `released` (histórico inmutable en producción con `releasedAt`).
-3. **Auditoría de Identificadores:** Instrucciones para que el auditor de QA verifique la integridad de prefijos (`DEV-XXX`), evitando duplicidades o formatos corruptos.
-
-**Criterios de Aceptación:**
-- [ ] #1 Actualizar .agents/skills/devboard/SKILL.md con las reglas anti-scripts y el flujo unreleased vs released
-- [ ] #2 Actualizar .agents/skills/rigorous-qa-auditor/SKILL.md con guardrails de integridad de IDs
-- [ ] #3 Reflejar las directivas clave en AGENTS.md
-
----
-
 #### [DEV-066] Simplificación Conceptual de Releases: Lista Unificada (En Preparación vs Implementado) y Detalle Progresivo
 - **Prioridad**: `high` | **Tipo**: `feature`
 - **Sprint / Milestone**: 0.3.1
@@ -408,7 +392,7 @@ Refactorización y simplificación radical del modelo y la interfaz de Releases:
 
 ---
 
-### ✅ Done / Deployed (43)
+### ✅ Done / Deployed (44)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1139,5 +1123,21 @@ Hardening integral del servidor MCP (`scripts/mcp-server.ts` y binario standalon
 - [x] #2 Cálculo de nuevo ID basado en max(existentes) + 1 con fallback seguro
 - [x] #3 Implementación de tool devboard_sync_backlog en el servidor MCP
 - [x] #4 Reconstrucción del binario standalone bin/devboard-mcp.js y validación con scripts/verify-mcp-binary.js
+
+---
+
+#### [DEV-065] Actualización de Skills de Agentes: Guía Estricta Anti-Scripts de Terminal y Ciclo de Vida Unreleased vs Released
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.1
+
+Actualización y enriquecimiento de las Skills del repositorio (`.agents/skills/devboard`, `.agents/skills/rigorous-qa-auditor`, `AGENTS.md`):
+1. **Regla Anti-Scripts Sueltos:** Establecer como principio fundamental que los agentes de IA NO deben ejecutar scripts ad-hoc de Node (`node -e ...`) ni comandos bash destructivos (`mv`, `rm` sobre el backlog) cuando operan en DevBoard. Si una operación falta, debe usarse o proponerse una herramienta MCP.
+2. **Ciclo de Vida de Releases:** Documentar la distinción canónica entre `unreleased` (paquete activo en desarrollo, mutable, changelog vivo) y `released` (histórico inmutable en producción con `releasedAt`).
+3. **Auditoría de Identificadores:** Instrucciones para que el auditor de QA verifique la integridad de prefijos (`DEV-XXX`), evitando duplicidades o formatos corruptos.
+
+**Criterios de Aceptación:**
+- [x] #1 Actualizar .agents/skills/devboard/SKILL.md con las reglas anti-scripts y el flujo unreleased vs released
+- [x] #2 Actualizar .agents/skills/rigorous-qa-auditor/SKILL.md con guardrails de integridad de IDs
+- [x] #3 Reflejar las directivas clave en AGENTS.md
 
 ---
