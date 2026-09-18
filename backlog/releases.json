@@ -1,5 +1,40 @@
 [
   {
+    "id": "rel-0-3-2",
+    "projectId": "dev-board",
+    "version": "0.3.2",
+    "date": "2026-09-20",
+    "targetDate": "2026-09-20",
+    "status": "unreleased",
+    "title": "v0.3.2 - Linear-Grade Card Modal & Clean Board Done History",
+    "summary": "Rediseño ergonómico del modal de creación y edición en layout de 2 columnas estilo Linear / GitHub Projects (max-w-6xl) y política de visualización limpia en tablero con ocultamiento de Done histórico.",
+    "scopeNotes": "Segundo hito de Sprint 2 enfocado en la ergonomía de edición visual y desahogo de carga cognitiva en el tablero Kanban.",
+    "itemCodes": [
+      "DEV-054",
+      "DEV-058"
+    ],
+    "markdownContent": "## [0.3.2] — En Preparación 🎨 Linear-Grade Card Modal & Clean Board Done History\n\n### 🎯 Resumen\n*Rediseño ergonómico y expansión del modal de tarjetas a 2 columnas (panel sustantivo + sidebar de atributos) y ocultamiento inteligente del histórico en la columna Done con toggle bajo demanda.*",
+    "createdAt": "2026-09-18T03:47:00.000Z"
+  },
+  {
+    "id": "rel-0-3-1",
+    "projectId": "dev-board",
+    "version": "0.3.1",
+    "date": "2026-09-19",
+    "targetDate": "2026-09-19",
+    "status": "unreleased",
+    "title": "v0.3.1 - MCP Server Hardening, Agent Guardrails & Streamlined Releases",
+    "summary": "Hardening del servidor MCP (sanitización de prefijos, cálculo de IDs sin colisiones y tool nativa devboard_sync_backlog), guardrails para agentes de IA y simplificación conceptual de Releases en modelo binario En Preparación vs Implementado.",
+    "scopeNotes": "Primer hito de Sprint 2 enfocado en blindar el protocolo MCP para agentes y simplificar la gestión de versiones eliminando la duplicidad entre Target y Unreleased.",
+    "itemCodes": [
+      "DEV-064",
+      "DEV-065",
+      "DEV-066"
+    ],
+    "markdownContent": "## [0.3.1] — En Preparación 🛠️ MCP Server Hardening, Agent Guardrails & Streamlined Releases\n\n### 🎯 Resumen\n*Hardening del servidor MCP (sanitización de prefijos de proyectos, cálculo seguro de IDs correlativos y herramienta devboard_sync_backlog), integración formal de guardrails en Agent Skills y simplificación radical de la interfaz de Releases hacia un modelo de lista compacta con detalle progresivo.*",
+    "createdAt": "2026-09-18T03:47:00.000Z"
+  },
+  {
     "id": "rel-0-3-0",
     "projectId": "dev-board",
     "version": "0.3.0",
@@ -30,9 +65,11 @@
       "DEV-044",
       "DEV-045",
       "DEV-046",
-      "DEV-050"
+      "DEV-050",
+      "DEV-062",
+      "DEV-063"
     ],
-    "markdownContent": "## [0.3.0] — 2026-09-18 🚀 Workflow Views, Release Planning, Drag & Drop & UX Ergonomics\n\n### 🎯 Resumen\n*Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas, reordenamiento vertical Drag & Drop en Backlog (DEV-050), asignación dinámica de estados, estabilidad visual sin CLS, persistencia de prioridad P0 y dirty checking.*",
+    "markdownContent": "## [0.3.0] — 2026-09-18 🚀 Workflow Views, Release Planning, Drag & Drop & UX Ergonomics\n\n### 🎯 Resumen\n*Estabilización de navegación, vistas duales de flujo (Kanban Continuo vs Scrum), planificación de releases, personalización de columnas, reordenamiento vertical Drag & Drop en Backlog (DEV-050), asignación dinámica de estados, estabilidad visual sin CLS, persistencia de prioridad P0, separación unreleased vs released (DEV-062) y estabilidad de scroll en SprintView (DEV-063).*",
     "createdAt": "2026-09-17T08:50:00.000Z"
   },
   {

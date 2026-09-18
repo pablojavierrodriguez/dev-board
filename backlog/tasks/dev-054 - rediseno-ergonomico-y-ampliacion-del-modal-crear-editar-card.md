@@ -12,6 +12,11 @@ dependencies: []
 priority: medium
 type: ux
 milestone: "0.3.2"
+sprint: "Sprint 2"
+targetSprint: "Sprint 2"
+release: "0.3.2"
+targetRelease: "0.3.2"
+order: 40
 ---
 
 ## Description

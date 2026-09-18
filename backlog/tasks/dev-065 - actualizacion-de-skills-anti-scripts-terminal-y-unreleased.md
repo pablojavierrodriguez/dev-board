@@ -13,6 +13,11 @@ dependencies:
 priority: medium
 type: feature
 milestone: "0.3.1"
+sprint: "Sprint 2"
+targetSprint: "Sprint 2"
+release: "0.3.1"
+targetRelease: "0.3.1"
+order: 20
 ---
 
 ## Description
