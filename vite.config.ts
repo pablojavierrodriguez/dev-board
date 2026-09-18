@@ -1430,7 +1430,7 @@ function devBoardApi(): PluginOption {
                 // When unreleased (dev) or planning: associate targetRelease without marking releasedAt or closing tasks
                 backlog.items = backlog.items.map((it: any) => {
                   if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
-                    if (it.targetRelease !== release.version || (isPlanned && it.milestone !== release.version)) {
+                    if (it.targetRelease !== release.version || (isUnreleased && it.milestone !== release.version)) {
                       const updated = {
                         ...it,
                         targetRelease: release.version,
