@@ -1387,16 +1387,15 @@ function devBoardApi(): PluginOption {
               if (!project) return sendJson(400, { error: 'Project not found' });
 
               const backlog = readProjectBacklog(project);
-              const requestedStatus = body.status === 'released' ? 'released' : (body.status === 'planned' ? 'planned' : 'unreleased');
+              const requestedStatus = body.status === 'released' ? 'released' : 'unreleased';
               const isReleased = requestedStatus === 'released';
-              const isPlanned = requestedStatus === 'planned';
               const isUnreleased = requestedStatus === 'unreleased';
               const release = {
                 id: body.id || `rel-${(body.version || '1.0.0').replace(/\./g, '-')}-${Date.now()}`,
                 projectId: project.id,
                 version: body.version || '1.0.0',
                 date: body.date || now.split('T')[0],
-                title: body.title || (isPlanned ? `Planificado: ${body.version}` : (isUnreleased ? `En Preparación: v${body.version}` : `Release v${body.version}`)),
+                title: body.title || (isUnreleased ? `En Preparación: v${body.version}` : `Release v${body.version}`),
                 summary: body.summary || '',
                 itemCodes: body.itemCodes || [],
                 markdownContent: body.markdownContent || '',

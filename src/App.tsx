@@ -673,7 +673,7 @@ export function App() {
   const handleArchiveRelease = useCallback(async (releaseData: Partial<Release>, itemCodes: string[]) => {
     const created = await createRelease(releaseData, itemCodes);
     await loadData();
-    const actionLabel = releaseData.status === 'planned' ? 'planificado y guardado' : 'archivado exitosamente';
+    const actionLabel = releaseData.status === 'unreleased' ? 'guardado en preparación' : 'liberado exitosamente';
     showToast(`Release v${created.version} ${actionLabel}`, 'success');
   }, [loadData, showToast]);
 

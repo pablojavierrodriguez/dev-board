@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (20)
+### 📋 Backlog / Draft (19)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -374,25 +374,7 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-#### [DEV-066] Simplificación Conceptual de Releases: Lista Unificada (En Preparación vs Implementado) y Detalle Progresivo
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.3.1
-
-Refactorización y simplificación radical del modelo y la interfaz de Releases:
-1. **Unificación Conceptual:** 'Planning', 'Target' y 'Unreleased' son conceptualmente lo mismo: una versión **En Preparación**. Eliminar la división artificial en bloques separados redundantes.
-2. **Modelo Binario Puro:**
-   - **En Preparación (Unreleased / Dev):** Trabajo activo, editable, mutable.
-   - **Implementado / Entregado (Released / Prod):** Desplegado a producción, histórico e inmutable.
-3. **Ergonomía de Lista y Detalle Progresivo:** Presentar las versiones en una lista limpia y concisa (vista compacta / feed simple). Desplegar metadatos extensos, notas de cambio y edición únicamente cuando el usuario selecciona o expande una versión específica.
-
-**Criterios de Aceptación:**
-- [ ] #1 Unificar los estados del modelo de Release a exclusivamente 'unreleased' y 'released'
-- [ ] #2 Rediseñar ReleaseAssembler.tsx hacia una vista tipo lista compacta y clara sin divisiones redundantes
-- [ ] #3 Implementar panel de detalle progresivo (drawer o split-view) para inspección y edición bajo demanda
-
----
-
-### ✅ Done / Deployed (44)
+### ✅ Done / Deployed (45)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1139,5 +1121,23 @@ Actualización y enriquecimiento de las Skills del repositorio (`.agents/skills/
 - [x] #1 Actualizar .agents/skills/devboard/SKILL.md con las reglas anti-scripts y el flujo unreleased vs released
 - [x] #2 Actualizar .agents/skills/rigorous-qa-auditor/SKILL.md con guardrails de integridad de IDs
 - [x] #3 Reflejar las directivas clave en AGENTS.md
+
+---
+
+#### [DEV-066] Simplificación Conceptual de Releases: Lista Unificada (En Preparación vs Implementado) y Detalle Progresivo
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.3.1
+
+Refactorización y simplificación radical del modelo y la interfaz de Releases:
+1. **Unificación Conceptual:** 'Planning', 'Target' y 'Unreleased' son conceptualmente lo mismo: una versión **En Preparación**. Eliminar la división artificial en bloques separados redundantes.
+2. **Modelo Binario Puro:**
+   - **En Preparación (Unreleased / Dev):** Trabajo activo, editable, mutable.
+   - **Implementado / Entregado (Released / Prod):** Desplegado a producción, histórico e inmutable.
+3. **Ergonomía de Lista y Detalle Progresivo:** Presentar las versiones en una lista limpia y concisa (vista compacta / feed simple). Desplegar metadatos extensos, notas de cambio y edición únicamente cuando el usuario selecciona o expande una versión específica.
+
+**Criterios de Aceptación:**
+- [x] #1 Unificar los estados del modelo de Release a exclusivamente 'unreleased' y 'released'
+- [x] #2 Rediseñar ReleaseAssembler.tsx hacia una vista tipo lista compacta y clara sin divisiones redundantes
+- [x] #3 Implementar panel de detalle progresivo (drawer o split-view) para inspección y edición bajo demanda
 
 ---

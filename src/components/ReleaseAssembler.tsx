@@ -2,22 +2,24 @@ import { useState, useMemo, useEffect, type FC } from 'react';
 import { 
   Rocket, 
   Copy, 
-  ChevronDown, 
   ChevronRight, 
   RefreshCw, 
   CheckCircle2, 
   Calendar, 
-  Target, 
   Plus, 
   Edit2, 
   Trash2, 
   Sparkles, 
   X,
   Save,
-  Clock
+  Clock,
+  Search,
+  Layers,
+  FileText
 } from 'lucide-react';
 import type { BacklogItem, Release } from '../types';
 import { syncLegacyReleases } from '../api';
+import { typeConfig, priorityConfig } from './ItemCard';
 
 interface ReleaseAssemblerProps {
   items: BacklogItem[];
@@ -27,6 +29,9 @@ interface ReleaseAssemblerProps {
   onDeleteRelease?: (id: string) => Promise<void>;
   onShowToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
+
+type TabFilter = 'all' | 'unreleased' | 'released';
+type DrawerTab = 'details' | 'tasks' | 'changelog';
 
 export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   items,
@@ -38,7 +43,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
 }) => {
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Predict next version based on past releases
+  // Auto-calculated next suggested version
   const defaultVersion = useMemo(() => {
     if (releases.length > 0) {
       const parts = releases[0].version.split('.').map(Number);
@@ -46,239 +51,110 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
         return `${parts[0]}.${parts[1] + 1}.0`;
       }
     }
-    return '0.6.0';
+    return '0.4.0';
   }, [releases]);
 
-  const [version, setVersion] = useState(defaultVersion);
-  const [date, setDate] = useState(todayStr);
-  const [title, setTitle] = useState('');
-  const [summary, setSummary] = useState('');
-  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [expandedReleaseId, setExpandedReleaseId] = useState<string | null>(null);
-  const [showAlreadyReleased, setShowAlreadyReleased] = useState(false);
+  // Filtering & Search
+  const [tabFilter, setTabFilter] = useState<TabFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSyncingReleases, setIsSyncingReleases] = useState(false);
 
-  // Split releases into:
-  // 1. Unreleased (targets in active dev / staging, not yet in production)
-  // 2. Planned (future targets)
-  // 3. Published/Historical (shipped to production)
+  // Progressive Disclosure Drawer state
+  const [activeReleaseId, setActiveReleaseId] = useState<string | null>(null);
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>('details');
+
+  // New Release Modal state
+  const [newReleaseModalOpen, setNewReleaseModalOpen] = useState(false);
+  const [newVersion, setNewVersion] = useState(defaultVersion);
+  const [newTitle, setNewTitle] = useState('');
+  const [newTargetDate, setNewTargetDate] = useState(todayStr);
+  const [newSummary, setNewSummary] = useState('');
+
+  // Drawer Edit state (for active release)
+  const activeRelease = useMemo(() => {
+    return releases.find((r) => r.id === activeReleaseId) || null;
+  }, [releases, activeReleaseId]);
+
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editTargetDate, setEditTargetDate] = useState('');
+  const [editSummary, setEditSummary] = useState('');
+  const [editScopeNotes, setEditScopeNotes] = useState('');
+  const [editMarkdown, setEditMarkdown] = useState('');
+  const [editItemCodes, setEditItemCodes] = useState<string[]>([]);
+  const [isSavingDrawer, setIsSavingDrawer] = useState(false);
+
+  // Sync Drawer state with active release
+  useEffect(() => {
+    if (activeRelease) {
+      setEditTitle(activeRelease.title || '');
+      setEditDate(activeRelease.date || todayStr);
+      setEditTargetDate(activeRelease.targetDate || activeRelease.date || todayStr);
+      setEditSummary(activeRelease.summary || '');
+      setEditScopeNotes(activeRelease.scopeNotes || '');
+      setEditMarkdown(activeRelease.markdownContent || '');
+      setEditItemCodes(activeRelease.itemCodes || []);
+    }
+  }, [activeRelease, todayStr]);
+
+  // Pure binary model: unreleased vs released
   const unreleasedReleases = useMemo(() => {
     return releases.filter((r) => r.status === 'unreleased' || (!r.status && r.version !== '0.2.0'));
-  }, [releases]);
-
-  const plannedReleases = useMemo(() => {
-    return releases.filter((r) => r.status === 'planned');
   }, [releases]);
 
   const publishedReleases = useMemo(() => {
     return releases.filter((r) => r.status === 'released' || (!r.status && r.version === '0.2.0'));
   }, [releases]);
 
-  // Promote to production modal state
-  const [promoteModalOpen, setPromoteModalOpen] = useState(false);
-  const [promoteTarget, setPromoteTarget] = useState<{
-    version: string;
-    title: string;
-    summary: string;
-    markdownContent: string;
-    itemCodes: string[];
-  } | null>(null);
-
-  // Planning Modal State (DEV-032)
-  const [plannerOpen, setPlannerOpen] = useState(false);
-  const [planId, setPlanId] = useState<string | null>(null);
-  const [planVersion, setPlanVersion] = useState(defaultVersion);
-  const [planTitle, setPlanTitle] = useState('');
-  const [planTargetDate, setPlanTargetDate] = useState(todayStr);
-  const [planScopeNotes, setPlanScopeNotes] = useState('');
-
-  const openNewPlanModal = () => {
-    setPlanId(null);
-    setPlanVersion(defaultVersion);
-    setPlanTitle('');
-    setPlanTargetDate(todayStr);
-    setPlanScopeNotes('');
-    setPlannerOpen(true);
-  };
-
-  const openEditPlanModal = (rel: Release) => {
-    setPlanId(rel.id);
-    setPlanVersion(rel.version);
-    setPlanTitle(rel.title.replace(/^Planificado:\s*/i, ''));
-    setPlanTargetDate(rel.targetDate || rel.date || todayStr);
-    setPlanScopeNotes(rel.scopeNotes || rel.summary || '');
-    setPlannerOpen(true);
-  };
-
-  const handleSavePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!planVersion.trim()) {
-      onShowToast('La versión es requerida', 'error');
-      return;
+  // Filtered releases list
+  const visibleReleases = useMemo(() => {
+    let list = releases;
+    if (tabFilter === 'unreleased') {
+      list = unreleasedReleases;
+    } else if (tabFilter === 'released') {
+      list = publishedReleases;
     }
-    const cleanVer = planVersion.trim().replace(/^v/i, '');
-    const planData: Partial<Release> = {
-      id: planId || `rel-${cleanVer.replace(/\./g, '-')}-${Date.now()}`,
-      projectId: projectId === 'all' ? (items[0]?.projectId || 'dev-board') : projectId,
-      version: cleanVer,
-      title: planTitle.trim() || `Planificado: v${cleanVer}`,
-      summary: planScopeNotes.trim(),
-      scopeNotes: planScopeNotes.trim(),
-      targetDate: planTargetDate || todayStr,
-      date: planTargetDate || todayStr,
-      status: 'planned'
-    };
-    try {
-      await onArchiveRelease(planData, []);
-      setPlannerOpen(false);
-      onShowToast(`Release target v${cleanVer} guardado exitosamente`, 'success');
-    } catch (err: any) {
-      onShowToast(err.message || 'Error al guardar release planificado', 'error');
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (r) =>
+          r.version.toLowerCase().includes(q) ||
+          r.title.toLowerCase().includes(q) ||
+          (r.summary && r.summary.toLowerCase().includes(q)) ||
+          (r.itemCodes && r.itemCodes.some((code) => code.toLowerCase().includes(q)))
+      );
     }
-  };
 
-  const handleLoadPlannedIntoAssembler = (rel: Release) => {
-    setVersion(rel.version);
-    setTitle(rel.title.replace(/^Planificado:\s*/i, ''));
-    setSummary(rel.scopeNotes || rel.summary || '');
-    setDate(todayStr);
+    return list;
+  }, [releases, tabFilter, unreleasedReleases, publishedReleases, searchQuery]);
 
-    const matchingCodes = items
-      .filter((it) => it.milestone === rel.version || it.targetSprint === rel.version || (rel.itemCodes || []).includes(it.code))
-      .map((it) => it.code);
-
-    if (matchingCodes.length > 0) {
-      setSelectedCodes(new Set(matchingCodes));
-    }
-    onShowToast(`Release v${rel.version} cargado en el ensamblador con ${matchingCodes.length} tareas asociadas.`, 'info');
-
-    const el = document.getElementById('release-assembler-form');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleLoadUnreleasedIntoAssembler = (rel: Release) => {
-    setVersion(rel.version);
-    setTitle(rel.title.replace(/^En Preparación:\s*/i, '').replace(/^v[\d.]+\s*-\s*/i, ''));
-    setSummary(rel.summary || '');
-    setDate(rel.date || todayStr);
-
-    const relCodes = new Set<string>(rel.itemCodes || []);
-    // Also include candidates associated with this milestone or sprint
-    items.forEach((it) => {
-      if (
-        (it.milestone === rel.version || it.targetRelease === rel.version) &&
-        (it.status === 'ready' || it.status === 'finish' || it.status === 'done')
-      ) {
-        relCodes.add(it.code);
-      }
-    });
-
-    if (relCodes.size > 0) {
-      setSelectedCodes(relCodes);
-    }
-    onShowToast(`Release en preparación v${rel.version} cargado con ${relCodes.size} tareas asociadas.`, 'info');
-
-    const el = document.getElementById('release-assembler-form');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Set of all task codes included in HISTORICAL/PRODUCTION releases only
-  const releasedCodeSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const rel of releases) {
-      if (rel.status === 'released' || (!rel.status && rel.version === '0.2.0')) {
-        if (Array.isArray(rel.itemCodes)) {
-          for (const code of rel.itemCodes) {
-            if (code) set.add(code.toUpperCase());
-          }
-        }
+  // Available finished tasks not assigned to any release
+  const availableDoneTasks = useMemo(() => {
+    const assignedCodes = new Set<string>();
+    for (const r of releases) {
+      for (const c of r.itemCodes || []) {
+        assignedCodes.add(c);
       }
     }
-    return set;
-  }, [releases]);
+    return items.filter(
+      (it) =>
+        (it.status === 'done' || it.status === 'ready' || it.status === 'finish') &&
+        !assignedCodes.has(it.code) &&
+        !editItemCodes.includes(it.code)
+    );
+  }, [items, releases, editItemCodes]);
 
-  // Candidate items: status === 'finish' or status === 'done', excluding already released items unless toggled
-  const candidateItems = useMemo(() => {
-    return items.filter((it) => {
-      const matchProject = projectId === 'all' || it.projectId === projectId;
-      if (!matchProject) return false;
-      const isCandidateStatus = it.status === 'finish' || it.status === 'done' || it.status === 'ready';
-      if (!isCandidateStatus) return false;
-
-      const codeUpper = (it.code || it.id).toUpperCase();
-      const isAlreadyReleased = releasedCodeSet.has(codeUpper) || Boolean(it.releasedAt);
-
-      if (isAlreadyReleased && !showAlreadyReleased) {
-        return false;
-      }
-      return true;
-    });
-  }, [items, projectId, releasedCodeSet, showAlreadyReleased]);
-
-  // Count of historical released items hidden from candidate view
-  const hiddenReleasedCount = useMemo(() => {
-    return items.filter((it) => {
-      const matchProject = projectId === 'all' || it.projectId === projectId;
-      if (!matchProject) return false;
-      const codeUpper = (it.code || it.id).toUpperCase();
-      const isCandidateStatus = it.status === 'done' || it.status === 'finish' || it.status === 'ready';
-      const isAlreadyReleased = releasedCodeSet.has(codeUpper) || Boolean(it.releasedAt);
-      return isCandidateStatus && isAlreadyReleased;
-    }).length;
-  }, [items, projectId, releasedCodeSet]);
-
-  const handleSyncLegacyReleases = async () => {
-    try {
-      setIsSyncingReleases(true);
-      const result = await syncLegacyReleases(projectId === 'all' ? undefined : projectId);
-      if (result.ok) {
-        onShowToast(`Sincronización completada: ${result.count} releases detectados y asociados.`, 'success');
-      }
-    } catch (err: any) {
-      onShowToast(err.message || 'Error al sincronizar releases', 'error');
-    } finally {
-      setIsSyncingReleases(false);
-    }
-  };
-
-  // Pre-select items with status 'finish' or 'ready' by default on mount
-  useEffect(() => {
-    const finishCodes = new Set(candidateItems.filter((i) => i.status === 'finish' || i.status === 'ready').map((i) => i.code));
-    setSelectedCodes(finishCodes);
-  }, [candidateItems]);
-
-  const toggleSelectCode = (code: string) => {
-    const next = new Set(selectedCodes);
-    if (next.has(code)) next.delete(code);
-    else next.add(code);
-    setSelectedCodes(next);
-  };
-
-  const selectAllCandidates = () => {
-    setSelectedCodes(new Set(candidateItems.map((i) => i.code)));
-  };
-
-  const clearSelection = () => {
-    setSelectedCodes(new Set());
-  };
-
-  // Generate markdown compliant with DOM official release notes standard
-  const generatedMarkdown = useMemo(() => {
-    const v = version.trim() || '0.6.0';
-    const d = date || todayStr;
-    const t = title.trim() || 'Release de Estabilización y Mejoras';
-    const sum = summary.trim() || 'Hito enfocado en la solidez funcional, integridad y optimización.';
-
-    const selectedItems = candidateItems.filter((i) => selectedCodes.has(i.code));
-
+  // Helper to generate markdown changelog from items
+  const generateChangelogForTasks = (versionStr: string, titleStr: string, summaryStr: string, itemCodeList: string[]) => {
+    const selectedItems = items.filter((it) => itemCodeList.includes(it.code));
     const features = selectedItems.filter((i) => i.type === 'feature');
     const bugs = selectedItems.filter((i) => i.type === 'bug');
     const tech = selectedItems.filter((i) => i.type === 'tech_debt');
     const ux = selectedItems.filter((i) => i.type === 'ux');
 
-    let md = `## [${v}] — ${d} 🚀 ${t}\n\n`;
-    md += `### 🎯 Resumen\n*${sum}*\n\n`;
+    let md = `## [${versionStr}] — ${todayStr} 🚀 ${titleStr}\n\n`;
+    md += `### 🎯 Resumen\n*${summaryStr || 'Notas de versión y mejoras implementadas.'}*\n\n`;
 
     if (features.length > 0) {
       md += `### 🚀 Nuevas Funcionalidades & Evolutivos\n`;
@@ -325,935 +201,865 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
     }
 
     return md.trim();
-  }, [version, date, title, summary, selectedCodes, candidateItems, todayStr]);
+  };
 
-  const handleCopyMarkdown = async () => {
+  // Actions
+  const handleOpenNewRelease = () => {
+    setNewVersion(defaultVersion);
+    setNewTitle('');
+    setNewTargetDate(todayStr);
+    setNewSummary('');
+    setNewReleaseModalOpen(true);
+  };
+
+  const handleCreateNewRelease = async () => {
+    const v = newVersion.trim();
+    if (!v) {
+      onShowToast('Por favor especifica una versión válida', 'error');
+      return;
+    }
+
+    const newRel: Partial<Release> = {
+      projectId: projectId === 'all' ? (items[0]?.projectId || 'dev-board') : projectId,
+      version: v,
+      title: newTitle.trim() || `En Preparación: v${v}`,
+      targetDate: newTargetDate,
+      date: newTargetDate,
+      summary: newSummary.trim() || 'Versión en preparación',
+      status: 'unreleased',
+      itemCodes: [],
+      markdownContent: `## [${v}] — En Preparación 🛠️ ${newTitle.trim() || 'Versión en desarrollo'}\n\n### 🎯 Resumen\n*${newSummary.trim() || 'En desarrollo.'}*`
+    };
+
     try {
-      await navigator.clipboard.writeText(generatedMarkdown);
-      onShowToast('¡Markdown de notas de release copiado al portapapeles!', 'success');
+      await onArchiveRelease(newRel, []);
+      onShowToast(`Versión v${v} creada en preparación (Unreleased)`, 'success');
+      setNewReleaseModalOpen(false);
+      // Auto open drawer for the newly created release
+      setTimeout(() => {
+        const found = releases.find((r) => r.version === v);
+        if (found) {
+          setActiveReleaseId(found.id);
+        }
+      }, 300);
+    } catch (err: any) {
+      onShowToast(err.message || 'Error al crear la versión', 'error');
+    }
+  };
+
+  const handleSaveDrawer = async () => {
+    if (!activeRelease) return;
+    setIsSavingDrawer(true);
+    try {
+      await onArchiveRelease(
+        {
+          id: activeRelease.id,
+          projectId: activeRelease.projectId || (projectId === 'all' ? (items[0]?.projectId || 'dev-board') : projectId),
+          version: activeRelease.version,
+          title: editTitle.trim(),
+          date: editDate,
+          targetDate: editTargetDate,
+          summary: editSummary.trim(),
+          scopeNotes: editScopeNotes.trim(),
+          markdownContent: editMarkdown.trim(),
+          status: activeRelease.status || 'unreleased'
+        },
+        editItemCodes
+      );
+      onShowToast(`Cambios en v${activeRelease.version} guardados exitosamente`, 'success');
+    } catch (err: any) {
+      onShowToast(err.message || 'Error al guardar cambios', 'error');
+    } finally {
+      setIsSavingDrawer(false);
+    }
+  };
+
+  const handlePromoteToProduction = async (rel: Release) => {
+    if (!window.confirm(`¿Confirmas la liberación formal de la versión v${rel.version} a Producción? Esta versión pasará a ser inmutable y se sellará con fecha ${todayStr}.`)) {
+      return;
+    }
+
+    try {
+      await onArchiveRelease(
+        {
+          id: rel.id,
+          projectId: rel.projectId || (projectId === 'all' ? (items[0]?.projectId || 'dev-board') : projectId),
+          version: rel.version,
+          title: rel.title.replace(/^En Preparación:\s*/i, ''),
+          date: todayStr,
+          targetDate: rel.targetDate || todayStr,
+          summary: rel.summary,
+          markdownContent: rel.markdownContent,
+          status: 'released'
+        },
+        rel.itemCodes || []
+      );
+      onShowToast(`🚀 ¡Versión v${rel.version} liberada a Producción!`, 'success');
+      setActiveReleaseId(null);
+    } catch (err: any) {
+      onShowToast(err.message || 'Error al liberar a producción', 'error');
+    }
+  };
+
+  const handleQuickCopyMarkdown = async (content: string, ver: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      onShowToast(`¡Changelog v${ver} copiado al portapapeles!`, 'success');
     } catch {
       onShowToast('Error al copiar al portapapeles', 'error');
     }
   };
 
-  const handleSaveUnreleased = async () => {
-    if (!version.trim()) {
-      onShowToast('Por favor especifica una versión válida (ej. 0.3.0)', 'error');
-      return;
-    }
-    if (selectedCodes.size === 0) {
-      onShowToast('Selecciona al menos un ítem para incluir en el release en preparación', 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await onArchiveRelease(
-        {
-          projectId: projectId === 'all' ? (items[0]?.projectId || 'dev-board') : projectId,
-          version: version.trim(),
-          date,
-          status: 'unreleased',
-          title: title.trim() || `En Preparación: v${version.trim()}`,
-          summary: summary.trim() || 'Notas de versión en desarrollo (Unreleased)',
-          markdownContent: generatedMarkdown
-        },
-        Array.from(selectedCodes)
-      );
-
-      onShowToast(`¡Borrador v${version} guardado en preparación (Unreleased)!`, 'success');
-    } catch (err: any) {
-      onShowToast(err.message || 'Error al guardar borrador de release', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleRegenerateMarkdown = () => {
+    if (!activeRelease) return;
+    const gen = generateChangelogForTasks(activeRelease.version, editTitle, editSummary, editItemCodes);
+    setEditMarkdown(gen);
+    onShowToast('Notas de release regeneradas a partir de las tareas vinculadas', 'info');
   };
 
-  const handleOpenPromoteModalFromForm = () => {
-    if (!version.trim()) {
-      onShowToast('Por favor especifica una versión válida (ej. 0.3.0)', 'error');
-      return;
-    }
-    if (selectedCodes.size === 0) {
-      onShowToast('Selecciona al menos un ítem para liberar a producción', 'error');
-      return;
-    }
-    setPromoteTarget({
-      version: version.trim(),
-      title: title.trim() || `Release v${version.trim()}`,
-      summary: summary.trim() || 'Release promovido y desplegado a producción',
-      markdownContent: generatedMarkdown,
-      itemCodes: Array.from(selectedCodes)
+  const handleToggleTaskInRelease = (code: string) => {
+    setEditItemCodes((prev) => {
+      if (prev.includes(code)) {
+        return prev.filter((c) => c !== code);
+      } else {
+        return [...prev, code];
+      }
     });
-    setPromoteModalOpen(true);
-  };
-
-  const handleOpenPromoteModalFromUnreleased = (rel: Release) => {
-    setPromoteTarget({
-      version: rel.version,
-      title: rel.title.replace(/^En Preparación:\s*/i, `Release `),
-      summary: rel.summary || '',
-      markdownContent: rel.markdownContent || '',
-      itemCodes: rel.itemCodes || []
-    });
-    setPromoteModalOpen(true);
-  };
-
-  const handleConfirmPromote = async () => {
-    if (!promoteTarget) return;
-    setIsSubmitting(true);
-    try {
-      await onArchiveRelease(
-        {
-          projectId: projectId === 'all' ? (items[0]?.projectId || 'dev-board') : projectId,
-          version: promoteTarget.version,
-          date: todayStr,
-          status: 'released',
-          title: promoteTarget.title,
-          summary: promoteTarget.summary,
-          markdownContent: promoteTarget.markdownContent
-        },
-        promoteTarget.itemCodes
-      );
-
-      setPromoteModalOpen(false);
-      setPromoteTarget(null);
-      onShowToast(`🚀 ¡Release v${promoteTarget.version} liberado a Producción exitosamente!`, 'success');
-      setTitle('');
-      setSummary('');
-      setSelectedCodes(new Set());
-    } catch (err: any) {
-      onShowToast(err.message || 'Error al liberar release a producción', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   return (
-    <div className="w-full flex-1 p-4 sm:p-6 max-w-[1680px] mx-auto overflow-y-auto space-y-8">
-      {/* Top Banner */}
-      <div className="glass-panel p-5 rounded-2xl border border-white/[0.08] relative overflow-hidden">
-        <div className="absolute -right-8 -top-8 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                <Rocket className="w-4 h-4" />
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Header & Controls */}
+      <div className="glass-panel p-6 rounded-2xl border border-white/[0.08] bg-slate-950/40 backdrop-blur-xl space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                <Rocket className="w-5 h-5" />
               </span>
-              <h2 className="text-base font-semibold text-slate-100">
-                Ensamblador de Releases (Release Hub)
+              <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                Centro de Releases & Versionado
               </h2>
             </div>
-            <p className="text-xs text-slate-400 max-w-2xl">
-              Distingue entre versiones <span className="text-amber-400 font-medium">en preparación (Unreleased / Dev)</span> e <span className="text-emerald-400 font-medium">históricos en producción (Released)</span>. Compila changelog dinámico y promueve deliberadamente a producción.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleSyncLegacyReleases}
-              disabled={isSyncingReleases}
-              title="Detecta RELEASE_NOTES.md / CHANGELOG.md y asocia las tareas históricas a sus versiones"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-medium text-slate-200 transition-colors"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncingReleases ? 'animate-spin' : ''}`} />
-              <span>{isSyncingReleases ? 'Sincronizando...' : 'Sincronizar RELEASE_NOTES.md'}</span>
-            </button>
-            <button
-              onClick={handleCopyMarkdown}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-medium text-slate-200 transition-colors"
-            >
-              <Copy className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Copiar Markdown</span>
-            </button>
-            <button
-              onClick={handleSaveUnreleased}
-              disabled={isSubmitting || selectedCodes.size === 0}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-medium shadow-md shadow-indigo-600/20 transition-all active:scale-[0.98]"
-              title="Guarda notas y tarjetas en desarrollo sin congelar el release como histórico"
-            >
-              <Save className="w-3.5 h-3.5 text-indigo-200" />
-              <span>{isSubmitting ? 'Guardando...' : 'Guardar Borrador Unreleased (Dev)'}</span>
-            </button>
-            <button
-              onClick={handleOpenPromoteModalFromForm}
-              disabled={isSubmitting || selectedCodes.size === 0}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98]"
-              title="Promociona y sella formalmente esta versión como liberada a Producción"
-            >
-              <Rocket className="w-3.5 h-3.5 text-emerald-100" />
-              <span>Liberar a Producción</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Unreleased Releases Section (Active in Dev) */}
-      <div className="glass-panel p-5 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.03] to-transparent space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2.5">
-            <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
-              <Clock className="w-4 h-4" />
-            </span>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                Versiones en Preparación (Unreleased / Dev)
-                <span className="px-2 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  {unreleasedReleases.length}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400">
-                Paquetes en desarrollo activo. El changelog y las tareas siguen vivos y mutables hasta que se despliegue y libere a producción.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {unreleasedReleases.length === 0 ? (
-          <div className="py-6 text-center rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] space-y-1">
-            <p className="text-xs text-slate-400 font-medium">
-              No hay versiones en preparación actualmente.
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Selecciona tareas terminadas abajo y pulsa <span className="text-indigo-400 font-medium">"Guardar Borrador Unreleased (Dev)"</span> para preparar tu próxima entrega.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {unreleasedReleases.map((rel) => {
-              const matchingItems = items.filter(
-                (it) =>
-                  (rel.itemCodes || []).includes(it.code) ||
-                  it.milestone === rel.version ||
-                  it.targetRelease === rel.version
-              );
-              const total = matchingItems.length;
-              const done = matchingItems.filter((it) => it.status === 'done' || it.status === 'finish' || it.status === 'ready').length;
-              const inProgress = matchingItems.filter((it) =>
-                ['doing', 'in_progress', 'review', 'testing_qa'].includes(it.status)
-              ).length;
-              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-              return (
-                <div
-                  key={rel.id}
-                  className="rounded-xl border border-amber-500/30 bg-slate-900/60 dark:bg-white/[0.02] p-4 flex flex-col justify-between space-y-4 relative overflow-hidden transition-all hover:border-amber-500/50"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono font-bold text-sm px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                          v{rel.version}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                          En Desarrollo / Unreleased
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(rel.markdownContent);
-                            onShowToast(`¡Notas de v${rel.version} copiadas!`, 'success');
-                          }}
-                          className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-white/[0.05]"
-                          title="Copiar Markdown"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                        {onDeleteRelease && (
-                          <button
-                            onClick={() => {
-                              if (window.confirm(`¿Eliminar borrador unreleased v${rel.version}?`)) {
-                                onDeleteRelease(rel.id);
-                              }
-                            }}
-                            className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-white/[0.05]"
-                            title="Eliminar borrador"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-200">
-                        {rel.title.replace(/^En Preparación:\s*/i, '')}
-                      </h4>
-                      {rel.summary && (
-                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                          {rel.summary}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Progress Bar & Stats */}
-                    <div className="p-3 rounded-lg bg-black/20 border border-white/[0.04] space-y-2">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400 font-medium">Completado en Dev:</span>
-                        <span className="font-semibold text-slate-200">
-                          {done} / {total} tareas ({pct}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-500 ${
-                            pct === 100 ? 'bg-emerald-500' : 'bg-amber-500'
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                        <span className="text-emerald-400">● {done} listas / terminadas</span>
-                        {inProgress > 0 && <span className="text-amber-400">● {inProgress} en curso</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      {(rel.itemCodes || []).length} tareas en paquete
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleLoadUnreleasedIntoAssembler(rel)}
-                        className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/[0.08] transition-all"
-                        title="Editar y agregar más tarjetas al borrador"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>Editar Borrador</span>
-                      </button>
-                      <button
-                        onClick={() => handleOpenPromoteModalFromUnreleased(rel)}
-                        className="flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition-all"
-                        title="Promover a producción y sellar histórico"
-                      >
-                        <Rocket className="w-3.5 h-3.5 text-emerald-100" />
-                        <span>Liberar a Prod</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Planned Releases & Targets Section (DEV-032) */}
-      <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 bg-gradient-to-b from-indigo-500/[0.04] to-transparent space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2.5">
-            <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-              <Target className="w-4 h-4" />
-            </span>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                Releases en Planificación & Targets
-                <span className="px-2 py-0.2 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                  {plannedReleases.length}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400">
-                Planifica versiones objetivo, fechas meta estimadas y supervisa el avance del alcance antes del despliegue.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={openNewPlanModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/20 transition-all self-start sm:self-auto"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Planificar Próximo Release</span>
-          </button>
-        </div>
-
-        {plannedReleases.length === 0 ? (
-          <div className="py-8 text-center rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] space-y-2">
-            <Sparkles className="w-6 h-6 text-indigo-400 mx-auto opacity-70" />
-            <p className="text-xs text-slate-300 font-medium">
-              No tienes ningún release planificado actualmente.
-            </p>
-            <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-              Define tu próximo hito objetivo (ej: <span className="font-mono text-indigo-400">0.3.0</span> o <span className="font-mono text-indigo-400">0.4.0</span>), fecha límite estimada y objetivos para monitorear el avance del ciclo.
-            </p>
-            <button
-              onClick={openNewPlanModal}
-              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-xs font-medium text-slate-200 border border-white/[0.1] transition-all"
-            >
-              <Plus className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Crear Target de Release</span>
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {plannedReleases.map((rel) => {
-              const targetItems = items.filter(
-                (it) =>
-                  it.milestone === rel.version ||
-                  it.targetSprint === rel.version ||
-                  (rel.itemCodes || []).includes(it.code)
-              );
-              const total = targetItems.length;
-              const done = targetItems.filter((it) => it.status === 'done').length;
-              const inProgress = targetItems.filter((it) =>
-                ['doing', 'in_progress', 'review', 'testing_qa', 'ready'].includes(it.status)
-              ).length;
-              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-              return (
-                <div
-                  key={rel.id}
-                  className="rounded-xl border border-indigo-500/30 bg-slate-900/60 dark:bg-white/[0.02] p-4 flex flex-col justify-between space-y-4 relative overflow-hidden transition-all hover:border-indigo-500/50"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono font-bold text-sm px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                          v{rel.version}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                          Target en Planificación
-                        </span>
-                        {rel.targetDate && (
-                          <span className="flex items-center gap-1 text-[11px] font-mono text-slate-400">
-                            <Calendar className="w-3 h-3 text-slate-500" />
-                            Meta: {rel.targetDate}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => openEditPlanModal(rel)}
-                          title="Editar Target"
-                          className="p-1 rounded-md text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        {onDeleteRelease && (
-                          <button
-                            onClick={() => onDeleteRelease(rel.id)}
-                            title="Eliminar Plan"
-                            className="p-1 rounded-md text-slate-400 hover:text-red-400 hover:bg-white/[0.06] transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-200">
-                        {rel.title.replace(/^Planificado:\s*/i, '')}
-                      </h4>
-                      {rel.scopeNotes && (
-                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                          {rel.scopeNotes}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Progress Bar & Stats */}
-                    <div className="p-3 rounded-lg bg-black/20 border border-white/[0.04] space-y-2">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400 font-medium">Progreso del Target:</span>
-                        <span className="font-semibold text-slate-200">
-                          {done} / {total} tareas ({pct}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-500 ${
-                            pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                        <span className="text-emerald-400">● {done} completadas</span>
-                        <span className="text-amber-400">● {inProgress} en curso</span>
-                        <span className="text-slate-500">● {Math.max(0, total - done - inProgress)} pendientes</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      {targetItems.length} tareas vinculadas
-                    </span>
-                    <button
-                      onClick={() => handleLoadPlannedIntoAssembler(rel)}
-                      className="flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition-all"
-                    >
-                      <Rocket className="w-3.5 h-3.5" />
-                      <span>Cargar en Ensamblador</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Main Grid: Left Selector & Form / Right Markdown Preview */}
-      <div id="release-assembler-form" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left Column: Form & Item Checklist (7 cols) */}
-        <div className="lg:col-span-7 space-y-5">
-          
-          {/* Release Metadata Form */}
-          <div className="glass-panel p-4 rounded-xl border border-white/[0.07] space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Metadatos del Release
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">Versión</label>
-                <input
-                  type="text"
-                  value={version}
-                  onChange={(e) => setVersion(e.target.value)}
-                  placeholder="0.6.0"
-                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">Fecha</label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">Título del Hito</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ej: Integridad Financiera y Resiliencia"
-                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-medium text-slate-300 mb-1">Resumen Ejecutivo</label>
-              <textarea
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                rows={2}
-                placeholder="Breve párrafo resumiendo los avances clave del release para los stakeholders..."
-                className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
-              />
-            </div>
-          </div>
-
-          {/* Candidate Items Checklist */}
-          <div className="glass-panel p-4 rounded-xl border border-white/[0.07] space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Ítems Candidatos ({selectedCodes.size} de {candidateItems.length} seleccionados)
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Solo se listan ítems en estado <span className="text-teal-400 font-mono">finish</span> o <span className="text-emerald-400 font-mono">done</span>.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs">
-                <button
-                  onClick={selectAllCandidates}
-                  className="text-indigo-400 hover:text-indigo-300 font-medium"
-                >
-                  Seleccionar todos
-                </button>
-                <span className="text-slate-600">•</span>
-                <button
-                  onClick={clearSelection}
-                  className="text-slate-400 hover:text-slate-200"
-                >
-                  Limpiar
-                </button>
-              </div>
-            </div>
-
-            {hiddenReleasedCount > 0 && (
-              <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>
-                    {hiddenReleasedCount} {hiddenReleasedCount === 1 ? 'tarea histórica ya liberada en versiones previas está oculta' : 'tareas históricas ya liberadas en versiones previas están ocultas'}.
-                  </span>
-                </div>
-                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-300 hover:text-white font-medium select-none">
-                  <input
-                    type="checkbox"
-                    checked={showAlreadyReleased}
-                    onChange={(e) => setShowAlreadyReleased(e.target.checked)}
-                    className="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
-                  />
-                  Mostrar ya liberadas
-                </label>
-              </div>
-            )}
-
-            <div className="max-h-[380px] overflow-y-auto space-y-1.5 pr-1 divide-y divide-white/[0.02]">
-              {candidateItems.map((item) => {
-                const isSelected = selectedCodes.has(item.code);
-
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => toggleSelectCode(item.code)}
-                    className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-indigo-600/15 border border-indigo-500/20'
-                        : 'hover:bg-white/[0.02] border border-transparent'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}} // handled by parent onClick
-                      className="mt-1 rounded bg-white/10 border-white/20 text-indigo-600 focus:ring-0 cursor-pointer"
-                    />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-mono text-[11px] font-semibold text-slate-300">
-                          {item.code}
-                        </span>
-                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono uppercase ${
-                          item.status === 'finish' ? 'bg-teal-500/20 text-teal-300' : 'bg-emerald-500/20 text-emerald-300'
-                        }`}>
-                          {item.status}
-                        </span>
-                        {item.module && (
-                          <span className="text-[10px] text-slate-400 truncate">
-                            • {item.module}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-200 leading-snug line-clamp-1 font-medium">
-                        {item.title}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {candidateItems.length === 0 && (
-                <div className="py-8 text-center text-slate-500 text-xs">
-                  No hay ítems en estado 'finish' o 'done' para el proyecto actual.
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Right Column: Live Markdown Preview (5 cols) */}
-        <div className="lg:col-span-5">
-          <div className="glass-panel p-4 rounded-xl border border-white/[0.07] h-full flex flex-col">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-xs text-slate-200">
-                  Previsualización Markdown Generado
-                </span>
-                <span className="text-[10px] text-slate-500 font-mono">
-                  Estándar DOM
-                </span>
-              </div>
-              <button
-                onClick={handleCopyMarkdown}
-                className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 font-medium"
-              >
-                <Copy className="w-3 h-3" />
-                <span>Copiar</span>
-              </button>
-            </div>
-
-            <div className="flex-1 bg-[#090d15] p-3 rounded-lg border border-white/[0.06] overflow-y-auto max-h-[500px]">
-              <pre className="font-mono text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed select-text">
-                {generatedMarkdown}
-              </pre>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Historical Releases Section */}
-      <div className="glass-panel p-5 rounded-2xl border border-white/[0.08] space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-200">
-              Historial de Releases Publicados ({publishedReleases.length})
-            </h3>
             <p className="text-xs text-slate-400">
-              Releases archivados formalmente con sus notas de versión históricas.
+              Modelo binario simplificado: versiones <strong className="text-amber-400 font-medium">En Preparación</strong> (desarrollo activo mutable) y versiones <strong className="text-emerald-400 font-medium">Implementadas</strong> (histórico oficial inmutable en producción).
             </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={handleOpenNewRelease}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98]"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nueva Versión (En Preparación)</span>
+            </button>
+
+            <button
+              onClick={async () => {
+                setIsSyncingReleases(true);
+                try {
+                  const res = await syncLegacyReleases(projectId);
+                  onShowToast(`Sincronizados ${res.count} releases desde el repositorio`, 'success');
+                } catch (err: any) {
+                  onShowToast(err.message || 'Error sincronizando releases', 'error');
+                } finally {
+                  setIsSyncingReleases(false);
+                }
+              }}
+              disabled={isSyncingReleases}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 text-xs font-medium border border-white/[0.08] transition-all"
+              title="Sincroniza notas de release con releases.json y el árbol local"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingReleases ? 'animate-spin text-indigo-400' : ''}`} />
+              <span className="hidden sm:inline">Sincronizar</span>
+            </button>
           </div>
         </div>
 
-        <div className="space-y-3">
-          {publishedReleases.map((rel) => {
-            const isExpanded = expandedReleaseId === rel.id;
+        {/* Tab Filter & Search Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/[0.06]">
+          {/* Tabs */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/30 border border-white/[0.06] w-full sm:w-auto">
+            <button
+              onClick={() => setTabFilter('all')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                tabFilter === 'all'
+                  ? 'bg-white/10 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>Todas</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/[0.08] text-slate-300 font-mono">
+                {releases.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setTabFilter('unreleased')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                tabFilter === 'unreleased'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'text-slate-400 hover:text-amber-300'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>En Preparación</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-mono">
+                {unreleasedReleases.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setTabFilter('released')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                tabFilter === 'released'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'text-slate-400 hover:text-emerald-300'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Implementadas</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">
+                {publishedReleases.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Buscar por versión o título..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-black/20 border border-white/[0.08] text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Streamlined Compact Feed */}
+      <div className="space-y-3">
+        {visibleReleases.length === 0 ? (
+          <div className="glass-panel py-12 text-center rounded-2xl border border-dashed border-white/[0.08] space-y-2">
+            <Rocket className="w-8 h-8 text-slate-600 mx-auto" />
+            <p className="text-sm font-medium text-slate-400">
+              No se encontraron versiones con el filtro seleccionado.
+            </p>
+            <p className="text-xs text-slate-500">
+              Crea una versión en preparación pulsando <span className="text-indigo-400 font-medium">"Nueva Versión"</span>.
+            </p>
+          </div>
+        ) : (
+          visibleReleases.map((rel) => {
+            const isUnrel = rel.status === 'unreleased' || (!rel.status && rel.version !== '0.2.0');
+            const matchingItems = items.filter(
+              (it) =>
+                (rel.itemCodes || []).includes(it.code) ||
+                it.milestone === rel.version ||
+                it.targetRelease === rel.version
+            );
+            const total = matchingItems.length;
+            const done = matchingItems.filter(
+              (it) => it.status === 'done' || it.status === 'finish' || it.status === 'ready'
+            ).length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
             return (
               <div
                 key={rel.id}
-                className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition-colors hover:border-white/[0.1]"
+                onClick={() => setActiveReleaseId(rel.id)}
+                className={`group rounded-xl border p-4 transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                  isUnrel
+                    ? 'border-amber-500/20 bg-amber-500/[0.02] hover:border-amber-500/40 hover:bg-amber-500/[0.04]'
+                    : 'border-white/[0.06] bg-slate-900/40 hover:border-emerald-500/30 hover:bg-emerald-500/[0.02]'
+                }`}
               >
-                <div 
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => setExpandedReleaseId(isExpanded ? null : rel.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <button className="p-0.5 text-slate-400">
-                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    </button>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-emerald-400 text-sm">
-                          v{rel.version}
-                        </span>
-                        <span className="text-slate-300 font-medium text-xs">
-                          {rel.title}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {rel.date}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">
-                        {rel.summary}
-                      </p>
+                {/* Left info: Version, Status, Title, Summary */}
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span
+                      className={`font-mono font-bold text-sm px-2.5 py-0.5 rounded-lg border ${
+                        isUnrel
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      }`}
+                    >
+                      v{rel.version}
+                    </span>
+
+                    <span
+                      className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${
+                        isUnrel
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      }`}
+                    >
+                      {isUnrel ? (
+                        <>
+                          <Clock className="w-3 h-3 text-amber-400" />
+                          <span>En Preparación (Dev)</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>Implementado en Producción</span>
+                        </>
+                      )}
+                    </span>
+
+                    <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                      <Calendar className="w-3 h-3" />
+                      <span>{rel.targetDate || rel.date}</span>
+                    </span>
+                  </div>
+
+                  <h3 className="text-sm font-semibold text-slate-200 truncate group-hover:text-white transition-colors">
+                    {rel.title.replace(/^En Preparación:\s*/i, '')}
+                  </h3>
+
+                  {rel.summary && (
+                    <p className="text-xs text-slate-400 line-clamp-1 leading-relaxed">
+                      {rel.summary}
+                    </p>
+                  )}
+                </div>
+
+                {/* Right Progress & Quick Actions */}
+                <div className="flex items-center gap-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {/* Progress Indicator */}
+                  <div className="w-36 space-y-1 text-right">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400 font-medium">Alcance:</span>
+                      <span className="font-semibold text-slate-200">
+                        {done}/{total} ({pct}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          pct === 100
+                            ? 'bg-emerald-500'
+                            : isUnrel
+                            ? 'bg-amber-500'
+                            : 'bg-indigo-500'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-slate-400">
-                    <span className="font-mono bg-white/[0.04] px-2 py-0.5 rounded border border-white/[0.05]">
-                      {rel.itemCodes.length} ítems
-                    </span>
-                    {onDeleteRelease && (
+                  {/* Actions Toolbar */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleQuickCopyMarkdown(rel.markdownContent, rel.version)}
+                      className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 border border-white/[0.06] transition-all"
+                      title="Copiar Changelog Markdown"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+
+                    {isUnrel && (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`¿Eliminar release v${rel.version} del registro histórico?`)) {
+                        onClick={() => handlePromoteToProduction(rel)}
+                        disabled={total === 0}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-semibold shadow-sm transition-all"
+                        title="Liberar formalmente esta versión a Producción"
+                      >
+                        <Rocket className="w-3.5 h-3.5 text-emerald-100" />
+                        <span className="hidden sm:inline">Liberar</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setActiveReleaseId(rel.id)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-medium border border-indigo-500/20 transition-all"
+                    >
+                      <span>Detalle</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+
+                    {isUnrel && onDeleteRelease && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar la versión en preparación v${rel.version}?`)) {
                             onDeleteRelease(rel.id);
                           }
                         }}
-                        title="Eliminar release del historial"
-                        className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-white/[0.05] transition-colors"
+                        className="p-2 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-all"
+                        title="Eliminar borrador"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                 </div>
-
-                {/* Expanded Release Details & Markdown */}
-                {isExpanded && (
-                  <div className="mt-4 pt-4 border-t border-white/[0.06] space-y-3 animate-in fade-in">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                        Contenido del Release (Markdown)
-                      </span>
-                      <button
-                        onClick={async () => {
-                          await navigator.clipboard.writeText(rel.markdownContent);
-                          onShowToast(`¡Notas de v${rel.version} copiadas!`, 'success');
-                        }}
-                        className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>Copiar notas</span>
-                      </button>
-                    </div>
-
-                    <div className="bg-[#090d15] p-3 rounded-lg border border-white/[0.06] max-h-72 overflow-y-auto">
-                      <pre className="font-mono text-[11px] text-slate-300 whitespace-pre-wrap leading-relaxed select-text">
-                        {rel.markdownContent}
-                      </pre>
-                    </div>
-                  </div>
-                )}
               </div>
             );
-          })}
-
-          {publishedReleases.length === 0 && (
-            <div className="py-6 text-center text-slate-500 text-xs">
-              Aún no se han registrado releases publicados en este proyecto.
-            </div>
-          )}
-        </div>
+          })
+        )}
       </div>
 
-      {/* Target Planning Modal (DEV-032) */}
-      {plannerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="glass-panel max-w-lg w-full rounded-2xl border border-white/[0.1] bg-[#0d131f] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-sm font-semibold text-slate-100">
-                  {planId ? 'Editar Release Target' : 'Planificar Nuevo Release'}
-                </h3>
+      {/* ========================================================================= */}
+      {/* PROGRESSIVE DISCLOSURE DRAWER (Master-Detail Linear-Style)                */}
+      {/* ========================================================================= */}
+      {activeRelease && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="w-full max-w-2xl h-full bg-slate-950 border-l border-white/[0.1] shadow-2xl flex flex-col overflow-hidden animate-slide-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drawer Header */}
+            <div className="p-5 border-b border-white/[0.08] bg-slate-900/60 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`font-mono font-bold text-sm px-2.5 py-1 rounded-lg border ${
+                    activeRelease.status === 'released'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                  }`}
+                >
+                  v{activeRelease.version}
+                </span>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-white">
+                    {editTitle || activeRelease.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${
+                        activeRelease.status === 'released' ? 'bg-emerald-500' : 'bg-amber-500'
+                      }`}
+                    />
+                    <span>
+                      {activeRelease.status === 'released'
+                        ? 'Implementado en Producción (Inmutable)'
+                        : 'En Preparación (Editable)'}
+                    </span>
+                  </div>
+                </div>
               </div>
+
+              <div className="flex items-center gap-2">
+                {activeRelease.status !== 'released' && (
+                  <button
+                    onClick={handleSaveDrawer}
+                    disabled={isSavingDrawer}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-md transition-all"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Guardar</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setActiveReleaseId(null)}
+                  className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-all"
+                  title="Cerrar panel"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Drawer Sub-tabs */}
+            <div className="flex items-center gap-1 px-5 pt-3 border-b border-white/[0.06] bg-slate-900/30">
               <button
-                onClick={() => setPlannerOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+                onClick={() => setDrawerTab('details')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all ${
+                  drawerTab === 'details'
+                    ? 'border-indigo-500 text-white bg-white/[0.04]'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
               >
-                <X className="w-4 h-4" />
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Metadatos & Alcance</span>
+              </button>
+
+              <button
+                onClick={() => setDrawerTab('tasks')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all ${
+                  drawerTab === 'tasks'
+                    ? 'border-indigo-500 text-white bg-white/[0.04]'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Tareas Asociadas ({editItemCodes.length})</span>
+              </button>
+
+              <button
+                onClick={() => setDrawerTab('changelog')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all ${
+                  drawerTab === 'changelog'
+                    ? 'border-indigo-500 text-white bg-white/[0.04]'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Notas de Cambio (Changelog)</span>
               </button>
             </div>
 
-            <form onSubmit={handleSavePlan} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                    Versión Target <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={planVersion}
-                    onChange={(e) => setPlanVersion(e.target.value)}
-                    placeholder="0.3.0"
-                    className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500/50"
+            {/* Drawer Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* TAB 1: METADATOS */}
+              {drawerTab === 'details' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-300">
+                      Título Descriptivo de la Versión
+                    </label>
+                    <input
+                      type="text"
+                      disabled={activeRelease.status === 'released'}
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Ej: Workflow Views & Drag and Drop"
+                      className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-300">
+                        {activeRelease.status === 'released' ? 'Fecha de Lanzamiento' : 'Fecha Objetivo (Target Date)'}
+                      </label>
+                      <input
+                        type="date"
+                        disabled={activeRelease.status === 'released'}
+                        value={activeRelease.status === 'released' ? editDate : editTargetDate}
+                        onChange={(e) => {
+                          if (activeRelease.status === 'released') setEditDate(e.target.value);
+                          else setEditTargetDate(e.target.value);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-slate-300">
+                        Estado del Paquete
+                      </label>
+                      <div className="px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs font-medium flex items-center gap-2">
+                        {activeRelease.status === 'released' ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-300">Implementado en Producción</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <span className="text-amber-300">En Preparación (Unreleased)</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-300">
+                      Resumen Ejecutivo (Summary)
+                    </label>
+                    <textarea
+                      rows={3}
+                      disabled={activeRelease.status === 'released'}
+                      value={editSummary}
+                      onChange={(e) => setEditSummary(e.target.value)}
+                      placeholder="Breve resumen de los aportes de esta versión para el usuario final..."
+                      className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 resize-none disabled:opacity-60"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-300">
+                      Notas de Alcance / Definición de Hito
+                    </label>
+                    <textarea
+                      rows={3}
+                      disabled={activeRelease.status === 'released'}
+                      value={editScopeNotes}
+                      onChange={(e) => setEditScopeNotes(e.target.value)}
+                      placeholder="Criterios de alcance, dependencias clave o metas de negocio asociadas a esta versión..."
+                      className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 resize-none disabled:opacity-60"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: TAREAS ASOCIADAS */}
+              {drawerTab === 'tasks' && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold text-slate-200">
+                      Tareas en este Paquete ({editItemCodes.length})
+                    </h4>
+                    {activeRelease.status !== 'released' && (
+                      <span className="text-[11px] text-slate-400">
+                        Pulsa en la cruz para desvincular una tarea
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    {editItemCodes.length === 0 ? (
+                      <p className="text-xs text-slate-500 py-3 text-center border border-dashed border-white/[0.08] rounded-xl">
+                        No hay tareas asignadas todavía a este paquete.
+                      </p>
+                    ) : (
+                      editItemCodes.map((code) => {
+                        const item = items.find((it) => it.code === code);
+                        const pConf = item?.priority ? priorityConfig[item.priority] : null;
+                        const tConf = item?.type ? typeConfig[item.type] : null;
+
+                        return (
+                          <div
+                            key={code}
+                            className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-all"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="font-mono text-xs font-semibold text-indigo-400">
+                                {code}
+                              </span>
+                              <span className="text-xs text-slate-200 truncate">
+                                {item?.title || 'Tarea registrada'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {tConf && (
+                                <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${tConf.badge}`}>
+                                  {tConf.label}
+                                </span>
+                              )}
+                              {pConf && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono bg-white/[0.05] ${pConf.text}`}>
+                                  {pConf.label}
+                                </span>
+                              )}
+
+                              {activeRelease.status !== 'released' && (
+                                <button
+                                  onClick={() => handleToggleTaskInRelease(code)}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                                  title="Desvincular del release"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Add Unassigned Finished Tasks (only if unreleased) */}
+                  {activeRelease.status !== 'released' && availableDoneTasks.length > 0 && (
+                    <div className="pt-4 border-t border-white/[0.06] space-y-3">
+                      <h4 className="text-xs font-semibold text-slate-200 flex items-center justify-between">
+                        <span>Tareas Terminadas Disponibles para Vincular</span>
+                        <span className="text-[10px] font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                          {availableDoneTasks.length} disponibles
+                        </span>
+                      </h4>
+
+                      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                        {availableDoneTasks.map((it) => (
+                          <div
+                            key={it.code}
+                            onClick={() => handleToggleTaskInRelease(it.code)}
+                            className="flex items-center justify-between p-2.5 rounded-lg bg-black/20 hover:bg-indigo-500/10 border border-white/[0.04] hover:border-indigo-500/30 cursor-pointer transition-all"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-mono text-xs font-semibold text-slate-300">
+                                {it.code}
+                              </span>
+                              <span className="text-xs text-slate-300 truncate">
+                                {it.title}
+                              </span>
+                            </div>
+
+                            <button className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Vincular</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 3: CHANGELOG */}
+              {drawerTab === 'changelog' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold text-slate-200">
+                      Markdown Oficial del Changelog
+                    </h4>
+
+                    <div className="flex items-center gap-2">
+                      {activeRelease.status !== 'released' && (
+                        <button
+                          onClick={handleRegenerateMarkdown}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-medium border border-indigo-500/20 transition-all"
+                          title="Regenera el markdown a partir de las tareas vinculadas"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Regenerar Notas</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleQuickCopyMarkdown(editMarkdown, activeRelease.version)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-xs font-medium border border-white/[0.08] transition-all"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copiar</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <textarea
+                    rows={12}
+                    disabled={activeRelease.status === 'released'}
+                    value={editMarkdown}
+                    onChange={(e) => setEditMarkdown(e.target.value)}
+                    className="w-full p-4 rounded-xl bg-black/40 border border-white/[0.08] font-mono text-xs text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500 disabled:opacity-75 resize-y"
+                    placeholder="El contenido Markdown de las notas de release aparecerá aquí..."
                   />
                 </div>
+              )}
+            </div>
 
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                    Fecha Objetivo Estimada
-                  </label>
-                  <input
-                    type="date"
-                    value={planTargetDate}
-                    onChange={(e) => setPlanTargetDate(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                  Título del Release Target
-                </label>
-                <input
-                  type="text"
-                  value={planTitle}
-                  onChange={(e) => setPlanTitle(e.target.value)}
-                  placeholder="Ej: Sprint UX & Estabilización de Navegación"
-                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                  Alcance & Notas de Objetivos (Scope Notes)
-                </label>
-                <textarea
-                  rows={3}
-                  value={planScopeNotes}
-                  onChange={(e) => setPlanScopeNotes(e.target.value)}
-                  placeholder="Describe los objetivos clave, módulos a entregar o criterios de éxito para este release..."
-                  className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 resize-none"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2">
+            {/* Drawer Footer */}
+            <div className="p-4 border-t border-white/[0.08] bg-slate-900/60 flex items-center justify-between gap-3">
+              {activeRelease.status === 'released' ? (
+                <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Versión sellada e implementada en producción.</span>
+                </span>
+              ) : (
                 <button
-                  type="button"
-                  onClick={() => setPlannerOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg border border-white/[0.08] text-xs text-slate-300 hover:bg-white/[0.04] transition-colors"
+                  onClick={() => handlePromoteToProduction(activeRelease)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/30 transition-all active:scale-[0.98]"
                 >
-                  Cancelar
+                  <Rocket className="w-4 h-4 text-emerald-100" />
+                  <span>Promover y Liberar a Producción</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-md shadow-indigo-600/25 transition-all"
-                >
-                  Guardar Target
-                </button>
-              </div>
-            </form>
+              )}
+
+              <button
+                onClick={() => setActiveReleaseId(null)}
+                className="px-3.5 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 text-xs font-medium border border-white/[0.08] transition-all"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Promote to Production Confirmation Modal */}
-      {promoteModalOpen && promoteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="glass-panel max-w-lg w-full rounded-2xl border border-emerald-500/30 bg-[#0d131f] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+      {/* ========================================================================= */}
+      {/* MODAL: NUEVA VERSIÓN (EN PREPARACIÓN)                                     */}
+      {/* ========================================================================= */}
+      {newReleaseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="w-full max-w-lg bg-slate-950 border border-white/[0.1] rounded-2xl p-6 shadow-2xl space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
                   <Rocket className="w-4 h-4" />
                 </span>
-                <h3 className="text-sm font-semibold text-slate-100">
-                  Confirmar Liberación a Producción
+                <h3 className="text-base font-bold text-white">
+                  Crear Versión en Preparación (Unreleased)
                 </h3>
               </div>
               <button
-                onClick={() => setPromoteModalOpen(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-white/[0.05]"
+                onClick={() => setNewReleaseModalOpen(false)}
+                className="text-slate-400 hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-300">
-              <p>
-                ¿Confirmas que la versión <span className="font-mono font-bold text-emerald-400">v{promoteTarget.version}</span> ha sido efectivamente entregada y verificada en <span className="font-semibold text-white">Producción</span>?
-              </p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-300">
+                    Número de Versión *
+                  </label>
+                  <input
+                    type="text"
+                    value={newVersion}
+                    onChange={(e) => setNewVersion(e.target.value)}
+                    placeholder="Ej: 0.4.0"
+                    className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
 
-              <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] space-y-1.5">
-                <div className="flex justify-between text-[11px] text-slate-400">
-                  <span>Versión:</span>
-                  <span className="font-mono font-semibold text-slate-200">v{promoteTarget.version}</span>
-                </div>
-                <div className="flex justify-between text-[11px] text-slate-400">
-                  <span>Tareas a registrar como liberadas:</span>
-                  <span className="font-mono font-semibold text-slate-200">{promoteTarget.itemCodes.length} tareas</span>
-                </div>
-                <div className="flex justify-between text-[11px] text-slate-400">
-                  <span>Fecha de salida:</span>
-                  <span className="font-mono font-semibold text-slate-200">{todayStr}</span>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-300">
+                    Fecha Objetivo (Target Date)
+                  </label>
+                  <input
+                    type="date"
+                    value={newTargetDate}
+                    onChange={(e) => setNewTargetDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500"
+                  />
                 </div>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300/90 text-[11px] leading-relaxed">
-                ⚠️ Al confirmar, la versión pasará a ser un <strong>release histórico inmutable (`released`)</strong>, sus tareas se marcarán con fecha de liberación (`releasedAt`), y dejará de figurar en los borradores en desarrollo.
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-300">
+                  Título de la Versión *
+                </label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Ej: Sprint Lifecycle & Epics Support"
+                  className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-300">
+                  Resumen Ejecutivo / Meta del Hito
+                </label>
+                <textarea
+                  rows={3}
+                  value={newSummary}
+                  onChange={(e) => setNewSummary(e.target.value)}
+                  placeholder="Describe los principales objetivos y alcances que se entregarán en esta versión..."
+                  className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"
+                />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/[0.08] flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/[0.08]">
               <button
-                type="button"
-                onClick={() => setPromoteModalOpen(false)}
-                className="px-3.5 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-medium text-slate-300 transition-colors"
+                onClick={() => setNewReleaseModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 text-xs font-medium border border-white/[0.08]"
               >
                 Cancelar
               </button>
+
               <button
-                type="button"
-                onClick={handleConfirmPromote}
-                disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-lg shadow-emerald-600/30 transition-all disabled:opacity-50"
+                onClick={handleCreateNewRelease}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20"
               >
-                <Rocket className="w-3.5 h-3.5 text-emerald-100" />
-                <span>{isSubmitting ? 'Liberando...' : 'Sí, Liberar a Producción'}</span>
+                <Plus className="w-4 h-4" />
+                <span>Crear Versión</span>
               </button>
             </div>
           </div>

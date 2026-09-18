@@ -1,9 +1,9 @@
 ---
 id: DEV-066
 title: "Simplificación Conceptual de Releases: Lista Unificada (En Preparación vs Implementado) y Detalle Progresivo"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 02:58'
+updated_date: '2026-09-18 09:44'
 labels:
   - releases
   - ux
@@ -34,9 +34,9 @@ Refactorización y simplificación radical del modelo y la interfaz de Releases:
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Unificar los estados del modelo de Release a exclusivamente 'unreleased' y 'released'
-- [ ] #2 Rediseñar ReleaseAssembler.tsx hacia una vista tipo lista compacta y clara sin divisiones redundantes
-- [ ] #3 Implementar panel de detalle progresivo (drawer o split-view) para inspección y edición bajo demanda
+- [x] #1 Unificar los estados del modelo de Release a exclusivamente 'unreleased' y 'released'
+- [x] #2 Rediseñar ReleaseAssembler.tsx hacia una vista tipo lista compacta y clara sin divisiones redundantes
+- [x] #3 Implementar panel de detalle progresivo (drawer o split-view) para inspección y edición bajo demanda
 <!-- AC:END -->
 
 ## Implementation Plan
