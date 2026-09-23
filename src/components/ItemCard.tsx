@@ -462,15 +462,15 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
           </span>
         )}
 
-        {item.targetSprint && (
+        {(item.sprint || item.targetSprint) && (
           <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300/90 border border-indigo-200 dark:border-indigo-500/20 truncate max-w-[120px]">
-            {item.targetSprint}
+            {item.sprint || item.targetSprint}
           </span>
         )}
 
-        {item.targetRelease && (
+        {(item.release || item.targetRelease) && (
           <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300/90 border border-emerald-200 dark:border-emerald-500/20 font-mono">
-            v{item.targetRelease}
+            {(item.release || item.targetRelease)?.startsWith('v') ? (item.release || item.targetRelease) : `v${item.release || item.targetRelease}`}
           </span>
         )}
 

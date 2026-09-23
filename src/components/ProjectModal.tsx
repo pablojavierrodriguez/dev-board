@@ -75,7 +75,7 @@ export const ProjectModal: FC<ProjectModalProps> = ({
     try {
       await onSave({
         name: name.trim(),
-        codePrefix: codePrefix.trim().toUpperCase(),
+        codePrefix: codePrefix.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''),
         repoPath: repoPath.trim() || undefined,
         description: description.trim() || undefined,
         storageType
@@ -140,7 +140,7 @@ export const ProjectModal: FC<ProjectModalProps> = ({
               <input
                 type="text"
                 value={codePrefix}
-                onChange={(e) => setCodePrefix(e.target.value.toUpperCase())}
+                onChange={(e) => setCodePrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
                 placeholder="Ej: API, CORE, BACK"
                 className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-slate-100 font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />

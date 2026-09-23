@@ -1051,12 +1051,34 @@ function devBoardApi(): PluginOption {
               if (!project) return sendJson(400, { error: 'No active project found' });
 
               const backlog = readProjectBacklog(project);
-              const prefix = project.codePrefix || 'ITEM';
+              const cleanPrefix = (project.codePrefix || 'ITEM').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'ITEM';
 
               let code = body.code;
               if (!code) {
-                const count = backlog.items.length + 1;
-                code = `${prefix}-${String(count).padStart(3, '0')}`;
+                let maxNum = 0;
+                const regex = new RegExp(`^${cleanPrefix}[-_]+(\\d+)`, 'i');
+                for (const t of backlog.items) {
+                  const m = (t.code || t.id || '').match(regex);
+                  if (m) {
+                    const n = parseInt(m[1], 10);
+                    if (!isNaN(n) && n > maxNum) maxNum = n;
+                  }
+                }
+                if (isBacklogMdProject(project)) {
+                  const tasksDir = getBacklogTasksDir(project);
+                  if (fs.existsSync(tasksDir)) {
+                    const diskFiles = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
+                    for (const f of diskFiles) {
+                      const m = f.match(regex);
+                      if (m) {
+                        const n = parseInt(m[1], 10);
+                        if (!isNaN(n) && n > maxNum) maxNum = n;
+                      }
+                    }
+                  }
+                }
+                const nextNum = maxNum > 0 ? maxNum + 1 : backlog.items.length + 1;
+                code = `${cleanPrefix}-${String(nextNum).padStart(3, '0')}`;
               }
 
               const normalizedSt = normalizeStatus(body.status || 'draft');
@@ -1352,7 +1374,7 @@ function devBoardApi(): PluginOption {
               const newProject: ProjectMeta = {
                 id,
                 name: body.name || 'Nuevo Proyecto',
-                codePrefix: (body.codePrefix || 'PRJ').toUpperCase(),
+                codePrefix: (body.codePrefix || 'PRJ').toUpperCase().replace(/[^A-Z0-9]/g, '') || 'PRJ',
                 repoPath: normalizedRepoPath,
                 ...(body.isDemo ? { isDemo: true } : {}),
                 storageType: storageType || 'json',

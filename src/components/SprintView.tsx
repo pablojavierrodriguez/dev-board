@@ -123,15 +123,22 @@ export const SprintView: FC<SprintViewProps> = ({
   const [completingSprint, setCompletingSprint] = useState<Sprint | null>(null);
   const [sprintToDelete, setSprintToDelete] = useState<Sprint | null>(null);
 
-  // DEV-051: Column visibility popover
-  const ALL_OPTIONAL_COLS = ['tipo', 'modulo', 'release', 'sprint'] as const;
+  // DEV-051 & DEV-078: Column visibility popover
+  const ALL_OPTIONAL_COLS = ['tipo', 'estado', 'modulo', 'release', 'sprint'] as const;
   type OptionalCol = typeof ALL_OPTIONAL_COLS[number];
   const [visibleCols, setVisibleCols] = useState<Set<OptionalCol>>(() => {
     try {
       const saved = localStorage.getItem('devboard_backlog_visible_cols');
-      if (saved) return new Set(JSON.parse(saved) as OptionalCol[]);
+      if (saved) {
+        const parsed = JSON.parse(saved) as OptionalCol[];
+        const set = new Set<OptionalCol>(parsed);
+        if (!parsed.includes('estado')) {
+          set.add('estado');
+        }
+        return set;
+      }
     } catch {}
-    return new Set<OptionalCol>(['tipo', 'modulo', 'release']);
+    return new Set<OptionalCol>(['tipo', 'estado', 'modulo', 'release', 'sprint']);
   });
   const [colsPopoverOpen, setColsPopoverOpen] = useState(false);
   const colsPopoverRef = useRef<HTMLDivElement>(null);
@@ -477,6 +484,7 @@ export const SprintView: FC<SprintViewProps> = ({
                 <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 pb-1">Columnas opcionales</p>
                 {([
                   { id: 'tipo', label: 'Tipo' },
+                  { id: 'estado', label: 'Estado' },
                   { id: 'modulo', label: 'Módulo' },
                   { id: 'release', label: 'Release / Versión' },
                   { id: 'sprint', label: 'Sprint' },
@@ -729,15 +737,17 @@ export const SprintView: FC<SprintViewProps> = ({
                           </th>
                           <th className="py-2.5 px-4">Título</th>
                           {visibleCols.has('tipo') && <th className="py-2.5 px-4">Tipo</th>}
-                          <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('status', e)}>
-                            <div className="flex items-center gap-1">
-                              <span className={sortBy === 'status' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Estado</span>
-                              <ArrowUpDown className={`w-3 h-3 ${sortBy === 'status' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
-                            </div>
-                          </th>
+                          {visibleCols.has('estado') && (
+                            <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('status', e)}>
+                              <div className="flex items-center gap-1">
+                                <span className={sortBy === 'status' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Estado</span>
+                                <ArrowUpDown className={`w-3 h-3 ${sortBy === 'status' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
+                              </div>
+                            </th>
+                          )}
                           {visibleCols.has('modulo') && <th className="py-2.5 px-4">Módulo</th>}
                           {visibleCols.has('release') && <th className="py-2.5 px-4">Release / Versión</th>}
-                          {groupBy !== 'sprint' && visibleCols.has('sprint') && <th className="py-2.5 px-4">Sprint</th>}
+                          {visibleCols.has('sprint') && <th className="py-2.5 px-4">Sprint</th>}
                           <th className="py-2.5 px-4 text-right">Acciones</th>
                         </tr>
                       </thead>
@@ -874,26 +884,28 @@ export const SprintView: FC<SprintViewProps> = ({
                               )}
 
                               {/* Status */}
-                              <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                <select
-                                  value={item.status}
-                                  onChange={(e) => {
-                                    const newStatus = e.target.value as ItemStatus;
-                                    if (newStatus !== item.status) {
-                                      onUpdateStatus(item.id, newStatus);
-                                    }
-                                  }}
-                                  className={`px-2 py-0.5 rounded text-[10px] font-medium border cursor-pointer focus:outline-none ${sInfo.color}`}
-                                >
-                                  <option value="draft" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Draft</option>
-                                  <option value="doing" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Doing</option>
-                                  <option value="review" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Review</option>
-                                  <option value="ready" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Ready</option>
-                                  <option value="done" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Done</option>
-                                  <option value="dismissed" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Descartado</option>
-                                  <option value="cancelled" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Cancelado</option>
-                                </select>
-                              </td>
+                              {visibleCols.has('estado') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                  <select
+                                    value={item.status}
+                                    onChange={(e) => {
+                                      const newStatus = e.target.value as ItemStatus;
+                                      if (newStatus !== item.status) {
+                                        onUpdateStatus(item.id, newStatus);
+                                      }
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-medium border cursor-pointer focus:outline-none ${sInfo.color}`}
+                                  >
+                                    <option value="draft" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Draft</option>
+                                    <option value="doing" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Doing</option>
+                                    <option value="review" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Review</option>
+                                    <option value="ready" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Ready</option>
+                                    <option value="done" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Done</option>
+                                    <option value="dismissed" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Descartado</option>
+                                    <option value="cancelled" className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">Cancelado</option>
+                                  </select>
+                                </td>
+                              )}
 
                               {/* Module */}
                               {visibleCols.has('modulo') && (
@@ -915,8 +927,8 @@ export const SprintView: FC<SprintViewProps> = ({
                                 </td>
                               )}
 
-                              {/* Sprint (visible when not grouped by sprint AND sprint col enabled) */}
-                              {groupBy !== 'sprint' && visibleCols.has('sprint') && (
+                              {/* Sprint (visible when sprint col enabled in columns popover) */}
+                              {visibleCols.has('sprint') && (
                                 <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                   {onUpdateSprint && availableSprints.length > 0 ? (
                                     <select
@@ -930,7 +942,7 @@ export const SprintView: FC<SprintViewProps> = ({
                                       }}
                                       className="px-2 py-0.5 rounded text-[10px] font-mono border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 focus:outline-none cursor-pointer"
                                     >
-                                      <option value="" className="bg-white dark:bg-[#0e1626] text-slate-500">Backlog</option>
+                                      <option value="" className="bg-white dark:bg-[#0e1626] text-slate-500">Sin Sprint</option>
                                       {availableSprints.map((sp) => (
                                         <option key={sp} value={sp} className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">
                                           {sp}
@@ -943,7 +955,7 @@ export const SprintView: FC<SprintViewProps> = ({
                                         {item.sprint || item.targetSprint}
                                       </span>
                                     ) : (
-                                      <span className="text-slate-400 dark:text-slate-600">—</span>
+                                      <span className="text-slate-400 dark:text-slate-600 font-mono text-[10px]">Sin Sprint</span>
                                     )
                                   )}
                                 </td>

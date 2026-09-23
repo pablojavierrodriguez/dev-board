@@ -519,7 +519,7 @@ export function generateTaskFilename(id: string, title: string): string {
     .replace(/\s+/g, '-')
     .slice(0, 50);
 
-  const cleanId = id.toLowerCase();
+  const cleanId = id.toLowerCase().replace(/--+/g, '-');
   return `${cleanId} - ${cleanTitle}.md`;
 }
 

@@ -391,7 +391,7 @@ ${bodySections.join("\n")}`;
 }
 function generateTaskFilename(id, title) {
   const cleanTitle = (title || "task").toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").slice(0, 50);
-  const cleanId = id.toLowerCase();
+  const cleanId = id.toLowerCase().replace(/--+/g, "-");
   return `${cleanId} - ${cleanTitle}.md`;
 }
 function generateMonolithicBacklogMd(projectName, items) {

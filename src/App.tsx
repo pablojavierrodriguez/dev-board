@@ -1098,7 +1098,7 @@ export function App() {
 
       // Sprints
       if (filters.sprint && filters.sprint !== 'all') {
-        if (filters.sprint === 'backlog') {
+        if (filters.sprint === 'no_sprint' || filters.sprint === 'backlog') {
           if (item.sprint || item.targetSprint) return false;
         } else {
           if (item.sprint !== filters.sprint && item.targetSprint !== filters.sprint) return false;

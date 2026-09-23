@@ -1,9 +1,9 @@
 ---
 id: DEV-040
 title: "Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/"
-status: Ready
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-23 17:13'
+updated_date: '2026-09-23 22:59'
 labels: []
 dependencies: []
 priority: high

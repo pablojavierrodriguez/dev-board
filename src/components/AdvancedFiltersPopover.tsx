@@ -33,7 +33,7 @@ const PRIORITY_OPTIONS: { id: Priority; label: string; dot: string }[] = [
 
 const STATUS_GROUPS: { id: ItemStatus; label: string; dot: string; icon: string }[] = [
   { id: 'ideas', label: 'Ideas (Discovery)', dot: 'bg-pink-500', icon: '💡' },
-  { id: 'draft', label: 'Draft / Backlog', dot: 'bg-indigo-500', icon: '📋' },
+  { id: 'draft', label: 'Draft (Borrador)', dot: 'bg-indigo-500', icon: '📋' },
   { id: 'doing', label: 'Doing / Progreso', dot: 'bg-amber-500', icon: '⚡' },
   { id: 'review', label: 'Review / QA', dot: 'bg-purple-500', icon: '🔍' },
   { id: 'ready', label: 'Ready / Release', dot: 'bg-teal-500', icon: '🚀' },
@@ -322,7 +322,7 @@ export const AdvancedFiltersPopover: React.FC<AdvancedFiltersPopoverProps> = ({
                 {s}
               </option>
             ))}
-            <option value="backlog">Sin Sprint (Backlog)</option>
+            <option value="backlog">Sin Sprint</option>
           </select>
         </div>
 

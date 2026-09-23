@@ -1,9 +1,9 @@
 ---
 id: DEV-074
 title: "Botón Deshacer Cambios en Settings (Restablecer Estado no Guardado)"
-status: Ready
+status: Done
 created_date: '2026-09-19T04:54:51.829Z'
-updated_date: '2026-09-23 19:03'
+updated_date: '2026-09-23 22:59'
 labels:
   - settings
   - ux

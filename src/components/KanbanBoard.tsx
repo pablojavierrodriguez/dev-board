@@ -843,7 +843,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         </option>
                       );
                     })}
-                    <option value="backlog">Sin Sprint (Backlog)</option>
+                    <option value="backlog">Sin Sprint</option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 pointer-events-none" />
                 </div>
@@ -954,7 +954,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   Sprint Goal Activo:
                 </span>
                 <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                  {activeSprint === 'backlog' ? 'Sin Sprint (Backlog)' : activeSprint}
+                  {activeSprint === 'backlog' ? 'Sin Sprint' : activeSprint}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">

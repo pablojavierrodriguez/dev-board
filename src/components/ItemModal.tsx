@@ -746,7 +746,7 @@ export const ItemModal: FC<ItemModalProps> = ({
                     className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 font-medium"
                   >
                     <option value="ideas" className="bg-[#0e1626]">💡 Idea / Discovery</option>
-                    <option value="draft" className="bg-[#0e1626]">Draft (Backlog)</option>
+                    <option value="draft" className="bg-[#0e1626]">Draft (Borrador)</option>
                     <option value="doing" className="bg-[#0e1626]">Doing (En Desarrollo)</option>
                     <option value="review" className="bg-[#0e1626]">Review (En Revisión / QA)</option>
                     <option value="ready" className="bg-[#0e1626]">Ready (Listo para Release)</option>

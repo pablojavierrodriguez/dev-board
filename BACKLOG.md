@@ -3,191 +3,7 @@
 
 ## Resumen de Estados
 
-### 🚀 Ready for Deploy (10)
-
-#### [DEV-040] Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: Sprint 4
-
-Desacoplar la configuración de DevBoard del registro central global (data/projects-registry.json), permitiendo que toda la configuración de columnas, metodología, vistas y preferencias viva autocontenida en .devboard/config.json dentro del repositorio del proyecto.
-
-**Criterios de Aceptación:**
-- [x] #1 Almacenar configuraciones de vista, columnas y metodología en .devboard/config.json dentro del repositorio del proyecto
-- [x] #2 Priorizar lectura y escritura de configuración local sobre el registro central data/projects-registry.json
-- [x] #3 Garantizar que al clonar el repositorio en otra máquina o entorno, DevBoard cargue la configuración de .devboard/config.json sin pasos manuales
-- [x] #4 Mantener compatibilidad hacia atrás con proyectos existentes y proyectos con múltiples carpetas
-
----
-
-#### [DEV-041] Simplificación de UX/UI en Modo Proyecto Único (Eliminación de Ruido Multi-Proyecto)
-- **Prioridad**: `high` | **Tipo**: `ux`
-- **Sprint / Milestone**: Sprint 4
-
-Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta en un repositorio único, eliminando el ruido de selectores de proyectos globales, modales de importación y cambio de repositorios, ofreciendo una experiencia enfocada y limpia similar a Storybook o Prisma Studio.
-
-**Criterios de Aceptación:**
-- [x] #1 Detectar modo monoproyecto (Single-Project Mode) cuando devboard se ejecuta apuntando a un único repositorio local
-- [x] #2 Ocultar selector desplegable de proyectos en la cabecera cuando se ejecuta en modo monoproyecto
-- [x] #3 Ocultar botones y modales de 'Añadir Proyecto' e 'Importar Proyecto' en la navegación principal en modo monoproyecto
-- [x] #4 Mostrar en la cabecera el nombre del repositorio activo con un indicador sutil de estado local
-- [x] #5 Reservar la interfaz multi-proyecto completa para cuando se invoque explícitamente con flag --hub o --multi
-
----
-
-#### [DEV-042] Empaquetado y DX como devDependency (Cero Fricción con npm i -D y npx)
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: Sprint 4
-
-Optimizar la experiencia de desarrollador (DX) y empaquetado para que DevBoard pueda ser consumido limpiamente como devDependency en cualquier proyecto Node/TypeScript, levantando el cockpit local y el servidor MCP con cero fricción.
-
-**Criterios de Aceptación:**
-- [x] #1 Habilitar instalación local mediante npm i -D devboard (o package runner) con script de inicio 'devboard'
-- [x] #2 Soporte para comando rápido de inicialización 'npx devboard --init' que prepare .devboard/ y carpetas base si no existen
-- [x] #3 Configuración automática o asistida de scripts en package.json del proyecto anfitrión (ej: "board": "devboard")
-- [x] #4 Verificar funcionamiento como devDependency aislada sin interferir con dependencias de React/Vite del proyecto anfitrión
-
----
-
-#### [DEV-048] Grafo de Relaciones entre Cards: Jerarquías Verticales (Padre/Hijo Estricto 1-a-N) y Enlaces Horizontales (Bloquea/Depende/Relacionado)
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
-
-Modelado completo de relaciones entre tarjetas tanto a nivel vertical como horizontal:
-1. **Jerarquías Verticales (Padre / Hijo Estricto):** Un ítem solo puede tener un único padre (`parentId` / `parent`), pero un padre puede tener múltiples tareas hijas. Permite asociar cualquier tarea a una Épica o Historia contenedora.
-2. **Relaciones Horizontales entre Vecinos / Hermanos:** Soporte para enlaces cruzados entre tarjetas del backlog:
-   - `blocks` / `blocked_by`: Card A bloquea a Card B (y recíprocamente Card B está bloqueada por Card A).
-   - `related_to`: Tareas relacionadas conceptualmente sin dependencia dura.
-   - `depends_on`: Dependencia funcional.
-3. **Indicadores de Bloqueo Visual:** Si una tarea tiene dependencias no resueltas (tareas bloqueantes en `doing`, `draft` o `review`), mostrar un badge visual de advertencia roja ("Bloqueada por DEV-XXX") en la tarjeta Kanban y en el detalle.
-4. **Persistencia Frontmatter:** Almacenamiento directo en frontmatter Markdown (`parent: 'DEV-010'`, `blocks: ['DEV-020']`, `dependencies: ['DEV-015']`).
-
-**Criterios de Aceptación:**
-- [x] #1 Un ítem solo puede tener asignado un único padre (parentId), con selector modal interactivo
-- [x] #2 Soporte de relaciones horizontales bidireccionales automáticas (blocks <-> blocked_by, related_to)
-- [x] #3 Badge indicador en tarjetas Kanban que señala dependencias bloqueadas y advertencias de precedencia
-- [x] #4 En ItemModal, sección interactiva 'Relaciones y Dependencias' para vincular y desvincular ítems
-- [x] #5 Persistencia transparente en frontmatter Markdown sin pérdida de datos en hot-reload
-
----
-
-#### [DEV-056] Releases Multi-Versión y Modelo Unificado de Sprints Jira-Style
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
-
-Evolución del modelo de datos para Sprints y Releases en las tarjetas, adoptando un diseño unificado y sin redundancias:
-1. **Modelo Unificado de Sprints (Jira-Style):** 
-   - Se unifica en un único campo array: `sprints?: string[]`.
-   - **Regla de Negocio:** Una tarjeta solo puede tener **1 sprint activo** asignado en curso a la vez.
-   - **Historial de Cierres:** Cuando finaliza una iteración asociada a la tarjeta, el sprint permanece guardado en el array `sprints` como registro histórico de sprints finalizados (comportamiento idéntico al estándar de Jira). Se evita la creación de campos paralelos o duplicados como `sprintHistory`.
-2. **Releases Multi-Versión:**
-   - Una tarjeta puede estar asociada a múltiples versiones a lo largo de su ciclo de vida o en despliegues concurrentes (ej: release de hotfix en `0.2.1` y de release general en `0.3.0`).
-   - Se amplía el campo a `releases?: string[]` manteniendo compatibilidad con `release?: string`.
-3. **Persistencia Frontmatter:** Almacenamiento limpio en Markdown (`sprints: ['Sprint 1', 'Sprint 2']`, `releases: ['0.2.1', '0.3.0']`).
-
-**Criterios de Aceptación:**
-- [x] #1 BacklogItem unifica los sprints en un único campo array 'sprints?: string[]' sin campos paralelos de historial
-- [x] #2 Regla de negocio que valida máximo 1 sprint en estado activo asociado a la tarjeta a la vez
-- [x] #3 Al completar un sprint, las tarjetas asociadas conservan el sprint finalizado en su lista 'sprints'
-- [x] #4 Soporte para asociar múltiples versiones/releases por tarjeta (releases?: string[])
-- [x] #5 Sincronización y persistencia transparente en frontmatter Markdown sin pérdida de datos
-
----
-
-#### [DEV-059] Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
-
-Otorgar soberanía total y personalización al usuario/admin para definir y gestionar la taxonomía de tipos de tarjeta y flujos de trabajo de su proyecto:
-1. **Soberanía Administrativa:** Aunque DevBoard incluye tipos predeterminados (`feature`, `bug`, `tech_debt`, `ux`, etc.), el usuario es el dueño de su proyecto y flujo. Debe poder crear nuevos tipos personalizados (ej. `spike`, `research`, `design`, `meeting`, `infra`), editar los existentes (nombre, color semántico, icono) o eliminar los que no utilice.
-2. **Editor de Tipos en Settings:** Incorporar en `SettingsView` una sección dedicada "Tipos de Tarjeta y Taxonomía" donde se listen los tipos actuales con acciones de edición inline, cambio de paleta cromática, asignación de icono de Lucide y botón "+ Nuevo Tipo".
-3. **Integración Universal:** Los nuevos tipos creados deben poblarse automáticamente en los modales de creación y edición (`ItemModal.tsx`), filtros de búsqueda (`FilterBar.tsx`) y badges de las tarjetas (`ItemCard.tsx`).
-4. **Persistencia Local:** Almacenamiento directo en `.devboard/config.json` bajo `config.customItemTypes`.
-
-**Criterios de Aceptación:**
-- [x] #1 Sección 'Tipos de Tarjeta' en SettingsView con gestión CRUD completa (crear, editar, eliminar)
-- [x] #2 Formulario de configuración de tipo: identificador clave, nombre legible, color semántico e icono
-- [x] #3 Los tipos personalizados se reflejan automáticamente en los selectores de ItemModal y FilterBar
-- [x] #4 Los badges de ItemCard renderizan adecuadamente el color e icono del tipo personalizado
-- [x] #5 Persistencia automática y aislada en .devboard/config.json sin romper esquemas preexistentes
-
----
-
-#### [DEV-068] Fix: devboard_list_tasks — Filtro por Sprint Retorna Todos los Tasks
-- **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: Sprint 4
-
-El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por sprint: retorna todos los tasks del proyecto. Esto genera confusión en auditorías de sprint y obliga al agente a filtrar manualmente el JSON.
-
-**Root cause posible:** El campo `sprint` en el frontmatter Markdown puede estar bajo nombres alternativos (`targetSprint`, `milestone`) que el parser no mapea al filtro `sprint` de la API.
-
-**Fix esperado:** El filtro `sprint` en `devboard_list_tasks` debe matchear los campos `sprint`, `targetSprint`, y el frontmatter `sprint:` del archivo Markdown.
-
-**Criterios de Aceptación:**
-- [x] #1 devboard_list_tasks con { sprint: 'Sprint 3' } retorna solo tasks cuyo frontmatter contiene sprint: Sprint 3
-- [x] #2 El filtro también matchea el campo targetSprint cuando coincide con el valor buscado
-- [x] #3 Test con proyecto dev-board: filtrar por Sprint 3 retorna exactamente DEV-047, DEV-049, DEV-051, DEV-052, DEV-053, DEV-055, DEV-067 y nada más
-- [x] #4 Documentar el filtro corregido en el schema MCP
-- [x] #5 La corrección es backwards-compatible con el CLI devboard list
-
----
-
-#### [DEV-069] Fix: devboard_update_task — Ignorar status dentro del objeto updates silenciosamente
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: Sprint 4
-
-Cuando se pasa `{ "taskId": "DEV-001", "updates": { "status": "ready" } }`, el servidor MCP ignora el campo `status` dentro de `updates` sin retornar error. El task mantiene su estado anterior.
-
-Esto genera un bug silencioso muy difícil de detectar: el agente cree que actualizó el status, pero el archivo Markdown no cambia.
-
-**Fix esperado:** El servidor MCP debe aceptar `status` tanto como campo top-level como dentro de `updates`, O retornar un error claro indicando que `status` no es válido dentro de `updates` para evitar la confusión.
-
-**Criterios de Aceptación:**
-- [x] #1 devboard_update_task acepta status dentro de updates Y lo aplica correctamente
-- [x] #2 O bien: devboard_update_task retorna un warning/error cuando se detecta status dentro de updates (para que el agente pueda corregirlo)
-- [x] #3 Documentar claramente en el schema MCP el campo correcto para cambiar status
-- [x] #4 Añadir test unitario que valide ambas formas de pasar el status
-
----
-
-#### [DEV-070] Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado
-- **Prioridad**: `medium` | **Tipo**: `feature`
-
-Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
-
-**Motivación:** Las retros manuales al final de cada sprint son valiosas pero se omiten cuando el sprint se cierra rápidamente. Se necesita un mecanismo que las haga obligatorias y estructuradas.
-
-**Funcionalidad esperada:**
-1. Al marcar el último item de un sprint como `ready` o al ejecutar 'Completar Sprint', DevBoard muestra un prompt de retro.
-2. El template de retro incluye las 4 dimensiones: Problemas, Eficiencia, Fortalezas, Acciones.
-3. Las acciones concretas de la retro se convierten automáticamente en nuevas tareas del backlog.
-4. La retro queda guardada como archivo en `backlog/retros/sprint-N-retro.md`.
-5. El MCP expone `devboard_create_retro` y `devboard_list_retros`.
-
-**Criterios de Aceptación:**
-- [x] #1 Al completar un sprint, CompleteSprintModal incluye paso de retro opcional pero promovido
-- [x] #2 Template de retro con secciones: ¿Qué salió bien?, ¿Qué mejorar?, ¿Qué cambiar?, Acciones concretas
-- [x] #3 Las acciones se pueden convertir en tasks con un click (Create Task from Action)
-- [x] #4 La retro se persiste en backlog/retros/ como archivo Markdown estándar
-- [x] #5 devboard_list_retros MCP tool lista las retros guardadas con resumen
-- [x] #6 La retro aparece en el timeline de la Release Notes si el sprint tiene release asociado
-
----
-
-#### [DEV-074] Botón Deshacer Cambios en Settings (Restablecer Estado no Guardado)
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: Sprint 4
-
-Al lado del botón 'Guardar Cambios' en la vista de configuración (`SettingsView.tsx`), agregar un botón 'Deshacer Cambios' que permita descartar la configuración editada en el formulario y restablecer todas las preferencias locales al estado guardado en disco (`config`), evitando guardar modificaciones no deseadas.
-
-**Criterios de Aceptación:**
-- [x] #1 Mostrar botón 'Deshacer Cambios' al lado de 'Guardar Cambios' en SettingsView cuando existan modificaciones no guardadas (isDirty)
-- [x] #2 Al hacer clic en 'Deshacer Cambios', restablecer inmediatamente todos los estados locales al valor persistido en config
-- [x] #3 Deshabilitar u ocultar el botón 'Deshacer Cambios' cuando no haya cambios pendientes (!isDirty)
-- [x] #4 Proporcionar feedback visual y toast confirmando el restablecimiento de los ajustes
-
----
-
-### 📋 Backlog / Draft (5)
+### 📋 Backlog / Draft (7)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -285,7 +101,30 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### ✅ Done / Deployed (57)
+#### [DEV-077] Mejora selectores sprints y releases en modal de card
+- **Prioridad**: `low` | **Tipo**: `ux`
+
+Para el campo sprint el listado de sprint debiera ser con un UX/UI similar a la app / modal, no debiera parecer un listado de autocompletado del navegador sin personalidad. Para el campo release, las sugerencias debieran ser por defecto las versiones creadas y en estado unreleased, ya que si no se acumulan históricamente sin límite. Al completar el campo manualmente esta bien que permita incluir tanto unreleased como released versiones, pero no sugerirlas.
+
+**Criterios de Aceptación:**
+- [ ] #1 Diseñar un selector/dropdown con estética coherente con la UI de DevBoard para el campo de Sprint en ItemModal
+- [ ] #2 Filtrar las sugerencias por defecto del campo Release mostrando únicamente versiones en estado unreleased
+- [ ] #3 Permitir la entrada o selección manual de versiones released si el usuario lo requiere expresamente
+
+---
+
+#### [DEV-079] mejora en columnas / sumar mas campos
+- **Prioridad**: `medium` | **Tipo**: `feature`
+
+deberia ser posible agregar/ocultar todos los campos disponibles en un item del backlog
+por lo menos aquellos que no son de texto amplio (ej plan de implementacion, solucion propuesta,, riesgo/impacto) o de multiples valores simultaaneos (crriterios de aceptaciones, relaciones multiples)
+
+**Criterios de Aceptación:**
+- [ ] #1 Criterio de aceptación inicial definido.
+
+---
+
+### ✅ Done / Deployed (70)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -900,6 +739,49 @@ Diferenciación conceptual y visual estricta entre metodologías de proyecto (Ka
 
 ---
 
+#### [DEV-040] Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: Sprint 4
+
+Desacoplar la configuración de DevBoard del registro central global (data/projects-registry.json), permitiendo que toda la configuración de columnas, metodología, vistas y preferencias viva autocontenida en .devboard/config.json dentro del repositorio del proyecto.
+
+**Criterios de Aceptación:**
+- [x] #1 Almacenar configuraciones de vista, columnas y metodología en .devboard/config.json dentro del repositorio del proyecto
+- [x] #2 Priorizar lectura y escritura de configuración local sobre el registro central data/projects-registry.json
+- [x] #3 Garantizar que al clonar el repositorio en otra máquina o entorno, DevBoard cargue la configuración de .devboard/config.json sin pasos manuales
+- [x] #4 Mantener compatibilidad hacia atrás con proyectos existentes y proyectos con múltiples carpetas
+
+---
+
+#### [DEV-041] Simplificación de UX/UI en Modo Proyecto Único (Eliminación de Ruido Multi-Proyecto)
+- **Prioridad**: `high` | **Tipo**: `ux`
+- **Sprint / Milestone**: Sprint 4
+
+Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta en un repositorio único, eliminando el ruido de selectores de proyectos globales, modales de importación y cambio de repositorios, ofreciendo una experiencia enfocada y limpia similar a Storybook o Prisma Studio.
+
+**Criterios de Aceptación:**
+- [x] #1 Detectar modo monoproyecto (Single-Project Mode) cuando devboard se ejecuta apuntando a un único repositorio local
+- [x] #2 Ocultar selector desplegable de proyectos en la cabecera cuando se ejecuta en modo monoproyecto
+- [x] #3 Ocultar botones y modales de 'Añadir Proyecto' e 'Importar Proyecto' en la navegación principal en modo monoproyecto
+- [x] #4 Mostrar en la cabecera el nombre del repositorio activo con un indicador sutil de estado local
+- [x] #5 Reservar la interfaz multi-proyecto completa para cuando se invoque explícitamente con flag --hub o --multi
+
+---
+
+#### [DEV-042] Empaquetado y DX como devDependency (Cero Fricción con npm i -D y npx)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: Sprint 4
+
+Optimizar la experiencia de desarrollador (DX) y empaquetado para que DevBoard pueda ser consumido limpiamente como devDependency en cualquier proyecto Node/TypeScript, levantando el cockpit local y el servidor MCP con cero fricción.
+
+**Criterios de Aceptación:**
+- [x] #1 Habilitar instalación local mediante npm i -D devboard (o package runner) con script de inicio 'devboard'
+- [x] #2 Soporte para comando rápido de inicialización 'npx devboard --init' que prepare .devboard/ y carpetas base si no existen
+- [x] #3 Configuración automática o asistida de scripts en package.json del proyecto anfitrión (ej: "board": "devboard")
+- [x] #4 Verificar funcionamiento como devDependency aislada sin interferir con dependencias de React/Vite del proyecto anfitrión
+
+---
+
 #### [DEV-044] Fix: Persistencia de Prioridad P0 en Backlog Markdown y Dirty Checking en Edición de Campos
 - **Prioridad**: `high` | **Tipo**: `bug`
 - **Sprint / Milestone**: 0.3.0
@@ -965,6 +847,28 @@ Incorporación de entidades de gestión de alto nivel (Épicas e Iniciativas) pa
 - [x] #3 Permitir agrupar la vista Backlog por Épica en el selector 'Agrupar por'
 - [x] #4 En FilterBar, añadir selector para filtrar todo el tablero por Épica/Iniciativa
 - [x] #5 Sincronización bidireccional limpia con frontmatter Markdown (type: epic, type: initiative)
+
+---
+
+#### [DEV-048] Grafo de Relaciones entre Cards: Jerarquías Verticales (Padre/Hijo Estricto 1-a-N) y Enlaces Horizontales (Bloquea/Depende/Relacionado)
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.4.0
+
+Modelado completo de relaciones entre tarjetas tanto a nivel vertical como horizontal:
+1. **Jerarquías Verticales (Padre / Hijo Estricto):** Un ítem solo puede tener un único padre (`parentId` / `parent`), pero un padre puede tener múltiples tareas hijas. Permite asociar cualquier tarea a una Épica o Historia contenedora.
+2. **Relaciones Horizontales entre Vecinos / Hermanos:** Soporte para enlaces cruzados entre tarjetas del backlog:
+   - `blocks` / `blocked_by`: Card A bloquea a Card B (y recíprocamente Card B está bloqueada por Card A).
+   - `related_to`: Tareas relacionadas conceptualmente sin dependencia dura.
+   - `depends_on`: Dependencia funcional.
+3. **Indicadores de Bloqueo Visual:** Si una tarea tiene dependencias no resueltas (tareas bloqueantes en `doing`, `draft` o `review`), mostrar un badge visual de advertencia roja ("Bloqueada por DEV-XXX") en la tarjeta Kanban y en el detalle.
+4. **Persistencia Frontmatter:** Almacenamiento directo en frontmatter Markdown (`parent: 'DEV-010'`, `blocks: ['DEV-020']`, `dependencies: ['DEV-015']`).
+
+**Criterios de Aceptación:**
+- [x] #1 Un ítem solo puede tener asignado un único padre (parentId), con selector modal interactivo
+- [x] #2 Soporte de relaciones horizontales bidireccionales automáticas (blocks <-> blocked_by, related_to)
+- [x] #3 Badge indicador en tarjetas Kanban que señala dependencias bloqueadas y advertencias de precedencia
+- [x] #4 En ItemModal, sección interactiva 'Relaciones y Dependencias' para vincular y desvincular ítems
+- [x] #5 Persistencia transparente en frontmatter Markdown sin pérdida de datos en hot-reload
 
 ---
 
@@ -1118,6 +1022,29 @@ Formalización del ciclo de vida y metadatos de los Sprints como entidad ágil d
 
 ---
 
+#### [DEV-056] Releases Multi-Versión y Modelo Unificado de Sprints Jira-Style
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.4.0
+
+Evolución del modelo de datos para Sprints y Releases en las tarjetas, adoptando un diseño unificado y sin redundancias:
+1. **Modelo Unificado de Sprints (Jira-Style):** 
+   - Se unifica en un único campo array: `sprints?: string[]`.
+   - **Regla de Negocio:** Una tarjeta solo puede tener **1 sprint activo** asignado en curso a la vez.
+   - **Historial de Cierres:** Cuando finaliza una iteración asociada a la tarjeta, el sprint permanece guardado en el array `sprints` como registro histórico de sprints finalizados (comportamiento idéntico al estándar de Jira). Se evita la creación de campos paralelos o duplicados como `sprintHistory`.
+2. **Releases Multi-Versión:**
+   - Una tarjeta puede estar asociada a múltiples versiones a lo largo de su ciclo de vida o en despliegues concurrentes (ej: release de hotfix en `0.2.1` y de release general en `0.3.0`).
+   - Se amplía el campo a `releases?: string[]` manteniendo compatibilidad con `release?: string`.
+3. **Persistencia Frontmatter:** Almacenamiento limpio en Markdown (`sprints: ['Sprint 1', 'Sprint 2']`, `releases: ['0.2.1', '0.3.0']`).
+
+**Criterios de Aceptación:**
+- [x] #1 BacklogItem unifica los sprints en un único campo array 'sprints?: string[]' sin campos paralelos de historial
+- [x] #2 Regla de negocio que valida máximo 1 sprint en estado activo asociado a la tarjeta a la vez
+- [x] #3 Al completar un sprint, las tarjetas asociadas conservan el sprint finalizado en su lista 'sprints'
+- [x] #4 Soporte para asociar múltiples versiones/releases por tarjeta (releases?: string[])
+- [x] #5 Sincronización y persistencia transparente en frontmatter Markdown sin pérdida de datos
+
+---
+
 #### [DEV-058] Política de Visualización Limpia en Tablero: Ocultamiento por Defecto de Cards en 'Done' y Toggle de Histórico
 - **Prioridad**: `medium` | **Tipo**: `ux`
 - **Sprint / Milestone**: 0.3.2
@@ -1135,6 +1062,25 @@ Optimización de la visualización de tareas finalizadas en el tablero Kanban (e
 - [x] #3 Botón interactivo o toggle para revelar el histórico completo de Done bajo demanda
 - [x] #4 Persistencia de la preferencia de visualización en Settings (.devboard/config.json)
 - [x] #5 Reducción comprobable del número de nodos DOM y mejora en fluidez de render
+
+---
+
+#### [DEV-059] Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.5.0
+
+Otorgar soberanía total y personalización al usuario/admin para definir y gestionar la taxonomía de tipos de tarjeta y flujos de trabajo de su proyecto:
+1. **Soberanía Administrativa:** Aunque DevBoard incluye tipos predeterminados (`feature`, `bug`, `tech_debt`, `ux`, etc.), el usuario es el dueño de su proyecto y flujo. Debe poder crear nuevos tipos personalizados (ej. `spike`, `research`, `design`, `meeting`, `infra`), editar los existentes (nombre, color semántico, icono) o eliminar los que no utilice.
+2. **Editor de Tipos en Settings:** Incorporar en `SettingsView` una sección dedicada "Tipos de Tarjeta y Taxonomía" donde se listen los tipos actuales con acciones de edición inline, cambio de paleta cromática, asignación de icono de Lucide y botón "+ Nuevo Tipo".
+3. **Integración Universal:** Los nuevos tipos creados deben poblarse automáticamente en los modales de creación y edición (`ItemModal.tsx`), filtros de búsqueda (`FilterBar.tsx`) y badges de las tarjetas (`ItemCard.tsx`).
+4. **Persistencia Local:** Almacenamiento directo en `.devboard/config.json` bajo `config.customItemTypes`.
+
+**Criterios de Aceptación:**
+- [x] #1 Sección 'Tipos de Tarjeta' en SettingsView con gestión CRUD completa (crear, editar, eliminar)
+- [x] #2 Formulario de configuración de tipo: identificador clave, nombre legible, color semántico e icono
+- [x] #3 Los tipos personalizados se reflejan automáticamente en los selectores de ItemModal y FilterBar
+- [x] #4 Los badges de ItemCard renderizan adecuadamente el color e icono del tipo personalizado
+- [x] #5 Persistencia automática y aislada en .devboard/config.json sin romper esquemas preexistentes
 
 ---
 
@@ -1245,6 +1191,67 @@ Evolución integral del sistema de filtrado de DevBoard hacia un modelo limpio, 
 
 ---
 
+#### [DEV-068] Fix: devboard_list_tasks — Filtro por Sprint Retorna Todos los Tasks
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: Sprint 4
+
+El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por sprint: retorna todos los tasks del proyecto. Esto genera confusión en auditorías de sprint y obliga al agente a filtrar manualmente el JSON.
+
+**Root cause posible:** El campo `sprint` en el frontmatter Markdown puede estar bajo nombres alternativos (`targetSprint`, `milestone`) que el parser no mapea al filtro `sprint` de la API.
+
+**Fix esperado:** El filtro `sprint` en `devboard_list_tasks` debe matchear los campos `sprint`, `targetSprint`, y el frontmatter `sprint:` del archivo Markdown.
+
+**Criterios de Aceptación:**
+- [x] #1 devboard_list_tasks con { sprint: 'Sprint 3' } retorna solo tasks cuyo frontmatter contiene sprint: Sprint 3
+- [x] #2 El filtro también matchea el campo targetSprint cuando coincide con el valor buscado
+- [x] #3 Test con proyecto dev-board: filtrar por Sprint 3 retorna exactamente DEV-047, DEV-049, DEV-051, DEV-052, DEV-053, DEV-055, DEV-067 y nada más
+- [x] #4 Documentar el filtro corregido en el schema MCP
+- [x] #5 La corrección es backwards-compatible con el CLI devboard list
+
+---
+
+#### [DEV-069] Fix: devboard_update_task — Ignorar status dentro del objeto updates silenciosamente
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: Sprint 4
+
+Cuando se pasa `{ "taskId": "DEV-001", "updates": { "status": "ready" } }`, el servidor MCP ignora el campo `status` dentro de `updates` sin retornar error. El task mantiene su estado anterior.
+
+Esto genera un bug silencioso muy difícil de detectar: el agente cree que actualizó el status, pero el archivo Markdown no cambia.
+
+**Fix esperado:** El servidor MCP debe aceptar `status` tanto como campo top-level como dentro de `updates`, O retornar un error claro indicando que `status` no es válido dentro de `updates` para evitar la confusión.
+
+**Criterios de Aceptación:**
+- [x] #1 devboard_update_task acepta status dentro de updates Y lo aplica correctamente
+- [x] #2 O bien: devboard_update_task retorna un warning/error cuando se detecta status dentro de updates (para que el agente pueda corregirlo)
+- [x] #3 Documentar claramente en el schema MCP el campo correcto para cambiar status
+- [x] #4 Añadir test unitario que valide ambas formas de pasar el status
+
+---
+
+#### [DEV-070] Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado
+- **Prioridad**: `medium` | **Tipo**: `feature`
+
+Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
+
+**Motivación:** Las retros manuales al final de cada sprint son valiosas pero se omiten cuando el sprint se cierra rápidamente. Se necesita un mecanismo que las haga obligatorias y estructuradas.
+
+**Funcionalidad esperada:**
+1. Al marcar el último item de un sprint como `ready` o al ejecutar 'Completar Sprint', DevBoard muestra un prompt de retro.
+2. El template de retro incluye las 4 dimensiones: Problemas, Eficiencia, Fortalezas, Acciones.
+3. Las acciones concretas de la retro se convierten automáticamente en nuevas tareas del backlog.
+4. La retro queda guardada como archivo en `backlog/retros/sprint-N-retro.md`.
+5. El MCP expone `devboard_create_retro` y `devboard_list_retros`.
+
+**Criterios de Aceptación:**
+- [x] #1 Al completar un sprint, CompleteSprintModal incluye paso de retro opcional pero promovido
+- [x] #2 Template de retro con secciones: ¿Qué salió bien?, ¿Qué mejorar?, ¿Qué cambiar?, Acciones concretas
+- [x] #3 Las acciones se pueden convertir en tasks con un click (Create Task from Action)
+- [x] #4 La retro se persiste en backlog/retros/ como archivo Markdown estándar
+- [x] #5 devboard_list_retros MCP tool lista las retros guardadas con resumen
+- [x] #6 La retro aparece en el timeline de la Release Notes si el sprint tiene release asociado
+
+---
+
 #### [DEV-071] Fix: Aislamiento estricto de Sprints por Proyecto y Prevención de Fugas Cross-Project
 - **Prioridad**: `high` | **Tipo**: `bug`
 
@@ -1284,5 +1291,59 @@ Refinar la documentación y skills de DevBoard incorporando las herramientas de 
 - [x] #2 Actualizar la regla .agents/rules/codebase-navigation.md con el protocolo de fallback inteligente
 - [x] #3 Actualizar el skill .agents/skills/principal-engineer/SKILL.md con las directivas de análisis semántico e impacto antes de refactors
 - [x] #4 Validar compilación tsc y sincronización de backlog
+
+---
+
+#### [DEV-074] Botón Deshacer Cambios en Settings (Restablecer Estado no Guardado)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: Sprint 4
+
+Al lado del botón 'Guardar Cambios' en la vista de configuración (`SettingsView.tsx`), agregar un botón 'Deshacer Cambios' que permita descartar la configuración editada en el formulario y restablecer todas las preferencias locales al estado guardado en disco (`config`), evitando guardar modificaciones no deseadas.
+
+**Criterios de Aceptación:**
+- [x] #1 Mostrar botón 'Deshacer Cambios' al lado de 'Guardar Cambios' en SettingsView cuando existan modificaciones no guardadas (isDirty)
+- [x] #2 Al hacer clic en 'Deshacer Cambios', restablecer inmediatamente todos los estados locales al valor persistido en config
+- [x] #3 Deshabilitar u ocultar el botón 'Deshacer Cambios' cuando no haya cambios pendientes (!isDirty)
+- [x] #4 Proporcionar feedback visual y toast confirmando el restablecimiento de los ajustes
+
+---
+
+#### [DEV-075] Mostrar/ocultar sprint como columna en SprintView
+- **Prioridad**: `medium` | **Tipo**: `bug`
+
+Permitir que la activación/desactivación de la columna Sprint en el popover de Columnas refleje visualmente la columna en la tabla tanto en agrupamiento por sprint como en otros agrupamientos.
+
+**Criterios de Aceptación:**
+- [x] #1 Eliminar el bloqueo condicional groupBy !== 'sprint' para los encabezados y celdas de la columna Sprint en SprintView
+- [x] #2 Asegurar que cuando visibleCols incluya 'sprint', la columna Sprint se visualice con su selector/etiqueta interactiva
+- [x] #3 Verificar que al desmarcar 'sprint' en el popover de columnas, la columna se oculte adecuadamente
+- [x] #4 Validar compilación con tsc --noEmit
+
+---
+
+#### [DEV-076] Sanitización de prefijo y cálculo max+1 al crear ítems en la API web
+- **Prioridad**: `high` | **Tipo**: `bug`
+
+Corregir POST /api/items en vite.config.ts para sanitizar codePrefix (evitar dobles guiones DEV--) y calcular el correlativo usando max+1 sobre backlog.items y archivos en disco, alineándolo con el MCP server.
+
+**Criterios de Aceptación:**
+- [x] #1 Sanitizar codePrefix en data/projects-registry.json (remover guión final) y en vite.config.ts
+- [x] #2 Implementar cálculo max+1 sobre tareas existentes y archivos en disco en POST /api/items de vite.config.ts
+- [x] #3 Sanitizar generateTaskFilename en scripts/backlogMdParser.ts para prevenir dobles guiones accidentales
+- [x] #4 Validar creación de tareas y consistencia con npm run test:backlog y tsc --noEmit
+
+---
+
+#### [DEV-078] Separación estricta de Sprint y Estado en columnas filtros y datos
+- **Prioridad**: `high` | **Tipo**: `bug`
+
+Garantizar la independencia total y estricta entre Sprint y Estado: agregar Estado como columna configurable en SprintView, desacoplar la opción 'Backlog' cambiándola a 'Sin Sprint' en selectores de Sprint, y eliminar etiquetas cruzadas en modales y filtros.
+
+**Criterios de Aceptación:**
+- [x] #1 Incluir 'estado' en ALL_OPTIONAL_COLS y en el selector de columnas de SprintView
+- [x] #2 Hacer condicional el renderizado de la columna Estado en encabezado y celdas de SprintView según visibleCols.has('estado')
+- [x] #3 Reemplazar la opción 'Backlog' por 'Sin Sprint' en el selector de Sprint de SprintView y filtros
+- [x] #4 Remover sufijo '(Backlog)' en ItemModal, KanbanBoard y AdvancedFiltersPopover para desacoplar Estado y Sprint
+- [x] #5 Verificar compilación limpia con tsc --noEmit
 
 ---

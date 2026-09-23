@@ -90,6 +90,14 @@ Estas reglas provienen de errores detectados en sesiones reales. Son **obligator
 >
 > Al renderizar tarjetas con tipos de datos definidos dinámicamente por el usuario (`CustomItemTypeConfig` en `config.customItemTypes`), utiliza siempre un Proxy defensivo o `getItemTypeInfo(item.type, customItemTypes)` para asegurar que cualquier clave arbitraria cuente con icono, badge y paleta semántica por defecto sin provocar fallas de renderizado.
 
+> [!CAUTION]
+> **Prohibido `curl http://localhost:4100` — Restricción de Sandbox del Terminal**
+>
+> El terminal corre en `Standard Sandbox Mode`, el cual bloquea peticiones HTTP salientes locales/remotas no permitidas y devuelve `Port 4100 not allowed for HTTP`.
+> **Protocolo canónico para validar el servidor local:**
+> 1. **Para saber si el servidor está escuchando:** usar `lsof -nP -iTCP:4100 -sTCP:LISTEN` (inspección de procesos/sockets a nivel kernel, 100% sandboxed y sin fallas).
+> 2. **Para validar la interfaz y comportamiento visual:** usar `browser_subagent` (el motor Chromium tiene acceso directo a `http://localhost:4100` sin pasar por el sandbox del shell).
+
 ---
 
 ## 7. Gate de Calidad Antes de Marcar `ready`
