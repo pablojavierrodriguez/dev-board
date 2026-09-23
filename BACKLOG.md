@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (7)
+### 📋 Backlog / Draft (8)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -21,7 +21,7 @@ Inspección de solo lectura del árbol Git local (commits, ramas, tags) para cor
 
 #### [DEV-043] Evolutivo de Marca e Identidad: Cockpit Ágil Multidisciplinario (Naming Simple y Disponibilidad)
 - **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
+- **Sprint / Milestone**: 0.5.0
 
 Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una plataforma integral de gestión ágil para equipos multidisciplinarios (producto, diseño, arquitectura, Scrum Masters y desarrolladores) y agentes de IA:
 1. Trascender la denominación "dev-board" hacia un nombre simple, distintivo, con personalidad y agradable al oído, lejos de clichés corporativos o compuestos que terminen en "Board" o "App".
@@ -39,7 +39,7 @@ Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una 
 
 #### [DEV-057] Centro de Gestión de Releases: Inspección de Release Notes, Conjunto de Cards y Sincronización con Git
 - **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
+- **Sprint / Milestone**: 0.5.0
 
 Evolución integral del módulo de Releases hacia un centro de control y auditoría de entregas:
 1. **Inspección de Releases:** Permitir visualizar en la aplicación la lista completa de releases gestionados con DevBoard, incluyendo:
@@ -118,6 +118,16 @@ Para el campo sprint el listado de sprint debiera ser con un UX/UI similar a la 
 
 deberia ser posible agregar/ocultar todos los campos disponibles en un item del backlog
 por lo menos aquellos que no son de texto amplio (ej plan de implementacion, solucion propuesta,, riesgo/impacto) o de multiples valores simultaaneos (crriterios de aceptaciones, relaciones multiples)
+
+**Criterios de Aceptación:**
+- [ ] #1 Criterio de aceptación inicial definido.
+
+---
+
+#### [DEV-080] la retro no es del release
+- **Prioridad**: `medium` | **Tipo**: `bug`
+
+la retro debe estar asignada al sprint no al release, es un error conceptual
 
 **Criterios de Aceptación:**
 - [ ] #1 Criterio de aceptación inicial definido.
