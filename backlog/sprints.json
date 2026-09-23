@@ -1,5 +1,14 @@
 [
   {
+    "id": "sprint-0",
+    "projectId": "dev-board",
+    "name": "Sprint 0",
+    "goal": "Fundaciones v0.2.0: Motor Markdown, CLI, MCP y Resiliencia",
+    "status": "completed",
+    "createdAt": "2026-09-16T00:00:00.000Z",
+    "completedAt": "2026-09-18T00:00:00.000Z"
+  },
+  {
     "id": "sprint-1",
     "projectId": "dev-board",
     "name": "Sprint 1",

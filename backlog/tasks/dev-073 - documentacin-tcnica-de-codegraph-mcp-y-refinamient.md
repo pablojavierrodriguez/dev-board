@@ -9,6 +9,8 @@ dependencies: []
 priority: medium
 type: tech_debt
 milestone: "Sprint 4"
+sprint: "Sprint 4"
+targetSprint: "Sprint 4"
 ---
 
 ## Description

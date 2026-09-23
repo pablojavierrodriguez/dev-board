@@ -16,6 +16,8 @@ milestone: "v1.1.0"
 order: 240
 release: "v1.1.0"
 targetRelease: "v1.1.0"
+sprint: "Sprint 0"
+targetSprint: "Sprint 0"
 ---
 
 ## Description

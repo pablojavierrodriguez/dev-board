@@ -8,6 +8,8 @@ labels: []
 dependencies: []
 priority: high
 type: bug
+sprint: "Sprint 4"
+targetSprint: "Sprint 4"
 ---
 
 ## Description
