@@ -1,17 +1,21 @@
 ---
 id: DEV-052
 title: "Zonas de Soltado Multi-Estado (Drop Targets Específicos) en Columnas Kanban Agrupadas"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:05'
+updated_date: '2026-09-23 13:39'
 labels:
   - ux
   - kanban
   - drag-and-drop
 dependencies: []
-priority: high
+priority: medium
 type: ux
 milestone: "0.4.0"
+sprint: "Sprint 3"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: "10"
 ---
 
 ## Description
@@ -28,11 +32,11 @@ Resolución del problema de asignación de estados cuando una columna Kanban agr
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Detectar columnas Kanban con más de un estado mapeado (statuses.length > 1)
-- [ ] #2 Al sobrevolar la columna con una tarjeta arrastrada, desplegar subzonas de drop claramente delimitadas con el nombre de cada estado
-- [ ] #3 Soltar sobre una subzona específica transiciona la tarjeta a ese estado exacto
-- [ ] #4 Soltar en la zona neutra de la columna aplica dropTargetStatus como fallback
-- [ ] #5 Animación fluida de apertura de subzonas sin provocar jank ni saltos bruscos en el scroll
+- [x] #1 Detectar columnas Kanban con más de un estado mapeado (statuses.length > 1)
+- [x] #2 Al sobrevolar la columna con una tarjeta arrastrada, desplegar subzonas de drop claramente delimitadas con el nombre de cada estado
+- [x] #3 Soltar sobre una subzona específica transiciona la tarjeta a ese estado exacto
+- [x] #4 Soltar en la zona neutra de la columna aplica dropTargetStatus como fallback
+- [x] #5 Animación fluida de apertura de subzonas sin provocar jank ni saltos bruscos en el scroll
 <!-- AC:END -->
 
 ## Implementation Plan

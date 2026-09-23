@@ -3,11 +3,17 @@ id: DEV-041
 title: "Simplificación de UX/UI en Modo Proyecto Único (Eliminación de Ruido Multi-Proyecto)"
 status: Draft
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:43'
+updated_date: '2026-09-22 03:56'
 labels: []
 dependencies: []
 priority: high
 type: ux
+milestone: "Sprint 4"
+sprint: "Sprint 4"
+order: 80
+release: "Sprint 4"
+targetRelease: "Sprint 4"
+targetSprint: "Sprint 4"
 ---
 
 ## Description

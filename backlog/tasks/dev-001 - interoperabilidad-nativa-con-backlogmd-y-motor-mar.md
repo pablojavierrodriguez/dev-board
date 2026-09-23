@@ -5,7 +5,7 @@ status: Done
 assignee:
   - "Antigravity"
 created_date: '2026-09-16'
-updated_date: '2026-09-18 01:55'
+updated_date: '2026-09-19 04:25'
 labels:
   - architecture
   - markdown
@@ -14,7 +14,7 @@ dependencies: []
 priority: high
 type: feature
 milestone: "0.2.0"
-order: 1
+order: 10
 release: "0.2.0"
 targetRelease: "0.2.0"
 ---

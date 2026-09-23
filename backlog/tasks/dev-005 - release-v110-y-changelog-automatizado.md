@@ -5,7 +5,7 @@ status: Done
 assignee:
   - "Antigravity"
 created_date: '2026-09-16'
-updated_date: '2026-09-17'
+updated_date: '2026-09-19 04:25'
 labels:
   - release
   - changelog
@@ -13,7 +13,9 @@ dependencies: []
 priority: medium
 type: feature
 milestone: "v1.1.0"
-order: 30
+order: 240
+release: "v1.1.0"
+targetRelease: "v1.1.0"
 ---
 
 ## Description

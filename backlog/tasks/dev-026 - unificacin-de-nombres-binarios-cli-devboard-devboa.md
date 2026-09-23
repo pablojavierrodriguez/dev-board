@@ -3,7 +3,7 @@ id: DEV-026
 title: "Unificación de Nombres Binarios CLI (devboard / devboard-mcp) y Limpieza de isDemo en Registry"
 status: Done
 created_date: '2026-09-17'
-updated_date: '2026-09-17'
+updated_date: '2026-09-19 04:25'
 labels:
   - cli
   - dx
@@ -13,6 +13,9 @@ dependencies: []
 priority: high
 type: chore
 milestone: "v1.2.0"
+release: "v1.2.0"
+targetRelease: "v1.2.0"
+order: 180
 ---
 
 ## Description

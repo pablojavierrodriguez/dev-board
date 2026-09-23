@@ -1,17 +1,21 @@
 ---
 id: DEV-049
 title: "Ciclo de Vida Seguro: Papelera (Soft Delete), Doble Confirmación de Purga y Protección contra Borrado en 'Done'"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:04'
+updated_date: '2026-09-23 13:39'
 labels:
   - safety
   - trash
   - lifecycle
 dependencies: []
-priority: high
+priority: medium
 type: feature
 milestone: "0.4.0"
+sprint: "Sprint 3"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: "19"
 ---
 
 ## Description
@@ -28,11 +32,11 @@ Mecanismos de protección anti-destructiva y gestión segura del ciclo de vida d
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Deshabilitar el botón de eliminación en tarjetas con estado 'done' con tooltip de protección histórica
-- [ ] #2 La acción de eliminar tarjetas activas ejecuta un Soft Delete enviándolas a la Papelera con metadato deletedAt
-- [ ] #3 Vista o filtro de Papelera accesible para consultar y restaurar tarjetas descartadas
-- [ ] #4 La purga física definitiva de una tarjeta desde la papelera exige un modal de doble confirmación de seguridad
-- [ ] #5 Integración con scripts/backlogMdParser.ts para preservar o archivar el archivo de forma resiliente
+- [x] #1 Deshabilitar el botón de eliminación en tarjetas con estado 'done' con tooltip de protección histórica
+- [x] #2 La acción de eliminar tarjetas activas ejecuta un Soft Delete enviándolas a la Papelera con metadato deletedAt
+- [x] #3 Vista o filtro de Papelera accesible para consultar y restaurar tarjetas descartadas
+- [x] #4 La purga física definitiva de una tarjeta desde la papelera exige un modal de doble confirmación de seguridad
+- [x] #5 Integración con scripts/backlogMdParser.ts para preservar o archivar el archivo de forma resiliente
 <!-- AC:END -->
 
 ## Implementation Plan

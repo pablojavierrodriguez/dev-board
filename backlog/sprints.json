@@ -1,0 +1,38 @@
+[
+  {
+    "id": "sprint-1",
+    "projectId": "dev-board",
+    "name": "Sprint 1",
+    "goal": "Fundaciones de visualización, filtros y arquitectura de backlog",
+    "status": "completed",
+    "createdAt": "2026-09-18T10:00:00.000Z"
+  },
+  {
+    "id": "sprint-2",
+    "projectId": "dev-board",
+    "name": "Sprint 2",
+    "goal": "Refinamiento de UX de cards y simplificación de releases",
+    "status": "completed",
+    "createdAt": "2026-09-18T18:00:00.000Z"
+  },
+  {
+    "id": "sprint-3",
+    "projectId": "dev-board",
+    "name": "Sprint 3",
+    "goal": "Ciclo de vida integral de Sprints, filtros unificados y drop zones inteligentes",
+    "status": "completed",
+    "durationWeeks": 1,
+    "startDate": "2026-09-19",
+    "endDate": "2026-09-26",
+    "createdAt": "2026-09-19T00:00:00.000Z",
+    "completedAt": "2026-09-19T19:34:02.053Z"
+  },
+  {
+    "id": "sprint-4",
+    "projectId": "dev-board",
+    "name": "Sprint 4",
+    "goal": "Empaquetado standalone, relaciones jerárquicas y settings avanzados",
+    "status": "planned",
+    "createdAt": "2026-09-19T05:00:00.000Z"
+  }
+]

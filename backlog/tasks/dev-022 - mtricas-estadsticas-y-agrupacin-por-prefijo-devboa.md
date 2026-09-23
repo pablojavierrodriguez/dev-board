@@ -3,12 +3,15 @@ id: DEV-022
 title: "Métricas, Estadísticas y Agrupación por Prefijo (devboard_get_stats y CLI --stats)"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-17 02:50'
+updated_date: '2026-09-19 04:25'
 labels: []
 dependencies: []
 priority: high
 type: feature
 milestone: "v1.2.0"
+release: "v1.2.0"
+targetRelease: "v1.2.0"
+order: 140
 ---
 
 ## Description

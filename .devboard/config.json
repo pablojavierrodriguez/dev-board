@@ -13,9 +13,9 @@
         "color": "border-slate-300 dark:border-slate-700/60",
         "dotColor": "bg-indigo-500",
         "statuses": [
-          "draft",
           "ideas",
-          "backlog"
+          "backlog",
+          "draft"
         ],
         "dropTargetStatus": "draft"
       },
@@ -121,5 +121,6 @@
     "sprint": true,
     "release": true
   },
-  "methodology": "scrumban"
+  "methodology": "scrumban",
+  "rankingEnabled": true
 }

@@ -199,3 +199,45 @@ Si no tienes acceso a herramientas MCP en tu entorno, puedes manipular directame
 2. **Backlog Local Soberano:** En repositorios públicos donde la planificación sea confidencial, el backlog se mantiene localmente en la máquina. Las herramientas MCP (`devboard_create_task`, `devboard_update_task`, etc.) funcionan perfectamente sin requerir `git push`.
 3. **Cero Secretos en Tareas:** Nunca agregues claves de API, contraseñas, URLs privadas con tokens o datos sensibles de clientes en títulos, descripciones o planes de tareas.
 4. **Trazabilidad y No Destrucción:** NUNCA elimines físicamente archivos de tareas resueltas (`done`). Las tareas completadas son la justificación histórica de los cambios en el código. Si una tarea es descartada, márcala como `dismissed` (DevBoard la preservará automáticamente en `backlog/archive/`).
+
+---
+
+## 8. Gotchas Conocidos del MCP — Errores Detectados en Producción
+
+> [!CAUTION]
+> **`devboard_update_task` — El campo `status` DEBE ser top-level, nunca dentro de `updates`**
+>
+> El wrapper `updates: { status: "ready" }` se ignora silenciosamente. El task mantiene su estado anterior sin error visible.
+> ```json
+> // ❌ ROTO — el status NO cambia
+> { "taskId": "DEV-001", "updates": { "status": "ready" } }
+>
+> // ✅ CORRECTO — el status SÍ cambia
+> { "taskId": "DEV-001", "status": "ready" }
+> ```
+
+> [!WARNING]
+> **`toggleAcIndex` — No paralelizar sobre el mismo task**
+>
+> Si se lanzan múltiples llamadas `toggleAcIndex` al mismo task en paralelo (mismo `taskId`),
+> ocurren race conditions en la escritura del archivo Markdown y solo algunos ACs quedan tildados.
+>
+> **Regla:** Llamadas secuenciales para el mismo task, paralelas OK entre tasks distintos.
+
+> [!NOTE]
+> **`devboard_list_tasks` con filtro `sprint` puede no filtrar correctamente**
+>
+> El parámetro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` puede devolver todos los tasks
+> del proyecto en lugar de filtrar por sprint. No confiar en este filtro para auditorías críticas.
+>
+> **Alternativa segura:** Usar `devboard_get_task` por ID individual para verificar tareas concretas,
+> o parsear manualmente el resultado de `devboard_list_tasks` buscando el campo `sprint` en el output.
+
+> [!TIP]
+> **Browser subagent tiene cuota separada — usar con moderación**
+>
+> El browser subagent consume una cuota distinta a la del LLM principal y puede agotarse (429).
+> Preferir verificación determinista vía código:
+> - `npx tsc --noEmit` → garantiza 0 errores de tipado
+> - `grep` sobre archivos fuente → confirma implementación
+> - Reservar el browser subagent solo para validaciones UX que no pueden verificarse por código

@@ -1,17 +1,21 @@
 ---
 id: DEV-051
 title: "Configuración y Parametrización de Columnas Visibles en la Vista de Backlog"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:05'
+updated_date: '2026-09-23 13:39'
 labels:
   - ux
   - backlog
   - customization
 dependencies: []
-priority: medium
+priority: low
 type: ux
 milestone: "0.4.0"
+sprint: "Sprint 3"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: "19"
 ---
 
 ## Description
@@ -29,11 +33,11 @@ Permitir a los usuarios personalizar qué columnas de información se muestran e
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Popover interactivo 'Columnas' en la barra de herramientas de la vista Backlog
-- [ ] #2 Capacidad de conmutar visibilidad de columnas opcionales (módulo, parent, release, dependencias, etc.)
-- [ ] #3 Las columnas obligatorias (código, título) permanecen ancladas para preservar usabilidad mínima
-- [ ] #4 Persistencia de las columnas activas en .devboard/config.json
-- [ ] #5 La tabla adapta su distribución de anchos de celda de forma fluida sin romper el layout
+- [x] #1 Popover interactivo 'Columnas' en la barra de herramientas de la vista Backlog
+- [x] #2 Capacidad de conmutar visibilidad de columnas opcionales (módulo, parent, release, dependencias, etc.)
+- [x] #3 Las columnas obligatorias (código, título) permanecen ancladas para preservar usabilidad mínima
+- [x] #4 Persistencia de las columnas activas en .devboard/config.json
+- [x] #5 La tabla adapta su distribución de anchos de celda de forma fluida sin romper el layout
 <!-- AC:END -->
 
 ## Implementation Plan

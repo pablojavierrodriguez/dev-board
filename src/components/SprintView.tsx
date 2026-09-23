@@ -11,11 +11,18 @@ import {
   GripVertical,
   Plus,
   Target,
-  X
+  Calendar,
+  Play,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Columns3
 } from 'lucide-react';
-import type { BacklogItem, ItemStatus, Priority } from '../types';
+import type { BacklogItem, ItemStatus, Priority, Sprint } from '../types';
 import { typeConfig, priorityConfig } from './ItemCard';
 import { ConfirmModal } from './ConfirmModal';
+import { SprintModal } from './SprintModal';
+import { CompleteSprintModal } from './CompleteSprintModal';
 
 const normalizePriorityNum = (p?: string): number => {
   if (!p) return 2;
@@ -48,18 +55,23 @@ const normalizeStatusNum = (s?: string): number => {
 
 interface SprintViewProps {
   items: BacklogItem[];
+  sprints?: Sprint[];
   onClickItem: (item: BacklogItem) => void;
   onUpdateStatus: (id: string, newStatus: ItemStatus) => void;
   onUpdatePriority: (id: string, newPriority: Priority) => void;
   onUpdateSprint?: (id: string, newSprint: string) => void;
   onReorderItem?: (draggedId: string, targetSprint: string, targetIndex: number) => void;
-  onCreateSprint?: (newSprintName: string) => void;
+  onCreateSprint?: (sprintData: Partial<Sprint>) => Promise<void>;
+  onUpdateSprintMeta?: (id: string, sprintData: Partial<Sprint>) => Promise<void>;
+  onDeleteSprint?: (id: string) => Promise<void>;
+  onStartSprint?: (sprint: Sprint) => Promise<void>;
+  onCompleteSprint?: (sprint: Sprint, destinationSprintName: string) => Promise<void>;
   onDeleteItem: (id: string) => void;
   availableSprints?: string[];
   rankingEnabled?: boolean;
 }
 
-type GroupBy = 'sprint' | 'priority' | 'module' | 'none';
+type GroupBy = 'sprint' | 'priority' | 'module' | 'none' | 'epic';
 
 const statusLabels: Record<ItemStatus, { label: string; color: string }> = {
   draft: { label: 'Draft', color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
@@ -79,12 +91,17 @@ const statusLabels: Record<ItemStatus, { label: string; color: string }> = {
 
 export const SprintView: FC<SprintViewProps> = ({
   items,
+  sprints = [],
   onClickItem,
   onUpdateStatus,
   onUpdatePriority,
   onUpdateSprint,
   onReorderItem,
   onCreateSprint,
+  onUpdateSprintMeta,
+  onDeleteSprint,
+  onStartSprint,
+  onCompleteSprint,
   onDeleteItem,
   availableSprints = [],
   rankingEnabled = true
@@ -98,27 +115,66 @@ export const SprintView: FC<SprintViewProps> = ({
   const [dropTargetRow, setDropTargetRow] = useState<{ itemId: string; position: 'before' | 'after' } | null>(null);
   const [activeDropGroup, setActiveDropGroup] = useState<string | null>(null);
 
-  // New Sprint Modal State (DEV-036)
-  const [customSprints, setCustomSprints] = useState<string[]>(() => {
+  // Sprints Modals & Lifecycle State (DEV-055)
+  const [sprintModalOpen, setSprintModalOpen] = useState(false);
+  const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
+  const [completingSprint, setCompletingSprint] = useState<Sprint | null>(null);
+  const [sprintToDelete, setSprintToDelete] = useState<Sprint | null>(null);
+
+  // DEV-051: Column visibility popover
+  const ALL_OPTIONAL_COLS = ['tipo', 'modulo', 'release', 'sprint'] as const;
+  type OptionalCol = typeof ALL_OPTIONAL_COLS[number];
+  const [visibleCols, setVisibleCols] = useState<Set<OptionalCol>>(() => {
     try {
-      const saved = localStorage.getItem('devboard_custom_sprints');
-      return saved ? JSON.parse(saved) : [];
+      const saved = localStorage.getItem('devboard_backlog_visible_cols');
+      if (saved) return new Set(JSON.parse(saved) as OptionalCol[]);
+    } catch {}
+    return new Set<OptionalCol>(['tipo', 'modulo', 'release']);
+  });
+  const [colsPopoverOpen, setColsPopoverOpen] = useState(false);
+  const colsPopoverRef = useRef<HTMLDivElement>(null);
+
+  const toggleCol = (col: OptionalCol) => {
+    setVisibleCols(prev => {
+      const next = new Set(prev);
+      if (next.has(col)) next.delete(col); else next.add(col);
+      try { localStorage.setItem('devboard_backlog_visible_cols', JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (colsPopoverRef.current && !colsPopoverRef.current.contains(e.target as Node)) {
+        setColsPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const [showCompletedSprints, setShowCompletedSprints] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('devboard_sprintview_show_completed');
+      return saved ? JSON.parse(saved) : false;
     } catch {
-      return [];
+      return false;
     }
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem('devboard_custom_sprints', JSON.stringify(customSprints));
-    } catch { }
-  }, [customSprints]);
-  const [newSprintModalOpen, setNewSprintModalOpen] = useState(false);
-  const [newSprintName, setNewSprintName] = useState('');
+      localStorage.setItem('devboard_sprintview_show_completed', JSON.stringify(showCompletedSprints));
+    } catch {}
+  }, [showCompletedSprints]);
 
   // Suggested Sprint Name (Sprint N+1)
   const suggestedSprintName = useMemo(() => {
-    const allNames = Array.from(new Set([...availableSprints, ...customSprints, ...items.map(i => i.sprint || i.targetSprint || '')]));
+    const allNames = Array.from(new Set([
+      ...(availableSprints || []),
+      ...(sprints.map((s) => s.name) || []),
+      ...items.map((i) => i.sprint || i.targetSprint || '')
+    ]));
     let maxNum = 0;
     for (const name of allNames) {
       const match = name.match(/sprint\s*(\d+)/i);
@@ -128,25 +184,11 @@ export const SprintView: FC<SprintViewProps> = ({
       }
     }
     return `Sprint ${maxNum + 1}`;
-  }, [availableSprints, customSprints, items]);
+  }, [availableSprints, sprints, items]);
 
-  const handleConfirmCreateSprint = () => {
-    const trimmed = newSprintName.trim();
-    if (!trimmed) return;
-    if (!customSprints.includes(trimmed)) {
-      setCustomSprints(prev => [...prev, trimmed]);
-    }
-    // Asegurar que el nuevo sprint aparezca expandido
-    setCollapsedKeys(prev => {
-      const next = new Set(prev);
-      next.delete(trimmed);
-      return next;
-    });
-    onCreateSprint?.(trimmed);
-    setGroupBy('sprint');
-    setNewSprintModalOpen(false);
-    setNewSprintName('');
-  };
+  const completedSprintsCount = useMemo(() => {
+    return sprints.filter((s) => s.status === 'completed').length;
+  }, [sprints]);
 
   // Grouping logic with natural sorting and deterministic tie-breakers (DEV-063)
   const groupedData = useMemo(() => {
@@ -185,6 +227,10 @@ export const SprintView: FC<SprintViewProps> = ({
         key = it.priority.toUpperCase();
       } else if (groupBy === 'module') {
         key = it.module || 'General / Core';
+      } else if (groupBy === 'epic') {
+        // Group by parent epic: look for items of type 'epic' that this item is associated with
+        // Use module as a proxy for epic grouping (or a dedicated epic field if present)
+        key = (it as any).epic || it.module || 'Sin Épica';
       }
 
       if (!groups.has(key)) {
@@ -193,25 +239,50 @@ export const SprintView: FC<SprintViewProps> = ({
       groups.get(key)!.push(it);
     }
 
-    // DEV-036: Include known and custom empty sprints
+    // DEV-036 & DEV-055: Include known empty sprints (only from official sprints list, NOT from task fields)
     if (groupBy === 'sprint') {
-      const allKnownSprints = Array.from(new Set([...availableSprints, ...customSprints]));
-      for (const sp of allKnownSprints) {
-        if (sp && !groups.has(sp)) {
-          groups.set(sp, []);
+      for (const sp of sprints) {
+        if (sp.name && !groups.has(sp.name)) {
+          groups.set(sp.name, []);
         }
       }
     }
 
-    const result = Array.from(groups.entries()).map(([key, list]) => ({ key, items: list }));
+    let result = Array.from(groups.entries()).map(([key, list]) => ({ key, items: list }));
 
-    // DEV-033: Ordenamiento natural de los bloques de Sprint
+    // DEV-033 & DEV-055: Ordenamiento cronológico de Sprints y filtros de ciclo de vida
     if (groupBy === 'sprint') {
+      // Filtrar sprints que no deben aparecer
+      result = result.filter((g) => {
+        const isNoSprint = g.key === 'Backlog' || g.key.includes('Sin Sprint') || g.key === 'Sin Asignar';
+        if (isNoSprint) return true;
+
+        const spObj = sprints.find((s) => s.name === g.key || s.id === g.key);
+
+        // Excluir sprints completados si showCompletedSprints es false
+        if (!showCompletedSprints && spObj?.status === 'completed') return false;
+
+        // Excluir sprints planned vacíos (sin tareas) — son ruido visual
+        if (spObj?.status === 'planned' && g.items.length === 0) return false;
+
+        return true;
+      });
+
       result.sort((a, b) => {
         const isNoSprintA = a.key === 'Backlog' || a.key.includes('Sin Sprint') || a.key === 'Sin Asignar';
         const isNoSprintB = b.key === 'Backlog' || b.key.includes('Sin Sprint') || b.key === 'Sin Asignar';
         if (isNoSprintA) return 1;
         if (isNoSprintB) return -1;
+
+        const spA = sprints.find((s) => s.name === a.key || s.id === a.key);
+        const spB = sprints.find((s) => s.name === b.key || s.id === b.key);
+
+        const dateA = spA?.startDate || spA?.createdAt;
+        const dateB = spB?.startDate || spB?.createdAt;
+        if (dateA && dateB && dateA !== dateB) {
+          return dateA.localeCompare(dateB);
+        }
+
         return a.key.localeCompare(b.key, undefined, { numeric: true });
       });
     } else if (groupBy === 'priority') {
@@ -222,7 +293,7 @@ export const SprintView: FC<SprintViewProps> = ({
     }
 
     return result;
-  }, [items, groupBy, sortBy, sortAsc, availableSprints, customSprints]);
+  }, [items, groupBy, sortBy, sortAsc, sprints, showCompletedSprints]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollSnapshotRef = useRef<{
@@ -308,6 +379,7 @@ export const SprintView: FC<SprintViewProps> = ({
                 { id: 'sprint', label: '🎯 Sprint' },
                 { id: 'priority', label: '⚡ Prioridad' },
                 { id: 'module', label: '📁 Módulo' },
+                { id: 'epic', label: '🗂 Épica' },
                 { id: 'none', label: 'Listado Plano' },
               ] as const
             ).map((g) => (
@@ -347,31 +419,108 @@ export const SprintView: FC<SprintViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              setNewSprintName(suggestedSprintName);
-              setNewSprintModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs hover:shadow transition-all"
-            title="Crear un nuevo Sprint o ciclo de trabajo"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Nuevo Sprint</span>
-          </button>
+          {groupBy === 'sprint' && completedSprintsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowCompletedSprints(!showCompletedSprints)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                showCompletedSprints
+                  ? 'bg-slate-100 dark:bg-white/[0.08] text-slate-800 dark:text-slate-200 border-slate-300 dark:border-white/20'
+                  : 'bg-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 border-slate-200 dark:border-white/10'
+              }`}
+              title={showCompletedSprints ? 'Ocultar sprints completados' : 'Mostrar sprints completados'}
+            >
+              {showCompletedSprints ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              <span>{showCompletedSprints ? 'Ocultar completados' : `Ver completados (${completedSprintsCount})`}</span>
+            </button>
+          )}
+
+          {onCreateSprint && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSprint(null);
+                setSprintModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs hover:shadow transition-all"
+              title="Crear un nuevo Sprint o ciclo de trabajo"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nuevo Sprint</span>
+            </button>
+          )}
+          {/* DEV-051: Column Visibility Popover */}
+          <div className="relative" ref={colsPopoverRef}>
+            <button
+              type="button"
+              onClick={() => setColsPopoverOpen(v => !v)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                colsPopoverOpen
+                  ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/30'
+                  : 'bg-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
+              }`}
+              title="Configurar columnas visibles"
+            >
+              <Columns3 className="w-3.5 h-3.5" />
+              <span>Columnas</span>
+              {visibleCols.size < ALL_OPTIONAL_COLS.length && (
+                <span className="ml-0.5 px-1 py-px rounded bg-indigo-500 text-white text-[9px] font-bold leading-none">
+                  {ALL_OPTIONAL_COLS.length - visibleCols.size} oculta{ALL_OPTIONAL_COLS.length - visibleCols.size !== 1 ? 's' : ''}
+                </span>
+              )}
+            </button>
+
+            {colsPopoverOpen && (
+              <div className="absolute right-0 top-full mt-1.5 z-50 w-44 bg-white dark:bg-[#131c2f] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl p-2 space-y-0.5">
+                <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-2 pb-1">Columnas opcionales</p>
+                {([
+                  { id: 'tipo', label: 'Tipo' },
+                  { id: 'modulo', label: 'Módulo' },
+                  { id: 'release', label: 'Release / Versión' },
+                  { id: 'sprint', label: 'Sprint' },
+                ] as { id: OptionalCol; label: string }[]).map(col => (
+                  <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={visibleCols.has(col.id)}
+                      onChange={() => toggleCol(col.id)}
+                      className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-0"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300">{col.label}</span>
+                  </label>
+                ))}
+                <div className="border-t border-slate-100 dark:border-white/[0.05] pt-1 mt-1">
+                  <button
+                    onClick={() => {
+                      const allCols = new Set<OptionalCol>(ALL_OPTIONAL_COLS);
+                      setVisibleCols(allCols);
+                      try { localStorage.setItem('devboard_backlog_visible_cols', JSON.stringify(Array.from(allCols))); } catch {}
+                    }}
+                    className="w-full text-left px-2 py-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-md transition-colors"
+                  >
+                    Mostrar todas
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
             {items.length} ítems en vista
           </div>
         </div>
+
       </div>
 
       {/* Tables by Group */}
       <div className="space-y-4">
         {groupedData.map((group) => {
-          const doneCount = group.items.filter((i) => i.status === 'done').length;
+          const doneCount = group.items.filter((i) => i.status === 'done' || i.status === 'ready' || i.status === 'finish').length;
           const progressPercent = group.items.length > 0 ? Math.round((doneCount / group.items.length) * 100) : 0;
           const isCollapsed = collapsedKeys.has(group.key);
           const isDropTarget = activeDropGroup === group.key;
+          const sprintObj = groupBy === 'sprint' ? sprints.find((s) => s.name === group.key || s.id === group.key) : undefined;
+          const isBacklogGroup = group.key === 'Backlog' || group.key.includes('Sin Sprint') || group.key === 'Sin Asignar';
 
           return (
             <div
@@ -388,7 +537,7 @@ export const SprintView: FC<SprintViewProps> = ({
               onDrop={(e) => {
                 e.preventDefault();
                 if (draggedItemId && groupBy === 'sprint') {
-                  const targetSprintVal = group.key === 'Backlog' || group.key.includes('Sin Sprint') || group.key === 'Sin Asignar' ? '' : group.key;
+                  const targetSprintVal = isBacklogGroup ? '' : group.key;
                   if (onReorderItem) {
                     onReorderItem(draggedItemId, targetSprintVal, group.items.length);
                     setSortBy('order');
@@ -408,9 +557,9 @@ export const SprintView: FC<SprintViewProps> = ({
               {/* Group Header (Clickable to Toggle Collapse) */}
               <div
                 onClick={() => toggleCollapse(group.key)}
-                className="px-4 py-3 bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.06] flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-colors"
+                className="px-4 py-3 bg-slate-50/80 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/[0.06] flex items-center justify-between cursor-pointer select-none hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-colors gap-3"
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5 min-w-0">
                   <button className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                     {isCollapsed ? (
                       <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -418,27 +567,50 @@ export const SprintView: FC<SprintViewProps> = ({
                       <ChevronDown className="w-4 h-4 text-slate-400" />
                     )}
                   </button>
-                  <Layers className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{group.key}</h3>
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-slate-200 dark:bg-white/[0.05] text-slate-700 dark:text-slate-400">
+                  <Layers className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{group.key}</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-slate-200 dark:bg-white/[0.05] text-slate-700 dark:text-slate-400 shrink-0">
                     {group.items.length} ítems
                   </span>
-                  {group.items.length === 0 && customSprints.includes(group.key) && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCustomSprints((prev) => prev.filter((s) => s !== group.key));
-                      }}
-                      title={`Eliminar contenedor vacío de ${group.key}`}
-                      className="p-1 text-slate-400 hover:text-rose-500 rounded hover:bg-rose-500/10 transition-colors ml-1"
+
+                  {/* Status Badge */}
+                  {sprintObj && (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide border shrink-0 ${
+                        sprintObj.status === 'active'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25'
+                          : sprintObj.status === 'completed'
+                          ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
+                      }`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                      {sprintObj.status === 'active' && '🟢 Activo'}
+                      {sprintObj.status === 'completed' && '⚪ Completado'}
+                      {sprintObj.status === 'planned' && '🟡 Planificado'}
+                    </span>
                   )}
+
+                  {/* Dates */}
+                  {sprintObj?.startDate && sprintObj?.endDate && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-mono shrink-0">
+                      <Calendar className="w-3 h-3 text-slate-400" />
+                      {sprintObj.startDate} → {sprintObj.endDate}
+                    </span>
+                  )}
+
+                  {/* Goal */}
+                  {sprintObj?.goal && (
+                    <span
+                      className="hidden md:inline-block text-xs text-slate-500 dark:text-slate-400 italic font-normal truncate max-w-xs xl:max-w-md"
+                      title={sprintObj.goal}
+                    >
+                      "{sprintObj.goal}"
+                    </span>
+                  )}
+
                   {isCollapsed && (
                     <span className="text-[11px] text-slate-400 font-mono italic">
-                      (colapsado — click para ver)
+                      (colapsado)
                     </span>
                   )}
                   {isDropTarget && (
@@ -448,14 +620,68 @@ export const SprintView: FC<SprintViewProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 text-xs" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-3 text-xs shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {/* Sprint Actions */}
+                  {sprintObj && (
+                    <div className="flex items-center gap-1.5">
+                      {sprintObj.status === 'planned' && onStartSprint && (
+                        <button
+                          type="button"
+                          onClick={() => onStartSprint(sprintObj)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-xs"
+                          title="Iniciar este sprint (lo marcará como Activo)"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span className="hidden sm:inline">Iniciar Sprint</span>
+                        </button>
+                      )}
+
+                      {sprintObj.status === 'active' && onCompleteSprint && (
+                        <button
+                          type="button"
+                          onClick={() => setCompletingSprint(sprintObj)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-xs"
+                          title="Cerrar sprint y resolver balance de tareas"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Completar Sprint</span>
+                        </button>
+                      )}
+
+                      {onUpdateSprintMeta && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingSprint(sprintObj);
+                            setSprintModalOpen(true);
+                          }}
+                          title="Editar objetivo y fechas del sprint"
+                          className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/[0.08] transition-colors"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {onDeleteSprint && (
+                        <button
+                          type="button"
+                          onClick={() => setSprintToDelete(sprintObj)}
+                          title="Eliminar este sprint (las tareas volverán al Backlog)"
+                          className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-mono">
                     <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{doneCount}</span>
                     <span>/</span>
-                    <span>{group.items.length} completados</span>
+                    <span>{group.items.length}</span>
                     <span className="text-slate-400">({progressPercent}%)</span>
                   </div>
-                  <div className="w-24 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden hidden sm:block">
+                  <div className="w-20 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden hidden sm:block">
                     <div
                       className="h-full bg-emerald-500 rounded-full transition-all duration-300"
                       style={{ width: `${progressPercent}%` }}
@@ -500,16 +726,16 @@ export const SprintView: FC<SprintViewProps> = ({
                             </div>
                           </th>
                           <th className="py-2.5 px-4">Título</th>
-                          <th className="py-2.5 px-4">Tipo</th>
+                          {visibleCols.has('tipo') && <th className="py-2.5 px-4">Tipo</th>}
                           <th className="py-2.5 px-4 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors" onClick={(e) => toggleSort('status', e)}>
                             <div className="flex items-center gap-1">
                               <span className={sortBy === 'status' ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}>Estado</span>
                               <ArrowUpDown className={`w-3 h-3 ${sortBy === 'status' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400/60'}`} />
                             </div>
                           </th>
-                          <th className="py-2.5 px-4">Módulo</th>
-                          <th className="py-2.5 px-4">Release / Versión</th>
-                          {groupBy !== 'sprint' && <th className="py-2.5 px-4">Sprint</th>}
+                          {visibleCols.has('modulo') && <th className="py-2.5 px-4">Módulo</th>}
+                          {visibleCols.has('release') && <th className="py-2.5 px-4">Release / Versión</th>}
+                          {groupBy !== 'sprint' && visibleCols.has('sprint') && <th className="py-2.5 px-4">Sprint</th>}
                           <th className="py-2.5 px-4 text-right">Acciones</th>
                         </tr>
                       </thead>
@@ -636,12 +862,14 @@ export const SprintView: FC<SprintViewProps> = ({
                               </td>
 
                               {/* Type */}
-                              <td className="py-2.5 px-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeInfo.badge}`}>
-                                  <TypeIcon className="w-3 h-3" />
-                                  <span>{typeInfo.label}</span>
-                                </span>
-                              </td>
+                              {visibleCols.has('tipo') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap">
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeInfo.badge}`}>
+                                    <TypeIcon className="w-3 h-3" />
+                                    <span>{typeInfo.label}</span>
+                                  </span>
+                                </td>
+                              )}
 
                               {/* Status */}
                               <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -666,23 +894,27 @@ export const SprintView: FC<SprintViewProps> = ({
                               </td>
 
                               {/* Module */}
-                              <td className="py-2.5 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400 text-[11px]">
-                                {item.module || '—'}
-                              </td>
+                              {visibleCols.has('modulo') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400 text-[11px]">
+                                  {item.module || '—'}
+                                </td>
+                              )}
 
                               {/* Release / Versión (DEV-033: Formateo limpio sin doble v) */}
-                              <td className="py-2.5 px-4 whitespace-nowrap">
-                                {releaseVal ? (
-                                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 font-mono text-[10px]">
-                                    {releaseVal.startsWith('v') ? releaseVal : `v${releaseVal}`}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400 dark:text-slate-600">—</span>
-                                )}
-                              </td>
+                              {visibleCols.has('release') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap">
+                                  {releaseVal ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 font-mono text-[10px]">
+                                      {releaseVal.startsWith('v') ? releaseVal : `v${releaseVal}`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 dark:text-slate-600">—</span>
+                                  )}
+                                </td>
+                              )}
 
-                              {/* Sprint (visible when not grouped by sprint) */}
-                              {groupBy !== 'sprint' && (
+                              {/* Sprint (visible when not grouped by sprint AND sprint col enabled) */}
+                              {groupBy !== 'sprint' && visibleCols.has('sprint') && (
                                 <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                   {onUpdateSprint && availableSprints.length > 0 ? (
                                     <select
@@ -759,66 +991,64 @@ export const SprintView: FC<SprintViewProps> = ({
         onClose={() => setItemToDelete(null)}
       />
 
-      {/* New Sprint Modal (DEV-036) */}
-      {newSprintModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-                  <Target className="w-4 h-4" />
-                </div>
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">Crear Nuevo Sprint</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setNewSprintModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* Sprint Modal (Create & Edit) (DEV-055) */}
+      <SprintModal
+        isOpen={sprintModalOpen}
+        onClose={() => {
+          setSprintModalOpen(false);
+          setEditingSprint(null);
+        }}
+        sprint={editingSprint}
+        suggestedName={suggestedSprintName}
+        onSave={async (data) => {
+          if (editingSprint && onUpdateSprintMeta) {
+            await onUpdateSprintMeta(editingSprint.id, data);
+          } else if (onCreateSprint) {
+            await onCreateSprint(data);
+          }
+          setSprintModalOpen(false);
+          setEditingSprint(null);
+        }}
+      />
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Nombre o identificador del Sprint
-              </label>
-              <input
-                type="text"
-                value={newSprintName}
-                onChange={(e) => setNewSprintName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleConfirmCreateSprint();
-                  if (e.key === 'Escape') setNewSprintModalOpen(false);
-                }}
-                placeholder="Ej: Sprint 3 o v0.4.0 Sprint"
-                autoFocus
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Al crearlo, aparecerá inmediatamente como un bloque receptor en la vista para arrastrar y priorizar tareas.
-              </p>
-            </div>
+      {/* Complete Sprint Modal (DEV-055) */}
+      {completingSprint && (
+        <CompleteSprintModal
+          isOpen={!!completingSprint}
+          onClose={() => setCompletingSprint(null)}
+          sprint={completingSprint}
+          sprintItems={items.filter(
+            (i) => i.sprint === completingSprint.name || i.targetSprint === completingSprint.name
+          )}
+          availablePlannedSprints={sprints.filter(
+            (s) => s.status === 'planned' && s.id !== completingSprint.id
+          )}
+          onConfirm={async (destinationSprintName) => {
+            if (onCompleteSprint) {
+              await onCompleteSprint(completingSprint, destinationSprintName);
+            }
+            setCompletingSprint(null);
+          }}
+        />
+      )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setNewSprintModalOpen(false)}
-                className="px-3.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={!newSprintName.trim()}
-                onClick={handleConfirmCreateSprint}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all"
-              >
-                Crear Sprint
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Delete Sprint Confirmation Modal (DEV-055) */}
+      {sprintToDelete && (
+        <ConfirmModal
+          isOpen={!!sprintToDelete}
+          title={`Eliminar ${sprintToDelete.name}`}
+          message={`¿Estás seguro de que deseas eliminar permanentemente el ${sprintToDelete.name}?`}
+          detail="Las tareas asignadas no serán eliminadas; volverán automáticamente al Backlog para no perder trabajo."
+          confirmText="Eliminar Sprint"
+          variant="danger"
+          onConfirm={async () => {
+            if (onDeleteSprint && sprintToDelete) {
+              await onDeleteSprint(sprintToDelete.id);
+              setSprintToDelete(null);
+            }
+          }}
+          onClose={() => setSprintToDelete(null)}
+        />
       )}
     </div>
   );

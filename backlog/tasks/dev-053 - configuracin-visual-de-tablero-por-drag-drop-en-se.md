@@ -1,18 +1,22 @@
 ---
 id: DEV-053
 title: "Configuración Visual de Tablero por Drag & Drop en Settings (Arrastre de Estados entre Columnas)"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:06'
+updated_date: '2026-09-23 13:39'
 labels:
   - ux
   - settings
   - drag-and-drop
   - kanban
 dependencies: []
-priority: medium
+priority: low
 type: ux
 milestone: "0.4.0"
+sprint: "Sprint 3"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: "20"
 ---
 
 ## Description
@@ -28,11 +32,11 @@ Evolución de la experiencia de usuario en la configuración del tablero en `Set
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 En SettingsView (pestaña Tablero Kanban), los chips de estados son arrastrables entre columnas
-- [ ] #2 Indicador visual claro del contenedor destino durante el arrastre (hover highlight)
-- [ ] #3 Al soltar un estado en otra columna, se actualiza la configuración en memoria y se persiste en .devboard/config.json
-- [ ] #4 Soporte para reconfigurar tanto columnas en modo Simple como en modo Ampliado
-- [ ] #5 Validación para garantizar que todos los estados esenciales pertenezcan a al menos una columna
+- [x] #1 En SettingsView (pestaña Tablero Kanban), los chips de estados son arrastrables entre columnas
+- [x] #2 Indicador visual claro del contenedor destino durante el arrastre (hover highlight)
+- [x] #3 Al soltar un estado en otra columna, se actualiza la configuración en memoria y se persiste en .devboard/config.json
+- [x] #4 Soporte para reconfigurar tanto columnas en modo Simple como en modo Ampliado
+- [x] #5 Validación para garantizar que todos los estados esenciales pertenezcan a al menos una columna
 <!-- AC:END -->
 
 ## Implementation Plan

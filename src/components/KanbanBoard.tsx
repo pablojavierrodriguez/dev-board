@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Lightbulb, AlertTriangle, Layers, Target, CheckCircle2, Clock, ChevronDown, Pencil, Archive } from 'lucide-react';
-import type { BacklogItem, ItemStatus, ViewMode, ColumnConfig, DevBoardConfig, ActiveTab } from '../types';
+import { Plus, Lightbulb, AlertTriangle, Layers, Target, CheckCircle2, Clock, ChevronDown, Pencil, History } from 'lucide-react';
+import type { BacklogItem, ItemStatus, ViewMode, ColumnConfig, DevBoardConfig, ActiveTab, Sprint } from '../types';
 import { ItemCard } from './ItemCard';
 
 interface KanbanBoardProps {
   items: BacklogItem[];
   viewMode: ViewMode;
   onChangeViewMode?: (mode: ViewMode) => void;
-  onUpdateStatus: (id: string, newStatus: ItemStatus, targetColId?: string, targetIndex?: number) => void;
+  onUpdateStatus: (id: string, newStatus: ItemStatus, targetColId?: string, targetIndex?: number, calculatedOrder?: number) => void;
   onUpdateColumnTitle?: (colId: string, newTitle: string) => void;
   onDeleteItem: (id: string) => void;
   onClickItem: (item: BacklogItem) => void;
@@ -15,8 +15,29 @@ interface KanbanBoardProps {
   onShowToast?: (msg: string, type?: 'success' | 'error' | 'info') => void;
   config?: DevBoardConfig;
   availableSprints?: string[];
+  sprints?: Sprint[];
   onNavigateToTab?: (tab: ActiveTab) => void;
+  includePreviousDone?: boolean;
+  onTogglePreviousDone?: (include: boolean) => void;
+  includeDismissedCancelled?: boolean;
+  includeIdeas?: boolean;
+  onToggleIdeas?: (include: boolean) => void;
 }
+
+export const STATUS_META: Record<string, { label: string; dot: string; bg: string; border: string }> = {
+  draft: { label: 'Draft', dot: 'bg-indigo-500', bg: 'bg-indigo-500/10', border: 'border-indigo-500/30' },
+  ideas: { label: 'Ideas', dot: 'bg-pink-500', bg: 'bg-pink-500/10', border: 'border-pink-500/30' },
+  backlog: { label: 'Backlog', dot: 'bg-slate-400', bg: 'bg-slate-500/10', border: 'border-slate-500/30' },
+  doing: { label: 'Doing', dot: 'bg-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
+  in_progress: { label: 'In Progress', dot: 'bg-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
+  review: { label: 'Review', dot: 'bg-purple-500', bg: 'bg-purple-500/10', border: 'border-purple-500/30' },
+  testing_qa: { label: 'Testing QA', dot: 'bg-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/30' },
+  ready: { label: 'Ready', dot: 'bg-teal-500', bg: 'bg-teal-500/10', border: 'border-teal-500/30' },
+  finish: { label: 'Finish', dot: 'bg-teal-400', bg: 'bg-teal-500/10', border: 'border-teal-500/30' },
+  done: { label: 'Done', dot: 'bg-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
+  dismissed: { label: 'Descartado', dot: 'bg-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/30' },
+  cancelled: { label: 'Cancelado', dot: 'bg-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/30' }
+};
 
 export const IDEAS_COLUMN: ColumnConfig = {
   id: 'col-ideas',
@@ -57,6 +78,16 @@ export const SIMPLIFIED_BASE_COLUMNS: ColumnConfig[] = [
     dropTargetStatus: 'ready'
   }
 ];
+
+export const DISMISSED_COLUMN: ColumnConfig = {
+  id: 'col-dismissed',
+  title: 'Descartadas',
+  subtitle: 'Canceladas & Archivadas',
+  color: 'border-rose-500/30 dark:border-rose-500/20',
+  dotColor: 'bg-rose-500',
+  statuses: ['dismissed', 'cancelled'],
+  dropTargetStatus: 'dismissed',
+};
 
 export const SIMPLIFIED_COLUMNS: ColumnConfig[] = [
   IDEAS_COLUMN,
@@ -122,19 +153,34 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onQuickAddItem,
   onShowToast,
   config,
-  availableSprints = [],
-  onNavigateToTab
-}) => {
+  availableSprints,
+  sprints = [],
+  onNavigateToTab,
+  includePreviousDone,
+  onTogglePreviousDone,
+  includeDismissedCancelled,
+  includeIdeas,
+  onToggleIdeas,
+}: KanbanBoardProps) => {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [activeDropColumn, setActiveDropColumn] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ colId: string; index: number } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ 
+    colId: string; 
+    index: number; 
+    targetItemId?: string; 
+    isAbove?: boolean; 
+  } | null>(null);
+  const [activeSubDropTargetStatus, setActiveSubDropTargetStatus] = useState<{
+    colId: string;
+    status: ItemStatus;
+  } | null>(null);
 
   // Column inline title editing (DEV-036)
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [editColTitle, setEditColTitle] = useState<string>('');
 
   // Preference to show/hide raw Ideas in both views (DEV-008 & DEV-036)
-  const [showIdeas, setShowIdeas] = useState<boolean>(() => {
+  const [internalShowIdeas, setInternalShowIdeas] = useState<boolean>(() => {
     if (config?.kanban?.showIdeasByDefault !== undefined) {
       return config.kanban.showIdeasByDefault;
     }
@@ -146,14 +192,22 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   });
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('devboard_kanban_show_ideas', JSON.stringify(showIdeas));
-    } catch {}
-  }, [showIdeas]);
+  const showIdeas = includeIdeas !== undefined
+    ? includeIdeas
+    : internalShowIdeas;
 
-  // Preference to show/hide historical Done cards (DEV-058)
-  const [showDoneHistory, setShowDoneHistory] = useState<boolean>(() => {
+  const handleToggleIdeas = (val: boolean) => {
+    if (onToggleIdeas) {
+      onToggleIdeas(val);
+    }
+    setInternalShowIdeas(val);
+    try {
+      localStorage.setItem('devboard_kanban_show_ideas', JSON.stringify(val));
+    } catch {}
+  };
+
+  // Preference to show/hide previous Done cards (DEV-058 & DEV-067: Clarificación Semántica)
+  const [internalShowPreviousDone, setInternalShowPreviousDone] = useState<boolean>(() => {
     if (config?.kanban?.showDoneHistoryByDefault !== undefined) {
       return config.kanban.showDoneHistoryByDefault;
     }
@@ -165,11 +219,19 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   });
 
-  useEffect(() => {
+  const showPreviousDone = includePreviousDone !== undefined
+    ? includePreviousDone
+    : internalShowPreviousDone;
+
+  const setShowPreviousDone = (val: boolean) => {
+    if (onTogglePreviousDone) {
+      onTogglePreviousDone(val);
+    }
+    setInternalShowPreviousDone(val);
     try {
-      localStorage.setItem('devboard_kanban_show_done_history', JSON.stringify(showDoneHistory));
+      localStorage.setItem('devboard_kanban_show_done_history', JSON.stringify(val));
     } catch {}
-  }, [showDoneHistory]);
+  };
 
   const columns = useMemo(() => {
     let baseCols: ColumnConfig[];
@@ -184,8 +246,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     } else {
       baseCols = EXPANDED_COLUMNS.filter((c) => c.id !== 'col-ideas');
     }
-    return showIdeas ? [IDEAS_COLUMN, ...baseCols] : baseCols;
-  }, [viewMode, showIdeas, config]);
+    const finalCols = [...baseCols];
+    if (showIdeas) {
+      finalCols.unshift(IDEAS_COLUMN);
+    }
+    if (includeDismissedCancelled) {
+      finalCols.push(DISMISSED_COLUMN);
+    }
+    return finalCols;
+  }, [viewMode, showIdeas, includeDismissedCancelled, config]);
 
   const handleCommitColTitle = (colId: string) => {
     const trimmed = editColTitle.trim();
@@ -243,15 +312,26 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   }, [activeSprint]);
 
+  const activeSprintEntity = useMemo(() => {
+    return sprints?.find((s) => s.status === 'active');
+  }, [sprints]);
+
+  // Auto-filtrar al Sprint Activo en modo Scrumban (DEV-055 AC #4)
   useEffect(() => {
     if (config?.methodology !== 'kanban') {
-      if (!activeSprint) {
+      const saved = localStorage.getItem('devboard_kanban_sprint');
+      if (activeSprintEntity) {
+        // Si no hay selección previa, o era 'all', o el guardado ya no existe, autofiltrar al sprint activo
+        if (!saved || saved === 'all' || !availableSprintsList.includes(saved)) {
+          setActiveSprint(activeSprintEntity.name);
+        }
+      } else if (!activeSprint) {
         setActiveSprint('all');
       } else if (activeSprint !== 'all' && activeSprint !== 'backlog' && !availableSprintsList.includes(activeSprint)) {
         setActiveSprint('all');
       }
     }
-  }, [config?.methodology, availableSprintsList, activeSprint]);
+  }, [config?.methodology, availableSprintsList, activeSprintEntity]);
 
   // In pure Kanban: shows all items continuously.
   // In Scrumban: board can show all items or focus on a specific Sprint Goal.
@@ -333,6 +413,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     setDraggedItemId(null);
     setActiveDropColumn(null);
     setDropTarget(null);
+    setActiveSubDropTargetStatus(null);
   };
 
   const handleDragEnter = (e: React.DragEvent, columnId: string) => {
@@ -354,11 +435,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       if (activeDropColumn === columnId) {
         setActiveDropColumn(null);
         setDropTarget(null);
+        setActiveSubDropTargetStatus(null);
       }
     }
   };
 
-  const handleCardDragOver = (e: React.DragEvent, colId: string, index: number) => {
+  const handleCardDragOver = (e: React.DragEvent, colId: string, index: number, targetItem?: BacklogItem) => {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
@@ -367,11 +449,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
     const rect = e.currentTarget.getBoundingClientRect();
     const midY = rect.top + rect.height / 2;
-    const targetIdx = e.clientY < midY ? index : index + 1;
-    setDropTarget({ colId, index: targetIdx });
+    const isAbove = e.clientY < midY;
+    const targetIdx = isAbove ? index : index + 1;
+    setDropTarget({ 
+      colId, 
+      index: targetIdx,
+      targetItemId: targetItem?.id,
+      isAbove
+    });
   };
 
-  const handleDrop = (e: React.DragEvent, col: ColumnConfig, specificIndex?: number) => {
+  const handleDrop = (
+    e: React.DragEvent, 
+    col: ColumnConfig, 
+    specificIndex?: number, 
+    colItems: BacklogItem[] = [],
+    explicitStatus?: ItemStatus
+  ) => {
     e.preventDefault();
     e.stopPropagation();
     const itemId = e.dataTransfer.getData('text/plain') || draggedItemId;
@@ -379,16 +473,45 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const draggedItem = items.find((i) => i.id === itemId);
       let newStatus: ItemStatus;
 
-      // Si el ítem ya pertenecía a esta columna, preservamos su sub-estado original
-      // (ej. 'ideas' o 'backlog' en Draft; 'in_progress' en Doing; 'ready' en Review & Ready)
-      if (draggedItem && col.statuses.includes(draggedItem.status)) {
+      if (explicitStatus) {
+        newStatus = explicitStatus;
+      } else if (draggedItem && col.statuses.includes(draggedItem.status)) {
         newStatus = draggedItem.status;
       } else {
         newStatus = col.dropTargetStatus || col.statuses[0] || 'draft';
       }
 
+      const otherItems = colItems.filter((i) => i.id !== itemId);
+      let calculatedOrder: number | undefined;
+
+      if (dropTarget && dropTarget.colId === col.id && dropTarget.targetItemId) {
+        const targetIdx = otherItems.findIndex((i) => i.id === dropTarget.targetItemId);
+        if (targetIdx !== -1) {
+          const insertIdx = dropTarget.isAbove ? targetIdx : targetIdx + 1;
+          const prevItem = insertIdx > 0 ? otherItems[insertIdx - 1] : null;
+          const nextItem = insertIdx < otherItems.length ? otherItems[insertIdx] : null;
+
+          if (prevItem && nextItem) {
+            const p = prevItem.order ?? 0;
+            const n = nextItem.order ?? (p + 20);
+            calculatedOrder = n > p ? p + (n - p) / 2 : p + 1;
+          } else if (nextItem) {
+            calculatedOrder = (nextItem.order ?? 10) - 10;
+          } else if (prevItem) {
+            calculatedOrder = (prevItem.order ?? 0) + 10;
+          } else {
+            calculatedOrder = 10;
+          }
+        }
+      }
+
+      if (calculatedOrder === undefined) {
+        const lastItem = otherItems[otherItems.length - 1];
+        calculatedOrder = lastItem ? (lastItem.order ?? 0) + 10 : 10;
+      }
+
       const idx = specificIndex !== undefined ? specificIndex : (dropTarget?.colId === col.id ? dropTarget.index : undefined);
-      onUpdateStatus(itemId, newStatus, col.id, idx);
+      onUpdateStatus(itemId, newStatus, col.id, idx, calculatedOrder);
     }
     setDraggedItemId(null);
     setActiveDropColumn(null);
@@ -424,11 +547,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       })
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    const hiddenDoneCount = isDoneCol && !showDoneHistory
+    const hiddenDoneCount = isDoneCol && !showPreviousDone
       ? colRawItems.filter(isItemHistoricalDone).length
       : 0;
 
-    const colItems = isDoneCol && !showDoneHistory
+    const colItems = isDoneCol && !showPreviousDone
       ? colRawItems.filter((item) => !isItemHistoricalDone(item))
       : colRawItems;
 
@@ -442,7 +565,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         onDragEnter={(e) => handleDragEnter(e, col.id)}
         onDragOver={(e) => handleDragOver(e, col.id)}
         onDragLeave={(e) => handleDragLeave(e, col.id)}
-        onDrop={(e) => handleDrop(e, col)}
+        onDrop={(e) => handleDrop(e, col, undefined, colItems)}
         className={`flex flex-col rounded-2xl p-3 kanban-col transition-all duration-200 min-h-[520px] ${
           isMobile ? 'w-full' : ''
         } ${isDropActive ? 'drop-target-active' : ''} ${
@@ -513,49 +636,103 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             )}
           </div>
 
-          <button
-            onClick={() => onQuickAddItem(col.dropTargetStatus || col.statuses[0] || 'draft', config?.methodology !== 'kanban' && activeSprint !== 'all' && activeSprint !== 'backlog' ? activeSprint : undefined)}
-            title={`Nuevo ítem en ${col.title}`}
-            aria-label={`Nuevo ítem en ${col.title}`}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          {col.id !== 'col-dismissed' && (
+            <button
+              onClick={() => onQuickAddItem(col.dropTargetStatus || col.statuses[0] || 'draft', config?.methodology !== 'kanban' && activeSprint !== 'all' && activeSprint !== 'backlog' ? activeSprint : undefined)}
+              title={`Nuevo ítem en ${col.title}`}
+              aria-label={`Nuevo ítem en ${col.title}`}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Historical Done Indicator Banner (DEV-058) */}
-        {isDoneCol && hiddenDoneCount > 0 && !showDoneHistory && (
+        {/* Previous Done Indicator Banner (DEV-058 & DEV-067: Clarificación Semántica sin 'Archivo') */}
+        {isDoneCol && hiddenDoneCount > 0 && !showPreviousDone && (
           <div className="mb-2.5 p-2 rounded-xl bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between gap-2 text-xs transition-all">
             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 min-w-0">
-              <Archive className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
+              <History className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
               <span className="truncate text-[11px] font-medium">
-                +{hiddenDoneCount} {hiddenDoneCount === 1 ? 'tarea histórica archivada' : 'tareas históricas archivadas'}
+                +{hiddenDoneCount} {hiddenDoneCount === 1 ? 'completada en iteración previa' : 'completadas en iteraciones previas'}
               </span>
             </div>
             <button
               type="button"
-              onClick={() => setShowDoneHistory(true)}
+              onClick={() => setShowPreviousDone(true)}
               className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline shrink-0 px-1 py-0.5"
             >
-              Ver histórico
+              Ver anteriores
             </button>
           </div>
         )}
-        {isDoneCol && showDoneHistory && totalHistoricalDoneCount > 0 && (
-          <div className="mb-2.5 p-2 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/30 flex items-center justify-between gap-2 text-xs transition-all">
-            <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 min-w-0">
-              <Archive className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
+        {isDoneCol && showPreviousDone && totalHistoricalDoneCount > 0 && (
+          <div className="mb-2.5 p-2 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/30 flex items-center justify-between gap-2 text-xs transition-all">
+            <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 min-w-0">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
               <span className="truncate text-[11px] font-medium">
-                Mostrando {totalHistoricalDoneCount} históricas
+                Mostrando {totalHistoricalDoneCount} completadas previas
               </span>
             </div>
             <button
               type="button"
-              onClick={() => setShowDoneHistory(false)}
+              onClick={() => setShowPreviousDone(false)}
               className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:underline shrink-0 px-1 py-0.5"
             >
               Ocultar
             </button>
+          </div>
+        )}
+        {/* Dynamic Multi-Status Sub-Drop Zones (DEV-052) */}
+        {isDropActive && draggedItemId && col.statuses.length > 1 && (
+          <div className="mb-2.5 p-2 rounded-xl bg-slate-100/90 dark:bg-slate-800/80 border border-indigo-500/40 dark:border-indigo-400/40 shadow-xs animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between gap-1 mb-1.5 px-0.5">
+              <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                Soltar en estado específico:
+              </span>
+              <span className="text-[9px] font-mono text-indigo-600 dark:text-indigo-400 font-medium">
+                {col.statuses.length} estados disponibles
+              </span>
+            </div>
+            <div className="grid gap-1.5 grid-cols-2">
+              {col.statuses.map((st) => {
+                const meta = STATUS_META[st] || { label: st, dot: 'bg-slate-400', bg: 'bg-slate-500/10', border: 'border-slate-500/20' };
+                const isHovered = activeSubDropTargetStatus?.colId === col.id && activeSubDropTargetStatus?.status === st;
+                return (
+                  <div
+                    key={st}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (activeSubDropTargetStatus?.colId !== col.id || activeSubDropTargetStatus?.status !== st) {
+                        setActiveSubDropTargetStatus({ colId: col.id, status: st as ItemStatus });
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      if (activeSubDropTargetStatus?.colId === col.id && activeSubDropTargetStatus?.status === st) {
+                        setActiveSubDropTargetStatus(null);
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDrop(e, col, undefined, colItems, st as ItemStatus);
+                      setActiveSubDropTargetStatus(null);
+                    }}
+                    className={`p-2 rounded-lg border text-center transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer ${
+                      isHovered
+                        ? `${meta.bg} ${meta.border} ring-2 ring-indigo-500 text-indigo-900 dark:text-white font-bold scale-[1.02] shadow-sm`
+                        : 'bg-white/90 dark:bg-white/[0.04] border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-slate-300 hover:border-indigo-400/60'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
+                    <span className="text-[11px] font-medium truncate">{meta.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -566,9 +743,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             e.preventDefault();
             if (activeDropColumn !== col.id) setActiveDropColumn(col.id);
             if (e.target === e.currentTarget) {
-              setDropTarget({ colId: col.id, index: colItems.length });
+              setDropTarget({ colId: col.id, index: colItems.length, isAbove: false });
             }
           }}
+          onDrop={(e) => handleDrop(e, col, colItems.length, colItems)}
         >
           {colItems.map((item, idx) => {
             const isItemDragged = draggedItemId === item.id;
@@ -578,13 +756,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 className={`relative transition-all duration-150 ${isItemDragged ? 'h-0 overflow-hidden opacity-0 pointer-events-none' : ''}`}
               >
                 {/* Top drop indicator */}
-                {isDropActive && dropTarget?.colId === col.id && dropTarget?.index === idx && !isItemDragged && (
+                {isDropActive && dropTarget?.colId === col.id && dropTarget?.targetItemId === item.id && dropTarget.isAbove && !isItemDragged && (
                   <div className="drop-indicator" />
                 )}
 
                 <div
-                  onDragOver={(e) => handleCardDragOver(e, col.id, idx)}
-                  onDrop={(e) => handleDrop(e, col, dropTarget?.index ?? idx)}
+                  onDragOver={(e) => handleCardDragOver(e, col.id, idx, item)}
+                  onDrop={(e) => handleDrop(e, col, dropTarget?.index ?? idx, colItems)}
                 >
                   <ItemCard
                     item={item}
@@ -597,14 +775,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     onShowToast={onShowToast}
                   />
                 </div>
+
+                {/* Bottom drop indicator */}
+                {isDropActive && dropTarget?.colId === col.id && !isItemDragged && (
+                  (dropTarget.targetItemId === item.id && !dropTarget.isAbove) ||
+                  (!dropTarget.targetItemId && idx === colItems.length - 1)
+                ) && (
+                  <div className="drop-indicator mt-1" />
+                )}
               </div>
             );
           })}
-
-          {/* Bottom drop indicator when dragging past last item */}
-          {isDropActive && dropTarget?.colId === col.id && dropTarget?.index === colItems.length && (
-            <div className="drop-indicator" />
-          )}
 
           {colItems.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center py-12 rounded-xl border border-dashed border-slate-300 dark:border-white/[0.06] text-slate-400 dark:text-slate-600 text-xs">
@@ -652,15 +833,33 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     className="appearance-none bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-white/[0.1] rounded-lg pl-2.5 pr-8 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-xs cursor-pointer"
                   >
                     <option value="all">Todos los ítems (Flujo completo)</option>
-                    {availableSprintsList.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
+                    {availableSprintsList.map((s) => {
+                      const spObj = sprints?.find((sp) => sp.name === s);
+                      const isActive = spObj?.status === 'active';
+                      return (
+                        <option key={s} value={s}>
+                          {s} {isActive ? '🟢 (Activo)' : spObj?.status === 'completed' ? '⚪ (Completado)' : ''}
+                        </option>
+                      );
+                    })}
                     <option value="backlog">Sin Sprint (Backlog)</option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 pointer-events-none" />
                 </div>
+                {(() => {
+                  const currentSprintObj = sprints?.find((sp) => sp.name === activeSprint);
+                  if (currentSprintObj?.goal) {
+                    return (
+                      <span
+                        className="hidden lg:inline-block text-xs text-slate-500 dark:text-slate-400 italic font-normal truncate max-w-xs xl:max-w-md"
+                        title={currentSprintObj.goal}
+                      >
+                        🎯 "{currentSprintObj.goal}"
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               {onNavigateToTab && (
@@ -715,7 +914,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           {/* Ideas toggle (DEV-008 & DEV-036: Estable y visible en ambas vistas, DEV-045: Cero CLS con ancho fijo w-8) */}
           <button
             type="button"
-            onClick={() => setShowIdeas(!showIdeas)}
+            onClick={() => handleToggleIdeas(!showIdeas)}
             title={showIdeas ? 'Ocultar columna Ideas (Discovery)' : 'Mostrar columna Ideas (Discovery)'}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all shrink-0 select-none ${
               showIdeas
@@ -735,33 +934,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 showIdeas ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
               }`}>
                 {ideasCount}
-              </span>
-            )}
-          </button>
-
-          {/* Done History toggle (DEV-058) */}
-          <button
-            type="button"
-            onClick={() => setShowDoneHistory(!showDoneHistory)}
-            title={showDoneHistory ? 'Ocultar tareas históricas de Done' : 'Mostrar tareas históricas de Done'}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all shrink-0 select-none ${
-              showDoneHistory
-                ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Archive className={`w-3.5 h-3.5 shrink-0 ${showDoneHistory ? 'text-indigo-500 fill-indigo-500/20' : 'text-slate-400'}`} />
-            <span>Histórico Done</span>
-            <span className={`w-8 inline-flex items-center justify-center py-0.5 rounded-full text-[10px] font-mono font-semibold transition-colors ${
-              showDoneHistory ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400'
-            }`}>
-              {showDoneHistory ? 'ON' : 'OFF'}
-            </span>
-            {totalHistoricalDoneCount > 0 && (
-              <span className={`min-w-[18px] inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
-                showDoneHistory ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' : 'bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400'
-              }`}>
-                {totalHistoricalDoneCount}
               </span>
             )}
           </button>
@@ -880,7 +1052,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 if (viewMode === 'simplificada' && !showIdeas && item.status === 'ideas') return false;
                 return col.statuses.includes(item.status);
               }
-              if ((col.id === 'col-done' || col.statuses.includes('done')) && !showDoneHistory) {
+              if ((col.id === 'col-done' || col.statuses.includes('done')) && !showPreviousDone) {
                 if (isItemHistoricalDone(item)) return false;
               }
               return col.statuses.includes(item.status);

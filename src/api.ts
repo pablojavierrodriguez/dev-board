@@ -1,4 +1,4 @@
-import type { BacklogItem, BoardData, Project, Release, StorageType, DevBoardConfig } from './types';
+import type { BacklogItem, BoardData, Project, Release, StorageType, DevBoardConfig, Sprint } from './types';
 
 const API_BASE = '/api';
 
@@ -53,7 +53,30 @@ export async function deleteItem(id: string): Promise<boolean> {
     method: 'DELETE',
   });
   if (!res.ok) {
-    throw new Error(`Error deleting item: ${res.statusText}`);
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || `Error deleting item: ${res.statusText}`);
+  }
+  return true;
+}
+
+// DEV-049: Restore a soft-deleted item to its previous status
+export async function restoreItem(id: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/items/${encodeURIComponent(id)}/restore`, {
+    method: 'PATCH',
+  });
+  if (!res.ok) {
+    throw new Error(`Error restoring item: ${res.statusText}`);
+  }
+  return true;
+}
+
+// DEV-049: Physically purge an item (irreversible, moves to archive/)
+export async function purgeItem(id: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/items/${encodeURIComponent(id)}?purge=true`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    throw new Error(`Error purging item: ${res.statusText}`);
   }
   return true;
 }
@@ -364,4 +387,55 @@ export async function setActiveProjectApi(projectId: string): Promise<boolean> {
     return false;
   }
 }
+
+export async function fetchSprints(projectId?: string): Promise<Sprint[]> {
+  const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+  const res = await fetch(`${API_BASE}/sprints${query}`);
+  if (!res.ok) {
+    throw new Error(`Error fetching sprints: ${res.statusText}`);
+  }
+  const data = await res.json();
+  return data.sprints || [];
+}
+
+export async function createSprint(sprint: Partial<Sprint>): Promise<Sprint> {
+  const res = await fetch(`${API_BASE}/sprints`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sprint),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Error creating sprint: ${res.statusText}`);
+  }
+  const data = await res.json();
+  return data.sprint;
+}
+
+export async function updateSprint(id: string, updates: Partial<Sprint>): Promise<Sprint> {
+  const res = await fetch(`${API_BASE}/sprints/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Error updating sprint: ${res.statusText}`);
+  }
+  const data = await res.json();
+  return data.sprint;
+}
+
+export async function deleteSprint(id: string, projectId?: string): Promise<boolean> {
+  const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+  const res = await fetch(`${API_BASE}/sprints/${encodeURIComponent(id)}${query}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Error deleting sprint: ${res.statusText}`);
+  }
+  return true;
+}
+
 

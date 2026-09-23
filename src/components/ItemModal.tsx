@@ -1,4 +1,4 @@
-import { useState, useEffect, type FC } from 'react';
+import { useState, useEffect, useRef, type FC } from 'react';
 import { 
   X, 
   Save, 
@@ -98,35 +98,53 @@ export const ItemModal: FC<ItemModalProps> = ({
     setRiskFixExpanded(Boolean(source.risk?.trim() || source.fix?.trim()));
   };
 
-  // Initialize form when item changes or modal opens
+  const prevIsOpenRef = useRef(false);
+  const prevItemIdRef = useRef<string | null>(null);
+
+  // Initialize form ONLY when modal opens or target item changes, never on live background syncs
   useEffect(() => {
-    setFormError(null);
-    setConflictItem(null);
-    setShowDeleteConfirm(false);
-    if (item) {
-      populateFromItem(item);
-    } else {
-      // New item defaults
-      setTitle('');
-      setCode('');
-      setProjectId(activeProjectId || projects[0]?.id || 'dom');
-      setType('feature');
-      setPriority('p2');
-      setStatus(defaultStatus);
-      setModule('');
-      setImpactedFile('');
-      setSprint(defaultSprint || '');
-      setRelease('');
-      setDescription('');
-      setRisk('');
-      setFix('');
-      setImplementationPlan('');
-      setAcceptanceCriteriaList([]);
-      setAcExpanded(true);
-      setPlanExpanded(false);
-      setRiskFixExpanded(false);
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      prevItemIdRef.current = null;
+      return;
     }
-  }, [item, defaultStatus, defaultSprint, isOpen, projects, activeProjectId]);
+
+    const currentItemId = item ? item.id : null;
+    const isJustOpening = !prevIsOpenRef.current;
+    const isDifferentItem = isJustOpening || prevItemIdRef.current !== currentItemId;
+
+    if (isDifferentItem) {
+      prevIsOpenRef.current = true;
+      prevItemIdRef.current = currentItemId;
+
+      setFormError(null);
+      setConflictItem(null);
+      setShowDeleteConfirm(false);
+      if (item) {
+        populateFromItem(item);
+      } else {
+        // New item defaults
+        setTitle('');
+        setCode('');
+        setProjectId(activeProjectId || projects[0]?.id || 'dom');
+        setType('feature');
+        setPriority('p2');
+        setStatus(defaultStatus);
+        setModule('');
+        setImpactedFile('');
+        setSprint(defaultSprint || '');
+        setRelease('');
+        setDescription('');
+        setRisk('');
+        setFix('');
+        setImplementationPlan('');
+        setAcceptanceCriteriaList([]);
+        setAcExpanded(true);
+        setPlanExpanded(false);
+        setRiskFixExpanded(false);
+      }
+    }
+  }, [isOpen, item, defaultStatus, defaultSprint, activeProjectId]);
 
   // Keyboard shortcut listener: Esc closes, Cmd+Enter saves
   useEffect(() => {
@@ -489,6 +507,7 @@ export const ItemModal: FC<ItemModalProps> = ({
                     onChange={(e) => setStatus(e.target.value as ItemStatus)}
                     className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 font-medium"
                   >
+                    <option value="ideas" className="bg-[#0e1626]">💡 Idea / Discovery</option>
                     <option value="draft" className="bg-[#0e1626]">Draft (Backlog)</option>
                     <option value="doing" className="bg-[#0e1626]">Doing (En Desarrollo)</option>
                     <option value="review" className="bg-[#0e1626]">Review (En Revisión / QA)</option>

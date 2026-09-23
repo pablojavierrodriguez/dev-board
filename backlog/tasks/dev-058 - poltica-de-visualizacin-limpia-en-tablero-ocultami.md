@@ -3,7 +3,7 @@ id: DEV-058
 title: "Política de Visualización Limpia en Tablero: Ocultamiento por Defecto de Cards en 'Done' y Toggle de Histórico"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 10:57'
+updated_date: '2026-09-18 14:57'
 labels:
   - ux
   - kanban
@@ -13,10 +13,10 @@ priority: medium
 type: ux
 milestone: "0.3.2"
 sprint: "Sprint 2"
-targetSprint: "Sprint 2"
 release: "0.3.2"
 targetRelease: "0.3.2"
 order: 50
+targetSprint: "Sprint 2"
 ---
 
 ## Description

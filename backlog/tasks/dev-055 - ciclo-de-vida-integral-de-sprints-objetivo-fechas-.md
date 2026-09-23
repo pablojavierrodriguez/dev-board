@@ -1,9 +1,9 @@
 ---
 id: DEV-055
 title: "Ciclo de Vida Integral de Sprints: Objetivo, Fechas con Presets, Estados y Autofiltrado"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:07'
+updated_date: '2026-09-23 13:39'
 labels:
   - sprint
   - scrum
@@ -12,6 +12,10 @@ dependencies: []
 priority: high
 type: feature
 milestone: "0.4.0"
+sprint: "Sprint 3"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: "8"
 ---
 
 ## Description
@@ -37,11 +41,11 @@ Formalización del ciclo de vida y metadatos de los Sprints como entidad ágil d
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Entidad Sprint estructurada con id, nombre, objetivo/descripción, fechas inicio/fin y estado (planned, active, completed)
-- [ ] #2 Presets de duración en formulario de sprint (1, 2, 3, 4 semanas y custom) que calculan automáticamente la fecha de fin
-- [ ] #3 Acciones de 'Iniciar Sprint' (máximo 1 activo a la vez) y 'Completar Sprint'
-- [ ] #4 En modo Scrumban, el Tablero de Sprint se autofiltra automáticamente al Sprint Activo
-- [ ] #5 En la vista de Sprints y Priorización, los sprints se ordenan cronológicamente del más viejo al más nuevo, con 'Backlog' al final
+- [x] #1 Entidad Sprint estructurada con id, nombre, objetivo/descripción, fechas inicio/fin y estado (planned, active, completed)
+- [x] #2 Presets de duración en formulario de sprint (1, 2, 3, 4 semanas y custom) que calculan automáticamente la fecha de fin
+- [x] #3 Acciones de 'Iniciar Sprint' (máximo 1 activo a la vez) y 'Completar Sprint'
+- [x] #4 En modo Scrumban, el Tablero de Sprint se autofiltra automáticamente al Sprint Activo
+- [x] #5 En la vista de Sprints y Priorización, los sprints se ordenan cronológicamente del más viejo al más nuevo, con 'Backlog' al final
 <!-- AC:END -->
 
 ## Implementation Plan

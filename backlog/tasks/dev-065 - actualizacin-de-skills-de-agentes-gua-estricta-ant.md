@@ -3,7 +3,7 @@ id: DEV-065
 title: "Actualización de Skills de Agentes: Guía Estricta Anti-Scripts de Terminal y Ciclo de Vida Unreleased vs Released"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 09:29'
+updated_date: '2026-09-18 14:57'
 labels:
   - agent-skills
   - playbook
@@ -14,10 +14,10 @@ priority: medium
 type: feature
 milestone: "0.3.1"
 sprint: "Sprint 2"
-targetSprint: "Sprint 2"
 release: "0.3.1"
 targetRelease: "0.3.1"
-order: 20
+order: 10
+targetSprint: "Sprint 2"
 ---
 
 ## Description

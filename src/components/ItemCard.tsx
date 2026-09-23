@@ -11,7 +11,9 @@ import {
   Trash2, 
   ChevronRight,
   Edit3,
-  Bot
+  Bot,
+  Layers,
+  Zap
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus, ItemType, Priority } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -25,6 +27,8 @@ interface ItemCardProps {
   onDragStart: (e: React.DragEvent, item: BacklogItem) => void;
   onDragEnd: (e: React.DragEvent) => void;
   onShowToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
+  // DEV-047: Progress rollup for epics/initiatives
+  epicProgress?: { done: number; total: number };
 }
 
 export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ className?: string }>; color: string; badge: string }> = {
@@ -51,6 +55,19 @@ export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ clas
     icon: Palette,
     color: 'text-emerald-500 dark:text-emerald-400',
     badge: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300'
+  },
+  // DEV-047: Hierarchical types
+  epic: {
+    label: 'Epic',
+    icon: Layers,
+    color: 'text-indigo-500 dark:text-indigo-400',
+    badge: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300'
+  },
+  initiative: {
+    label: 'Initiative',
+    icon: Zap,
+    color: 'text-purple-500 dark:text-purple-400',
+    badge: 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-300'
   }
 };
 
@@ -85,7 +102,8 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
   onDelete,
   onDragStart,
   onDragEnd,
-  onShowToast
+  onShowToast,
+  epicProgress
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
@@ -276,17 +294,29 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
                   <span>Cancelar</span>
                 </button>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    setShowDeleteConfirm(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400/90 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-left"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Eliminar</span>
-                </button>
+                {item.status === 'done' ? (
+                  <div
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 dark:text-slate-600 cursor-not-allowed text-left"
+                    title="Los ítems 'Done' son registros históricos protegidos y no pueden eliminarse"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar</span>
+                    <span className="ml-auto text-[9px] bg-slate-100 dark:bg-white/[0.06] px-1 py-0.5 rounded font-medium text-slate-400 dark:text-slate-500">Protegido</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400/90 hover:bg-rose-50 dark:hover:bg-rose-500/10 text-left"
+                    title="Enviar a la Papelera (recuperable)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Papelera</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -294,9 +324,37 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
       </div>
 
       {/* Item Title */}
-      <h4 className="text-xs font-medium text-slate-900 dark:text-slate-100 leading-snug line-clamp-2 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-200 transition-colors">
+      <h4 className={`text-xs font-medium leading-snug line-clamp-2 mb-2 transition-colors ${
+        item.type === 'epic'
+          ? 'text-indigo-900 dark:text-indigo-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-300'
+          : item.type === 'initiative'
+          ? 'text-purple-900 dark:text-purple-100 group-hover:text-purple-600 dark:group-hover:text-purple-300'
+          : 'text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-200'
+      }`}>
         {item.title}
       </h4>
+
+      {/* DEV-047: Epic/Initiative Progress Rollup */}
+      {(item.type === 'epic' || item.type === 'initiative') && epicProgress && epicProgress.total > 0 && (
+        <div className="mb-2">
+          <div className="flex items-center justify-between text-[10px] mb-1">
+            <span className={`font-medium ${item.type === 'epic' ? 'text-indigo-600 dark:text-indigo-400' : 'text-purple-600 dark:text-purple-400'}`}>
+              Progreso
+            </span>
+            <span className="text-slate-500 dark:text-slate-400 font-mono">
+              {epicProgress.done}/{epicProgress.total} · {Math.round((epicProgress.done / epicProgress.total) * 100)}%
+            </span>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.06] overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                item.type === 'epic' ? 'bg-indigo-500' : 'bg-purple-500'
+              }`}
+              style={{ width: `${Math.round((epicProgress.done / epicProgress.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Meta Pills (Module, Sprint, Release, ACs) */}
       <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-white/[0.04] text-[10px] text-slate-500 dark:text-slate-400">

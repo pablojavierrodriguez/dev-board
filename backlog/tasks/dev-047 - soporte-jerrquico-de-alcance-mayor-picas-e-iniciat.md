@@ -1,9 +1,9 @@
 ---
 id: DEV-047
 title: "Soporte Jerárquico de Alcance Mayor: Épicas e Iniciativas con Agrupación y Progreso Consolidado"
-status: Draft
+status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:03'
+updated_date: '2026-09-23 13:39'
 labels:
   - epics
   - initiatives
@@ -12,6 +12,10 @@ dependencies: []
 priority: high
 type: feature
 milestone: "0.4.0"
+sprint: "Sprint 3"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: "18"
 ---
 
 ## Description
@@ -27,11 +31,11 @@ Incorporación de entidades de gestión de alto nivel (Épicas e Iniciativas) pa
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Extender ItemType y esquemas con 'epic' e 'initiative' con estilo visual propio (icono, bordes y badges)
-- [ ] #2 Las cards de tipo épica/iniciativa muestran barra de progreso porcentual consolidada según sus tareas hijas
-- [ ] #3 Permitir agrupar la vista Backlog por Épica en el selector 'Agrupar por'
-- [ ] #4 En FilterBar, añadir selector para filtrar todo el tablero por Épica/Iniciativa
-- [ ] #5 Sincronización bidireccional limpia con frontmatter Markdown (type: epic, type: initiative)
+- [x] #1 Extender ItemType y esquemas con 'epic' e 'initiative' con estilo visual propio (icono, bordes y badges)
+- [x] #2 Las cards de tipo épica/iniciativa muestran barra de progreso porcentual consolidada según sus tareas hijas
+- [x] #3 Permitir agrupar la vista Backlog por Épica en el selector 'Agrupar por'
+- [x] #4 En FilterBar, añadir selector para filtrar todo el tablero por Épica/Iniciativa
+- [x] #5 Sincronización bidireccional limpia con frontmatter Markdown (type: epic, type: initiative)
 <!-- AC:END -->
 
 ## Implementation Plan

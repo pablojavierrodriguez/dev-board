@@ -1,9 +1,19 @@
 # Backlog: dev-board
-> Consolidado generado el 2026-09-18 por DevBoard ⚡
+> Consolidado generado el 2026-09-23 por DevBoard ⚡
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (17)
+### 📋 Backlog / Draft (15)
+
+#### [DEV--066] falta en settings un boton para deshacer cambios
+- **Prioridad**: `medium` | **Tipo**: `feature`
+
+al lado de guardar cambios debiera estar el boton que permita borrar la config selecciona/editada, para restaabler las settings al estado anterior a la edición
+
+**Criterios de Aceptación:**
+- [ ] #1 Criterio de aceptación inicial definido.
+
+---
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -21,6 +31,7 @@ Inspección de solo lectura del árbol Git local (commits, ramas, tags) para cor
 
 #### [DEV-040] Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/
 - **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: Sprint 4
 
 Desacoplar la configuración de DevBoard del registro central global (data/projects-registry.json), permitiendo que toda la configuración de columnas, metodología, vistas y preferencias viva autocontenida en .devboard/config.json dentro del repositorio del proyecto.
 
@@ -34,6 +45,7 @@ Desacoplar la configuración de DevBoard del registro central global (data/proje
 
 #### [DEV-041] Simplificación de UX/UI en Modo Proyecto Único (Eliminación de Ruido Multi-Proyecto)
 - **Prioridad**: `high` | **Tipo**: `ux`
+- **Sprint / Milestone**: Sprint 4
 
 Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta en un repositorio único, eliminando el ruido de selectores de proyectos globales, modales de importación y cambio de repositorios, ofreciendo una experiencia enfocada y limpia similar a Storybook o Prisma Studio.
 
@@ -48,6 +60,7 @@ Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta
 
 #### [DEV-042] Empaquetado y DX como devDependency (Cero Fricción con npm i -D y npx)
 - **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: Sprint 4
 
 Optimizar la experiencia de desarrollador (DX) y empaquetado para que DevBoard pueda ser consumido limpiamente como devDependency en cualquier proyecto Node/TypeScript, levantando el cockpit local y el servidor MCP con cero fricción.
 
@@ -77,25 +90,6 @@ Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una 
 
 ---
 
-#### [DEV-047] Soporte Jerárquico de Alcance Mayor: Épicas e Iniciativas con Agrupación y Progreso Consolidado
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
-
-Incorporación de entidades de gestión de alto nivel (Épicas e Iniciativas) para estructurar y agrupar tarjetas con un alcance o visión estratégica mayor:
-1. **Tipos de Alto Nivel:** Extender `ItemType` para soportar `'epic'` e `'initiative'`, otorgándoles representación visual distinguida (badges con colores e iconos propios).
-2. **Cálculo de Progreso Consolidado (Rollup Metrics):** Cada Épica o Iniciativa calcula dinámicamente el progreso de completitud (% completado, conteo de items cerrados vs abiertos) según el estado de las tareas hijas que la componen.
-3. **Vistas Agrupadas y Filtros:** Permitir agrupar la vista de Backlog por Épica o filtrar el tablero Kanban por una Épica seleccionada.
-4. **Almacenamiento Compatible:** Las Épicas e Iniciativas se almacenan como archivos `.md` estándar en `backlog/tasks/` manteniendo compatibilidad Backlog.md (`type: epic`, `type: initiative`).
-
-**Criterios de Aceptación:**
-- [ ] #1 Extender ItemType y esquemas con 'epic' e 'initiative' con estilo visual propio (icono, bordes y badges)
-- [ ] #2 Las cards de tipo épica/iniciativa muestran barra de progreso porcentual consolidada según sus tareas hijas
-- [ ] #3 Permitir agrupar la vista Backlog por Épica en el selector 'Agrupar por'
-- [ ] #4 En FilterBar, añadir selector para filtrar todo el tablero por Épica/Iniciativa
-- [ ] #5 Sincronización bidireccional limpia con frontmatter Markdown (type: epic, type: initiative)
-
----
-
 #### [DEV-048] Grafo de Relaciones entre Cards: Jerarquías Verticales (Padre/Hijo Estricto 1-a-N) y Enlaces Horizontales (Bloquea/Depende/Relacionado)
 - **Prioridad**: `high` | **Tipo**: `feature`
 - **Sprint / Milestone**: 0.4.0
@@ -115,115 +109,6 @@ Modelado completo de relaciones entre tarjetas tanto a nivel vertical como horiz
 - [ ] #3 Badge indicador en tarjetas Kanban que señala dependencias bloqueadas y advertencias de precedencia
 - [ ] #4 En ItemModal, sección interactiva 'Relaciones y Dependencias' para vincular y desvincular ítems
 - [ ] #5 Persistencia transparente en frontmatter Markdown sin pérdida de datos en hot-reload
-
----
-
-#### [DEV-049] Ciclo de Vida Seguro: Papelera (Soft Delete), Doble Confirmación de Purga y Protección contra Borrado en 'Done'
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
-
-Mecanismos de protección anti-destructiva y gestión segura del ciclo de vida de tarjetas:
-1. **Protección contra Borrado en 'Done':** Las tareas en estado `done` constituyen el registro histórico y la justificación técnica de cambios en el código. Se bloquea terminantemente su eliminación física o accidental directa desde la interfaz (botón de borrar deshabilitado con tooltip explicativo).
-2. **Flujo de Papelera (Soft Delete):** Al eliminar una tarea activa (no-done), el sistema no borra el archivo físico de disco de inmediato; realiza un Soft Delete asignándole `status: 'dismissed'`, `isDeleted: true` y `deletedAt: ISOString`, moviéndola a la sección o pestaña "Papelera".
-3. **Restauración y Purga Definitiva con Doble Confirmación:** Dentro de la Papelera:
-   - Los ítems pueden ser restaurados a su estado previo en 1 click ("Restaurar ítem").
-   - La eliminación física y purgado de disco requiere un modal de doble confirmación con advertencia de seguridad explícita ("Escribe CONFIRMAR para eliminar irreversiblemente").
-
-**Criterios de Aceptación:**
-- [ ] #1 Deshabilitar el botón de eliminación en tarjetas con estado 'done' con tooltip de protección histórica
-- [ ] #2 La acción de eliminar tarjetas activas ejecuta un Soft Delete enviándolas a la Papelera con metadato deletedAt
-- [ ] #3 Vista o filtro de Papelera accesible para consultar y restaurar tarjetas descartadas
-- [ ] #4 La purga física definitiva de una tarjeta desde la papelera exige un modal de doble confirmación de seguridad
-- [ ] #5 Integración con scripts/backlogMdParser.ts para preservar o archivar el archivo de forma resiliente
-
----
-
-#### [DEV-051] Configuración y Parametrización de Columnas Visibles en la Vista de Backlog
-- **Prioridad**: `medium` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.4.0
-
-Permitir a los usuarios personalizar qué columnas de información se muestran en la tabla de la vista de Backlog:
-1. **Selector de Columnas:** Añadir un menú desplegable/popover "Columnas" en la barra superior de la vista de Backlog con checkboxes para activar u ocultar campos.
-2. **Campos Parametrizables:** Posibilidad de alternar:
-   - Columnas base: Prioridad, Código, Título, Estado, Tipo.
-   - Columnas opcionales: Módulo, Archivo Impactado, Épica/Padre, Dependencias, Release/Versión, Sprints, Fecha de Creación.
-3. **Persistencia Local:** Guardar las preferencias de columnas visibles en la configuración local del proyecto (`.devboard/config.json`) para que se mantengan entre sesiones y recargas.
-4. **Ergonomía:** Asegurar layout elástico sin scrolls horizontales rotos al alternar columnas.
-
-**Criterios de Aceptación:**
-- [ ] #1 Popover interactivo 'Columnas' en la barra de herramientas de la vista Backlog
-- [ ] #2 Capacidad de conmutar visibilidad de columnas opcionales (módulo, parent, release, dependencias, etc.)
-- [ ] #3 Las columnas obligatorias (código, título) permanecen ancladas para preservar usabilidad mínima
-- [ ] #4 Persistencia de las columnas activas en .devboard/config.json
-- [ ] #5 La tabla adapta su distribución de anchos de celda de forma fluida sin romper el layout
-
----
-
-#### [DEV-052] Zonas de Soltado Multi-Estado (Drop Targets Específicos) en Columnas Kanban Agrupadas
-- **Prioridad**: `high` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.4.0
-
-Resolución del problema de asignación de estados cuando una columna Kanban agrupa más de un estado:
-1. **Limitación Actual:** Actualmente, si una columna agrupa varios estados (por ejemplo, la columna In Progress agrupa `doing`, `in_progress`, `review`, `testing_qa`), al soltar una tarjeta se le asigna de forma fija el `dropTargetStatus` por defecto de la columna, lo cual es solo un fallback insuficiente y no cubre todos los casos de uso reales.
-2. **Subzonas de Soltado Dinámicas:** Cuando el usuario arrastra una tarjeta sobre una columna que tiene múltiples estados asignados (`statuses.length > 1`), la interfaz debe desplegar bloques o zonas de soltado (drop zones) claramente diferenciadas para cada uno de los estados mapeados (ej: bloque para `doing`, bloque para `review`, etc.).
-3. **Selección Directa y Fallback:**
-   - Si el usuario suelta la tarjeta dentro de una subzona específica, la tarjeta asume inmediatamente ese estado exacto.
-   - Si el usuario suelta en el cuerpo general de la columna fuera de las subzonas, se utiliza el `dropTargetStatus` como fallback seguro.
-
-**Criterios de Aceptación:**
-- [ ] #1 Detectar columnas Kanban con más de un estado mapeado (statuses.length > 1)
-- [ ] #2 Al sobrevolar la columna con una tarjeta arrastrada, desplegar subzonas de drop claramente delimitadas con el nombre de cada estado
-- [ ] #3 Soltar sobre una subzona específica transiciona la tarjeta a ese estado exacto
-- [ ] #4 Soltar en la zona neutra de la columna aplica dropTargetStatus como fallback
-- [ ] #5 Animación fluida de apertura de subzonas sin provocar jank ni saltos bruscos en el scroll
-
----
-
-#### [DEV-053] Configuración Visual de Tablero por Drag & Drop en Settings (Arrastre de Estados entre Columnas)
-- **Prioridad**: `medium` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.4.0
-
-Evolución de la experiencia de usuario en la configuración del tablero en `SettingsView`:
-1. **Experiencia Actual:** La asignación de estados a columnas se realiza mediante badges estáticos y selectores desplegables '+ Estado'.
-2. **Experiencia por Drag & Drop:** Permitir que los badges de estado sean arrastrables (`draggable`) entre las tarjetas de columnas. El usuario puede tomar un estado (ej. `review`) de una columna y arrastrarlo visualmente hacia otra (ej. de "In Progress" a una columna "Testing"), reasignándolo instantáneamente de manera intuitiva.
-3. **Soporte Dual:** Funcionamiento tanto en la pestaña de configuración del Modo Simple (3 columnas) como del Modo Ampliado (5 columnas).
-4. **Validaciones:** Prevenir estados huérfanos y asegurar que cada columna conserve un `dropTargetStatus` coherente con sus estados contenidos.
-
-**Criterios de Aceptación:**
-- [ ] #1 En SettingsView (pestaña Tablero Kanban), los chips de estados son arrastrables entre columnas
-- [ ] #2 Indicador visual claro del contenedor destino durante el arrastre (hover highlight)
-- [ ] #3 Al soltar un estado en otra columna, se actualiza la configuración en memoria y se persiste en .devboard/config.json
-- [ ] #4 Soporte para reconfigurar tanto columnas en modo Simple como en modo Ampliado
-- [ ] #5 Validación para garantizar que todos los estados esenciales pertenezcan a al menos una columna
-
----
-
-#### [DEV-055] Ciclo de Vida Integral de Sprints: Objetivo, Fechas con Presets, Estados y Autofiltrado
-- **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
-
-Formalización del ciclo de vida y metadatos de los Sprints como entidad ágil de primera clase:
-1. **Metadatos Enriquecidos:** Cada Sprint debe contar con:
-   - Nombre o identificador (ej: "Sprint 1", "Sprint 2").
-   - Descripción / Objetivo del Sprint (Sprint Goal, notas de alcance y acuerdos de la iteración).
-   - Fechas de Inicio y Fin con presets rápidos de cálculo automático:
-     - 1 semana
-     - 2 semanas (estándar común)
-     - 3 semanas
-     - 4 semanas
-     - Personalizado (fechas manuales).
-2. **Ciclo de Vida (Estados):** Un sprint transiciona por los estados `planned` (planificado), `active` (en curso) y `completed` (finalizado).
-   - Botón "Iniciar Sprint" (con restricción estricta de máximo 1 sprint activo por proyecto).
-   - Botón "Completar Sprint" con resumen de cierre.
-3. **Autofiltrado en Sprint Board (Scrumban):** Al conmutar a la vista de Tablero de Sprint, el tablero autofiltra su contenido exclusivamente a las tarjetas dentro del alcance del sprint activo.
-4. **Orden Cronológico:** Los agrupadores de sprint deben mostrarse predeterminadamente ordenados del más viejo al más nuevo, finalizando siempre en el contenedor "Backlog".
-
-**Criterios de Aceptación:**
-- [ ] #1 Entidad Sprint estructurada con id, nombre, objetivo/descripción, fechas inicio/fin y estado (planned, active, completed)
-- [ ] #2 Presets de duración en formulario de sprint (1, 2, 3, 4 semanas y custom) que calculan automáticamente la fecha de fin
-- [ ] #3 Acciones de 'Iniciar Sprint' (máximo 1 activo a la vez) y 'Completar Sprint'
-- [ ] #4 En modo Scrumban, el Tablero de Sprint se autofiltra automáticamente al Sprint Activo
-- [ ] #5 En la vista de Sprints y Priorización, los sprints se ordenan cronológicamente del más viejo al más nuevo, con 'Backlog' al final
 
 ---
 
@@ -333,7 +218,68 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### ✅ Done / Deployed (47)
+#### [DEV-068] Fix: devboard_list_tasks — Filtro por Sprint Retorna Todos los Tasks
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: Sprint 4
+
+El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por sprint: retorna todos los tasks del proyecto. Esto genera confusión en auditorías de sprint y obliga al agente a filtrar manualmente el JSON.
+
+**Root cause posible:** El campo `sprint` en el frontmatter Markdown puede estar bajo nombres alternativos (`targetSprint`, `milestone`) que el parser no mapea al filtro `sprint` de la API.
+
+**Fix esperado:** El filtro `sprint` en `devboard_list_tasks` debe matchear los campos `sprint`, `targetSprint`, y el frontmatter `sprint:` del archivo Markdown.
+
+**Criterios de Aceptación:**
+- [ ] #1 devboard_list_tasks con { sprint: 'Sprint 3' } retorna solo tasks cuyo frontmatter contiene sprint: Sprint 3
+- [ ] #2 El filtro también matchea el campo targetSprint cuando coincide con el valor buscado
+- [ ] #3 Test con proyecto dev-board: filtrar por Sprint 3 retorna exactamente DEV-047, DEV-049, DEV-051, DEV-052, DEV-053, DEV-055, DEV-067 y nada más
+- [ ] #4 Documentar el filtro corregido en el schema MCP
+- [ ] #5 La corrección es backwards-compatible con el CLI devboard list
+
+---
+
+#### [DEV-069] Fix: devboard_update_task — Ignorar status dentro del objeto updates silenciosamente
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: Sprint 4
+
+Cuando se pasa `{ "taskId": "DEV-001", "updates": { "status": "ready" } }`, el servidor MCP ignora el campo `status` dentro de `updates` sin retornar error. El task mantiene su estado anterior.
+
+Esto genera un bug silencioso muy difícil de detectar: el agente cree que actualizó el status, pero el archivo Markdown no cambia.
+
+**Fix esperado:** El servidor MCP debe aceptar `status` tanto como campo top-level como dentro de `updates`, O retornar un error claro indicando que `status` no es válido dentro de `updates` para evitar la confusión.
+
+**Criterios de Aceptación:**
+- [ ] #1 devboard_update_task acepta status dentro de updates Y lo aplica correctamente
+- [ ] #2 O bien: devboard_update_task retorna un warning/error cuando se detecta status dentro de updates (para que el agente pueda corregirlo)
+- [ ] #3 Documentar claramente en el schema MCP el campo correcto para cambiar status
+- [ ] #4 Añadir test unitario que valide ambas formas de pasar el status
+
+---
+
+#### [DEV-070] Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado
+- **Prioridad**: `medium` | **Tipo**: `feature`
+
+Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
+
+**Motivación:** Las retros manuales al final de cada sprint son valiosas pero se omiten cuando el sprint se cierra rápidamente. Se necesita un mecanismo que las haga obligatorias y estructuradas.
+
+**Funcionalidad esperada:**
+1. Al marcar el último item de un sprint como `ready` o al ejecutar 'Completar Sprint', DevBoard muestra un prompt de retro.
+2. El template de retro incluye las 4 dimensiones: Problemas, Eficiencia, Fortalezas, Acciones.
+3. Las acciones concretas de la retro se convierten automáticamente en nuevas tareas del backlog.
+4. La retro queda guardada como archivo en `backlog/retros/sprint-N-retro.md`.
+5. El MCP expone `devboard_create_retro` y `devboard_list_retros`.
+
+**Criterios de Aceptación:**
+- [ ] #1 Al completar un sprint, CompleteSprintModal incluye paso de retro opcional pero promovido
+- [ ] #2 Template de retro con secciones: ¿Qué salió bien?, ¿Qué mejorar?, ¿Qué cambiar?, Acciones concretas
+- [ ] #3 Las acciones se pueden convertir en tasks con un click (Create Task from Action)
+- [ ] #4 La retro se persiste en backlog/retros/ como archivo Markdown estándar
+- [ ] #5 devboard_list_retros MCP tool lista las retros guardadas con resumen
+- [ ] #6 La retro aparece en el timeline de la Release Notes si el sprint tiene release asociado
+
+---
+
+### ✅ Done / Deployed (55)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -997,6 +943,45 @@ Ajustes conceptuales y de eficiencia en la vista de Sprints y Priorización:
 
 ---
 
+#### [DEV-047] Soporte Jerárquico de Alcance Mayor: Épicas e Iniciativas con Agrupación y Progreso Consolidado
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.4.0
+
+Incorporación de entidades de gestión de alto nivel (Épicas e Iniciativas) para estructurar y agrupar tarjetas con un alcance o visión estratégica mayor:
+1. **Tipos de Alto Nivel:** Extender `ItemType` para soportar `'epic'` e `'initiative'`, otorgándoles representación visual distinguida (badges con colores e iconos propios).
+2. **Cálculo de Progreso Consolidado (Rollup Metrics):** Cada Épica o Iniciativa calcula dinámicamente el progreso de completitud (% completado, conteo de items cerrados vs abiertos) según el estado de las tareas hijas que la componen.
+3. **Vistas Agrupadas y Filtros:** Permitir agrupar la vista de Backlog por Épica o filtrar el tablero Kanban por una Épica seleccionada.
+4. **Almacenamiento Compatible:** Las Épicas e Iniciativas se almacenan como archivos `.md` estándar en `backlog/tasks/` manteniendo compatibilidad Backlog.md (`type: epic`, `type: initiative`).
+
+**Criterios de Aceptación:**
+- [x] #1 Extender ItemType y esquemas con 'epic' e 'initiative' con estilo visual propio (icono, bordes y badges)
+- [x] #2 Las cards de tipo épica/iniciativa muestran barra de progreso porcentual consolidada según sus tareas hijas
+- [x] #3 Permitir agrupar la vista Backlog por Épica en el selector 'Agrupar por'
+- [x] #4 En FilterBar, añadir selector para filtrar todo el tablero por Épica/Iniciativa
+- [x] #5 Sincronización bidireccional limpia con frontmatter Markdown (type: epic, type: initiative)
+
+---
+
+#### [DEV-049] Ciclo de Vida Seguro: Papelera (Soft Delete), Doble Confirmación de Purga y Protección contra Borrado en 'Done'
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.4.0
+
+Mecanismos de protección anti-destructiva y gestión segura del ciclo de vida de tarjetas:
+1. **Protección contra Borrado en 'Done':** Las tareas en estado `done` constituyen el registro histórico y la justificación técnica de cambios en el código. Se bloquea terminantemente su eliminación física o accidental directa desde la interfaz (botón de borrar deshabilitado con tooltip explicativo).
+2. **Flujo de Papelera (Soft Delete):** Al eliminar una tarea activa (no-done), el sistema no borra el archivo físico de disco de inmediato; realiza un Soft Delete asignándole `status: 'dismissed'`, `isDeleted: true` y `deletedAt: ISOString`, moviéndola a la sección o pestaña "Papelera".
+3. **Restauración y Purga Definitiva con Doble Confirmación:** Dentro de la Papelera:
+   - Los ítems pueden ser restaurados a su estado previo en 1 click ("Restaurar ítem").
+   - La eliminación física y purgado de disco requiere un modal de doble confirmación con advertencia de seguridad explícita ("Escribe CONFIRMAR para eliminar irreversiblemente").
+
+**Criterios de Aceptación:**
+- [x] #1 Deshabilitar el botón de eliminación en tarjetas con estado 'done' con tooltip de protección histórica
+- [x] #2 La acción de eliminar tarjetas activas ejecuta un Soft Delete enviándolas a la Papelera con metadato deletedAt
+- [x] #3 Vista o filtro de Papelera accesible para consultar y restaurar tarjetas descartadas
+- [x] #4 La purga física definitiva de una tarjeta desde la papelera exige un modal de doble confirmación de seguridad
+- [x] #5 Integración con scripts/backlogMdParser.ts para preservar o archivar el archivo de forma resiliente
+
+---
+
 #### [DEV-050] Reordenamiento Drag & Drop en Backlog / Sprint y Priorización con Setting de Ranking Manual Condicional
 - **Prioridad**: `high` | **Tipo**: `feature`
 - **Sprint / Milestone**: 0.3.0
@@ -1014,6 +999,66 @@ Soporte integral para reordenamiento manual de ítems en la vista de Backlog y S
 - [x] #3 Cuando el ranking está desactivado, el arrastre manual queda bloqueado y se respeta el orden estricto de columnas
 - [x] #4 Al reordenar filas con ranking activo, se actualiza el campo 'order' y se persiste en los archivos Markdown
 - [x] #5 Rendimiento optimizado a 60 FPS durante la interacción de arrastre en listas largas
+
+---
+
+#### [DEV-051] Configuración y Parametrización de Columnas Visibles en la Vista de Backlog
+- **Prioridad**: `low` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.4.0
+
+Permitir a los usuarios personalizar qué columnas de información se muestran en la tabla de la vista de Backlog:
+1. **Selector de Columnas:** Añadir un menú desplegable/popover "Columnas" en la barra superior de la vista de Backlog con checkboxes para activar u ocultar campos.
+2. **Campos Parametrizables:** Posibilidad de alternar:
+   - Columnas base: Prioridad, Código, Título, Estado, Tipo.
+   - Columnas opcionales: Módulo, Archivo Impactado, Épica/Padre, Dependencias, Release/Versión, Sprints, Fecha de Creación.
+3. **Persistencia Local:** Guardar las preferencias de columnas visibles en la configuración local del proyecto (`.devboard/config.json`) para que se mantengan entre sesiones y recargas.
+4. **Ergonomía:** Asegurar layout elástico sin scrolls horizontales rotos al alternar columnas.
+
+**Criterios de Aceptación:**
+- [x] #1 Popover interactivo 'Columnas' en la barra de herramientas de la vista Backlog
+- [x] #2 Capacidad de conmutar visibilidad de columnas opcionales (módulo, parent, release, dependencias, etc.)
+- [x] #3 Las columnas obligatorias (código, título) permanecen ancladas para preservar usabilidad mínima
+- [x] #4 Persistencia de las columnas activas en .devboard/config.json
+- [x] #5 La tabla adapta su distribución de anchos de celda de forma fluida sin romper el layout
+
+---
+
+#### [DEV-052] Zonas de Soltado Multi-Estado (Drop Targets Específicos) en Columnas Kanban Agrupadas
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.4.0
+
+Resolución del problema de asignación de estados cuando una columna Kanban agrupa más de un estado:
+1. **Limitación Actual:** Actualmente, si una columna agrupa varios estados (por ejemplo, la columna In Progress agrupa `doing`, `in_progress`, `review`, `testing_qa`), al soltar una tarjeta se le asigna de forma fija el `dropTargetStatus` por defecto de la columna, lo cual es solo un fallback insuficiente y no cubre todos los casos de uso reales.
+2. **Subzonas de Soltado Dinámicas:** Cuando el usuario arrastra una tarjeta sobre una columna que tiene múltiples estados asignados (`statuses.length > 1`), la interfaz debe desplegar bloques o zonas de soltado (drop zones) claramente diferenciadas para cada uno de los estados mapeados (ej: bloque para `doing`, bloque para `review`, etc.).
+3. **Selección Directa y Fallback:**
+   - Si el usuario suelta la tarjeta dentro de una subzona específica, la tarjeta asume inmediatamente ese estado exacto.
+   - Si el usuario suelta en el cuerpo general de la columna fuera de las subzonas, se utiliza el `dropTargetStatus` como fallback seguro.
+
+**Criterios de Aceptación:**
+- [x] #1 Detectar columnas Kanban con más de un estado mapeado (statuses.length > 1)
+- [x] #2 Al sobrevolar la columna con una tarjeta arrastrada, desplegar subzonas de drop claramente delimitadas con el nombre de cada estado
+- [x] #3 Soltar sobre una subzona específica transiciona la tarjeta a ese estado exacto
+- [x] #4 Soltar en la zona neutra de la columna aplica dropTargetStatus como fallback
+- [x] #5 Animación fluida de apertura de subzonas sin provocar jank ni saltos bruscos en el scroll
+
+---
+
+#### [DEV-053] Configuración Visual de Tablero por Drag & Drop en Settings (Arrastre de Estados entre Columnas)
+- **Prioridad**: `low` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.4.0
+
+Evolución de la experiencia de usuario en la configuración del tablero en `SettingsView`:
+1. **Experiencia Actual:** La asignación de estados a columnas se realiza mediante badges estáticos y selectores desplegables '+ Estado'.
+2. **Experiencia por Drag & Drop:** Permitir que los badges de estado sean arrastrables (`draggable`) entre las tarjetas de columnas. El usuario puede tomar un estado (ej. `review`) de una columna y arrastrarlo visualmente hacia otra (ej. de "In Progress" a una columna "Testing"), reasignándolo instantáneamente de manera intuitiva.
+3. **Soporte Dual:** Funcionamiento tanto en la pestaña de configuración del Modo Simple (3 columnas) como del Modo Ampliado (5 columnas).
+4. **Validaciones:** Prevenir estados huérfanos y asegurar que cada columna conserve un `dropTargetStatus` coherente con sus estados contenidos.
+
+**Criterios de Aceptación:**
+- [x] #1 En SettingsView (pestaña Tablero Kanban), los chips de estados son arrastrables entre columnas
+- [x] #2 Indicador visual claro del contenedor destino durante el arrastre (hover highlight)
+- [x] #3 Al soltar un estado en otra columna, se actualiza la configuración en memoria y se persiste en .devboard/config.json
+- [x] #4 Soporte para reconfigurar tanto columnas en modo Simple como en modo Ampliado
+- [x] #5 Validación para garantizar que todos los estados esenciales pertenezcan a al menos una columna
 
 ---
 
@@ -1035,6 +1080,35 @@ Rediseño integral de ergonomía y distribución visual en el modal de creación
 - [x] #3 Sidebar lateral derecha compacta y alineada para atributos clave (tipo, prioridad, estado, padre, sprint, release)
 - [x] #4 Entradas de criterios de aceptación con altura cómoda y auto-creación fluida
 - [x] #5 Adaptación responsive elegante a bottom-sheet en pantallas móviles
+
+---
+
+#### [DEV-055] Ciclo de Vida Integral de Sprints: Objetivo, Fechas con Presets, Estados y Autofiltrado
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.4.0
+
+Formalización del ciclo de vida y metadatos de los Sprints como entidad ágil de primera clase:
+1. **Metadatos Enriquecidos:** Cada Sprint debe contar con:
+   - Nombre o identificador (ej: "Sprint 1", "Sprint 2").
+   - Descripción / Objetivo del Sprint (Sprint Goal, notas de alcance y acuerdos de la iteración).
+   - Fechas de Inicio y Fin con presets rápidos de cálculo automático:
+     - 1 semana
+     - 2 semanas (estándar común)
+     - 3 semanas
+     - 4 semanas
+     - Personalizado (fechas manuales).
+2. **Ciclo de Vida (Estados):** Un sprint transiciona por los estados `planned` (planificado), `active` (en curso) y `completed` (finalizado).
+   - Botón "Iniciar Sprint" (con restricción estricta de máximo 1 sprint activo por proyecto).
+   - Botón "Completar Sprint" con resumen de cierre.
+3. **Autofiltrado en Sprint Board (Scrumban):** Al conmutar a la vista de Tablero de Sprint, el tablero autofiltra su contenido exclusivamente a las tarjetas dentro del alcance del sprint activo.
+4. **Orden Cronológico:** Los agrupadores de sprint deben mostrarse predeterminadamente ordenados del más viejo al más nuevo, finalizando siempre en el contenedor "Backlog".
+
+**Criterios de Aceptación:**
+- [x] #1 Entidad Sprint estructurada con id, nombre, objetivo/descripción, fechas inicio/fin y estado (planned, active, completed)
+- [x] #2 Presets de duración en formulario de sprint (1, 2, 3, 4 semanas y custom) que calculan automáticamente la fecha de fin
+- [x] #3 Acciones de 'Iniciar Sprint' (máximo 1 activo a la vez) y 'Completar Sprint'
+- [x] #4 En modo Scrumban, el Tablero de Sprint se autofiltra automáticamente al Sprint Activo
+- [x] #5 En la vista de Sprints y Priorización, los sprints se ordenan cronológicamente del más viejo al más nuevo, con 'Backlog' al final
 
 ---
 
@@ -1139,5 +1213,42 @@ Refactorización y simplificación radical del modelo y la interfaz de Releases:
 - [x] #1 Unificar los estados del modelo de Release a exclusivamente 'unreleased' y 'released'
 - [x] #2 Rediseñar ReleaseAssembler.tsx hacia una vista tipo lista compacta y clara sin divisiones redundantes
 - [x] #3 Implementar panel de detalle progresivo (drawer o split-view) para inspección y edición bajo demanda
+
+---
+
+#### [DEV-067] Arquitectura Unificada de Filtros: Filtro General de Estados (Inclusión/Exclusión), Quick Filters y Popover Multiselect
+- **Prioridad**: `urgent` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.3.3
+
+Evolución integral del sistema de filtrado de DevBoard hacia un modelo limpio, escalable y unificado:
+1. **Filtro General de Estados (Inclusión / Exclusión):** Unificación de la visibilidad de estados activos (draft, doing, review, ready), tareas completadas (done) y tareas de descarte/cancelación (dismissed, cancelled).
+   - Política predeterminada: tareas activas y completadas de la iteración actual incluidas; completadas de iteraciones pasadas y descartadas/canceladas excluidas por defecto.
+   - Flexibilidad total: activación bajo demanda para auditar descartadas o consultar completadas históricas sin cambiar de pestaña.
+2. **Estrategia Dual de Interfaz:**
+   - **Quick Filters en Encabezado:** Acceso inmediato con un clic a búsquedas (⌘K), selector de Sprint Goal, toggles de estado (✓ Completadas anteriores, ✕ Descartadas) y pills rápidas.
+   - **Popover de Filtros Avanzados (Filtros ▾ (N)):** Panel desplegable extensible con soporte multiselect para Tipos, Prioridades, Estados, Sprints, Releases y Módulos.
+   - **Chips Activos Descartables y Reset:** Visualización de chips con ✕ y botón universal de 'Limpiar filtros'.
+
+**Criterios de Aceptación:**
+- [x] #1 Extender FilterState en types.ts para soportar multiselect (types, priorities) y filtro general de estados (includePreviousDone, includeDismissedCancelled)
+- [x] #2 Implementar AdvancedFiltersPopover.tsx con interfaz multiselect por categorías y contador de filtros activos
+- [x] #3 Actualizar FilterBar.tsx para incorporar el botón desplegable de Filtros y Quick Filters en el encabezado con chips activos
+- [x] #4 Actualizar lógica central en App.tsx para procesar la inclusión/exclusión de estados y multiselect
+- [x] #5 Refactorizar KanbanBoard.tsx eliminando botones ad-hoc y vinculando la columna Done y las completadas anteriores al filtro unificado
+- [x] #6 Verificación con npm run build y sincronización limpia del backlog
+
+---
+
+#### [DEV-071] Fix: Aislamiento estricto de Sprints por Proyecto y Prevención de Fugas Cross-Project
+- **Prioridad**: `high` | **Tipo**: `bug`
+
+En instalaciones multi-proyecto, los sprints registrados en otros proyectos (ej. dom/m3) se filtraban hacia el proyecto activo (dev-board), generando agrupadores de sprints vacíos con badge 'Activo' ('Integridad Financiera', 'Performance y Escala', etc.) que no existen en el sprints.json local y no pueden ser eliminados.
+
+**Criterios de Aceptación:**
+- [x] #1 Garantizar que readProjectBacklog en backend asigne siempre projectId a cada sprint cargado desde sprints.json
+- [x] #2 En App.tsx, derivar projectSprints filtrando boardData.sprints estrictamente por selectedProjectId
+- [x] #3 Pasar projectSprints y availableSprints contextuales a SprintView, KanbanBoard y selectores de modal
+- [x] #4 En handleDeleteSprint y mutaciones de sprints, enviar el projectId específico del sprint para permitir su eliminación adecuada
+- [x] #5 Eliminar la fuga de sprints de proyectos foráneos en la vista Sprint & Priorización
 
 ---

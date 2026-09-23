@@ -81,6 +81,19 @@ html:not(.dark) .glass-panel {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+/* Filters Popover - Solid opaque surface to prevent any background bleed-through */
+.filters-popover {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+html.dark .filters-popover {
+  background-color: #0d1424 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
 .glass-card {
   transition: background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease, transform 150ms ease, opacity 150ms ease;
 }

@@ -3,7 +3,7 @@ id: DEV-066
 title: "Simplificación Conceptual de Releases: Lista Unificada (En Preparación vs Implementado) y Detalle Progresivo"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 09:44'
+updated_date: '2026-09-18 14:57'
 labels:
   - releases
   - ux
@@ -14,10 +14,10 @@ priority: high
 type: feature
 milestone: "0.3.1"
 sprint: "Sprint 2"
-targetSprint: "Sprint 2"
 release: "0.3.1"
 targetRelease: "0.3.1"
-order: 30
+order: 20
+targetSprint: "Sprint 2"
 ---
 
 ## Description

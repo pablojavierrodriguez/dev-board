@@ -3,12 +3,15 @@ id: DEV-019
 title: "Resiliencia y reconciliación ante tareas Markdown huérfanas o renombradas"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-17 02:50'
+updated_date: '2026-09-19 04:25'
 labels: []
 dependencies: []
 priority: medium
 type: bug
 milestone: "v1.2.0"
+release: "v1.2.0"
+targetRelease: "v1.2.0"
+order: 110
 ---
 
 ## Description

@@ -10,7 +10,8 @@ import type {
   Release, 
   ViewMode,
   DevBoardConfig,
-  ActiveTab
+  ActiveTab,
+  Sprint
 } from './types';
 import { 
   fetchBoardData, 
@@ -30,7 +31,12 @@ import {
   subscribeToBoardEvents,
   setActiveProjectApi,
   fetchSettings,
-  saveSettings
+  saveSettings,
+  createSprint,
+  updateSprint,
+  deleteSprint,
+  restoreItem,
+  purgeItem
 } from './api';
 import { Header } from './components/Header';
 import { FilterBar } from './components/FilterBar';
@@ -43,8 +49,9 @@ import { ProjectModal } from './components/ProjectModal';
 import { PlanGuardModal } from './components/PlanGuardModal';
 import { ImportWizardModal } from './components/ImportWizardModal';
 import { SettingsView } from './components/SettingsView';
+import { TrashView } from './components/TrashView';
 import { ToastContainer, type ToastMessage } from './components/Toast';
-import { AlertTriangle, LayoutGrid, Target, Rocket, Archive } from 'lucide-react';
+import { AlertTriangle, LayoutGrid, Target, Rocket, Archive, Trash2 } from 'lucide-react';
 
 export function App() {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
@@ -110,12 +117,29 @@ export function App() {
   }, []);
 
   // Filters
-  const [filters, setFilters] = useState<FilterState>({
-    search: '',
-    type: 'all',
-    priority: 'all',
-    module: 'all',
-    sprint: 'all'
+  const [filters, setFilters] = useState<FilterState>(() => {
+    let initialIdeas = false;
+    try {
+      const stored = localStorage.getItem('devboard_kanban_show_ideas');
+      if (stored !== null) initialIdeas = JSON.parse(stored);
+    } catch {}
+    return {
+      search: '',
+      type: 'all',
+      types: [],
+      priority: 'all',
+      priorities: [],
+      statuses: ['draft', 'doing', 'review', 'ready', 'done'],
+      includeIdeas: initialIdeas,
+      includePreviousDone: false,
+      includeDismissedCancelled: false,
+      module: 'all',
+      modules: [],
+      sprint: 'all',
+      sprints: [],
+      release: 'all',
+      releases: [],
+    };
   });
 
   // Modals & Popups
@@ -336,7 +360,8 @@ export function App() {
     newStatus: ItemStatus, 
     bypassGuard = false, 
     targetColId?: string, 
-    targetIndex?: number
+    targetIndex?: number,
+    calculatedOrder?: number
   ) => {
     if (!boardData) return;
     const targetItem = boardData.items.find((i) => i.id === id);
@@ -360,49 +385,51 @@ export function App() {
       }
     }
 
-    // Determine target column supported statuses
-    let targetStatuses: ItemStatus[] = [newStatus];
-    if (targetColId) {
-      const cols = viewMode === 'simplificada' ? SIMPLIFIED_COLUMNS : EXPANDED_COLUMNS;
-      const foundCol = cols.find(c => c.id === targetColId);
-      if (foundCol) targetStatuses = foundCol.statuses;
+    // Determine new order
+    let newOrder = calculatedOrder;
+
+    if (newOrder === undefined) {
+      let targetStatuses: ItemStatus[] = [newStatus];
+      if (targetColId) {
+        const cols = viewMode === 'simplificada' ? SIMPLIFIED_COLUMNS : EXPANDED_COLUMNS;
+        const foundCol = cols.find(c => c.id === targetColId);
+        if (foundCol) targetStatuses = foundCol.statuses;
+      }
+
+      const colItems = boardData.items
+        .filter(it => targetStatuses.includes(it.status) && it.id !== id)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      const insertIdx = targetIndex !== undefined
+        ? Math.max(0, Math.min(targetIndex, colItems.length))
+        : colItems.length;
+
+      const prevItem = insertIdx > 0 ? colItems[insertIdx - 1] : null;
+      const nextItem = insertIdx < colItems.length ? colItems[insertIdx] : null;
+
+      if (prevItem && nextItem) {
+        const p = prevItem.order ?? 0;
+        const n = nextItem.order ?? (p + 20);
+        newOrder = n > p ? p + (n - p) / 2 : p + 1;
+      } else if (nextItem) {
+        newOrder = (nextItem.order ?? 10) - 10;
+      } else if (prevItem) {
+        newOrder = (prevItem.order ?? 0) + 10;
+      } else {
+        newOrder = 10;
+      }
     }
 
-    // Existing items in destination column (excluding the dragged item) sorted by order
-    const colItems = boardData.items
-      .filter(it => targetStatuses.includes(it.status) && it.id !== id)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-
-    // Clamp insert index
-    const insertIdx = targetIndex !== undefined
-      ? Math.max(0, Math.min(targetIndex, colItems.length))
-      : colItems.length;
-
-    // Insert the dragged item into the destination list at exact position
-    const updatedMovedItem = { ...targetItem, status: newStatus };
-    colItems.splice(insertIdx, 0, updatedMovedItem);
-
-    // Compute sequential order numbers (10, 20, 30, ...)
-    const orderMap = new Map<string, number>();
-    colItems.forEach((it, i) => {
-      orderMap.set(it.id, (i + 1) * 10);
-    });
-
-    const newOrder = orderMap.get(id) ?? targetItem.order;
     const orderChanged = targetItem.order !== newOrder;
 
-    // Si ni el estado ni el orden cambiaron (soltó en el mismo lugar), no hacer nada
+    // Si ni el estado ni el orden cambiaron, no hacer nada
     if (!statusChanged && !orderChanged) {
       return;
     }
 
-    // Generate new board items list with updated orders and status
     const newItems = boardData.items.map(it => {
       if (it.id === id) {
         return { ...it, status: newStatus, order: newOrder };
-      }
-      if (orderMap.has(it.id)) {
-        return { ...it, order: orderMap.get(it.id)! };
       }
       return it;
     });
@@ -421,11 +448,13 @@ export function App() {
         if (!prev) return prev;
         return {
           ...prev,
-          items: prev.items.map((it) => (it.id === id ? { ...it, ...updated } : it))
+          items: prev.items.map((it) => (it.id === id ? { ...it, ...updated, order: newOrder } : it))
         };
       });
       if (statusChanged) {
         showToast(`Estado actualizado: ${updated.code} → ${newStatus}`, 'info');
+      } else if (orderChanged) {
+        showToast(`Orden de ${targetItem.code} actualizado`, 'success');
       }
     } catch (err: any) {
       // Rollback
@@ -554,6 +583,138 @@ export function App() {
       showToast(`Error al eliminar ítem: ${err.message}`, 'error');
     }
   }, [boardData, showToast]);
+
+  // Sprint lifecycle handlers (DEV-055)
+  const handleCreateSprint = useCallback(async (sprintData: Partial<Sprint>) => {
+    try {
+      const created = await createSprint({
+        ...sprintData,
+        projectId: selectedProjectId !== 'all' ? selectedProjectId : undefined,
+      });
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        const existingSprints = prev.sprints || [];
+        return {
+          ...prev,
+          sprints: [...existingSprints, created],
+        };
+      });
+      showToast(`Sprint "${created.name}" creado con éxito`, 'success');
+    } catch (err: any) {
+      showToast(`Error al crear sprint: ${err.message}`, 'error');
+    }
+  }, [selectedProjectId, showToast]);
+
+  const handleUpdateSprintMeta = useCallback(async (id: string, sprintData: Partial<Sprint>) => {
+    try {
+      const existing = boardData?.sprints?.find((s) => s.id === id);
+      const updated = await updateSprint(id, {
+        ...sprintData,
+        projectId: sprintData.projectId || existing?.projectId || (selectedProjectId !== 'all' ? selectedProjectId : undefined),
+      });
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        const existingSprints = prev.sprints || [];
+        return {
+          ...prev,
+          sprints: existingSprints.map((s) => (s.id === id ? updated : s)),
+        };
+      });
+      showToast(`Sprint "${updated.name}" actualizado`, 'info');
+    } catch (err: any) {
+      showToast(`Error al actualizar sprint: ${err.message}`, 'error');
+    }
+  }, [boardData?.sprints, selectedProjectId, showToast]);
+
+  const handleStartSprint = useCallback(async (sprint: Sprint) => {
+    try {
+      const updated = await updateSprint(sprint.id, {
+        status: 'active',
+        projectId: sprint.projectId || (selectedProjectId !== 'all' ? selectedProjectId : undefined),
+      });
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        const existingSprints = prev.sprints || [];
+        return {
+          ...prev,
+          sprints: existingSprints.map((s) => {
+            if (s.id === sprint.id) return updated;
+            if (s.status === 'active') return { ...s, status: 'completed' as const };
+            return s;
+          }),
+        };
+      });
+      showToast(`Sprint "${sprint.name}" iniciado (Activo)`, 'success');
+    } catch (err: any) {
+      showToast(`Error al iniciar sprint: ${err.message}`, 'error');
+    }
+  }, [selectedProjectId, showToast]);
+
+  const handleCompleteSprint = useCallback(async (sprint: Sprint, destinationSprintName: string) => {
+    try {
+      const updatedSprint = await updateSprint(sprint.id, {
+        status: 'completed',
+        projectId: sprint.projectId || (selectedProjectId !== 'all' ? selectedProjectId : undefined),
+      });
+      
+      const sprintPendingItems = (boardData?.items || []).filter(
+        (i) => (i.sprint === sprint.name || i.targetSprint === sprint.name) &&
+               !(i.status === 'done' || i.status === 'ready' || i.status === 'finish')
+      );
+
+      for (const item of sprintPendingItems) {
+        await updateItem(item.id, {
+          sprint: destinationSprintName || '',
+          targetSprint: destinationSprintName || '',
+        });
+      }
+
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sprints: (prev.sprints || []).map((s) => (s.id === sprint.id ? updatedSprint : s)),
+          items: prev.items.map((i) => {
+            const isPendingInThisSprint = (i.sprint === sprint.name || i.targetSprint === sprint.name) &&
+              !(i.status === 'done' || i.status === 'ready' || i.status === 'finish');
+            if (isPendingInThisSprint) {
+              return { ...i, sprint: destinationSprintName || '', targetSprint: destinationSprintName || '' };
+            }
+            return i;
+          }),
+        };
+      });
+
+      const destMsg = destinationSprintName ? `al ${destinationSprintName}` : 'al Backlog';
+      showToast(`Sprint "${sprint.name}" completado. ${sprintPendingItems.length} tareas pendientes movidas ${destMsg}.`, 'success');
+    } catch (err: any) {
+      showToast(`Error al completar sprint: ${err.message}`, 'error');
+    }
+  }, [boardData?.items, selectedProjectId, showToast]);
+
+  const handleDeleteSprint = useCallback(async (id: string) => {
+    try {
+      const sprintToDelete = boardData?.sprints?.find((s) => s.id === id);
+      const targetProjectId = sprintToDelete?.projectId || (selectedProjectId !== 'all' ? selectedProjectId : undefined);
+      await deleteSprint(id, targetProjectId);
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sprints: (prev.sprints || []).filter((s) => s.id !== id),
+          items: prev.items.map((i) => {
+            if (sprintToDelete && (i.sprint === sprintToDelete.name || i.targetSprint === sprintToDelete.name)) {
+              return { ...i, sprint: '', targetSprint: '' };
+            }
+            return i;
+          }),
+        };
+      });
+      showToast('Sprint eliminado. Las tareas fueron devueltas al Backlog.', 'info');
+    } catch (err: any) {
+      showToast(`Error al eliminar sprint: ${err.message}`, 'error');
+    }
+  }, [boardData?.sprints, selectedProjectId, showToast]);
 
   const handleSaveItem = useCallback(async (itemData: Partial<BacklogItem> & { expectedMtime?: number; force?: boolean }) => {
     if (!boardData) return;
@@ -692,6 +853,68 @@ export function App() {
     showToast(`Ítem restaurado al estado '${targetStatus}'`, 'success');
   }, [handleUpdateStatus, showToast]);
 
+  // DEV-049: Soft delete (send to trash)
+  const handleSoftDeleteItem = useCallback(async (id: string) => {
+    if (!boardData) return;
+    try {
+      await deleteItem(id); // now does soft-delete by default
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map((it) =>
+            it.id === id
+              ? { ...it, status: 'dismissed' as ItemStatus, isDeleted: true, deletedAt: new Date().toISOString(), previousStatus: it.status }
+              : it
+          ),
+        };
+      });
+      showToast('Ítem enviado a la papelera', 'success');
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  }, [boardData, showToast]);
+
+  // DEV-049: Restore from trash via the new /restore endpoint
+  const handleRestoreFromTrash = useCallback(async (id: string) => {
+    if (!boardData) return;
+    try {
+      await restoreItem(id);
+      // Optimistically: find previousStatus from item data
+      const item = boardData.items.find((it) => it.id === id);
+      const prevStatus = item?.previousStatus || ('draft' as ItemStatus);
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map((it) =>
+            it.id === id
+              ? { ...it, status: prevStatus, isDeleted: undefined, deletedAt: undefined, previousStatus: undefined }
+              : it
+          ),
+        };
+      });
+      showToast('Ítem restaurado correctamente', 'success');
+    } catch (err: any) {
+      showToast(`Error al restaurar: ${err.message}`, 'error');
+    }
+  }, [boardData, showToast]);
+
+  // DEV-049: Physical purge (irreversible)
+  const handlePurgeItem = useCallback(async (id: string) => {
+    if (!boardData) return;
+    try {
+      await purgeItem(id);
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        return { ...prev, items: prev.items.filter((it) => it.id !== id) };
+      });
+      showToast('Ítem eliminado definitivamente', 'success');
+    } catch (err: any) {
+      showToast(`Error al purgar: ${err.message}`, 'error');
+    }
+  }, [boardData, showToast]);
+
   // Filtered Items Calculation
   const allProjectItems = useMemo(() => {
     if (!boardData) return [];
@@ -708,34 +931,28 @@ export function App() {
     return Array.from(set).sort();
   }, [allProjectItems]);
 
-  // User-created sprints (DEV-036)
-  const [customSprints, setCustomSprints] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('devboard_custom_sprints');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Sprints pertenecientes al proyecto seleccionado (o todos si selectedProjectId === 'all')
+  const projectSprints = useMemo(() => {
+    if (!boardData?.sprints) return [];
+    if (selectedProjectId === 'all') return boardData.sprints;
+    return boardData.sprints.filter((s) => s.projectId === selectedProjectId);
+  }, [boardData?.sprints, selectedProjectId]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('devboard_custom_sprints', JSON.stringify(customSprints));
-    } catch {}
-  }, [customSprints]);
-
-  // Unique sprints for autocomplete (DEV-033 & DEV-036)
+  // Sprints oficiales registrados en boardData.sprints para el proyecto actual
+  // NUNCA incluir sprints inferidos de tareas aquí (causa sprints fantasma en la vista)
   const availableSprints = useMemo(() => {
-    const set = new Set<string>();
-    for (const cs of customSprints) {
-      if (cs) set.add(cs);
-    }
+    return projectSprints.map((s) => s.name).filter(Boolean).sort();
+  }, [projectSprints]);
+
+  // Nombres de sprints enriquecidos (oficiales + históricos de tareas) para autocompletar en ItemModal
+  const sprintNamesForAutocomplete = useMemo(() => {
+    const set = new Set<string>(availableSprints);
     for (const it of allProjectItems) {
       if (it.sprint) set.add(it.sprint);
       else if (it.targetSprint) set.add(it.targetSprint);
     }
     return Array.from(set).sort();
-  }, [allProjectItems, customSprints]);
+  }, [availableSprints, allProjectItems]);
 
   // Unique releases for autocomplete (DEV-033)
   const availableReleases = useMemo(() => {
@@ -765,19 +982,54 @@ export function App() {
   }, [allProjectItems]);
 
   const archivedCount = useMemo(() => {
-    return allProjectItems.filter((i) => i.status === 'dismissed' || i.status === 'cancelled').length;
+    // Archived = dismissed/cancelled but NOT soft-deleted (those go to Trash)
+    return allProjectItems.filter((i) =>
+      (i.status === 'dismissed' || i.status === 'cancelled') && !i.isDeleted
+    ).length;
   }, [allProjectItems]);
 
-  // Visible items after search/type/priority/module filter
+  // DEV-049: Trashed items (soft-deleted)
+  const trashedItems = useMemo(() => {
+    return allProjectItems.filter((i) => i.isDeleted === true);
+  }, [allProjectItems]);
+
+  // DEV-049: Sub-tab for archive section
+  const [archiveSubTab, setArchiveSubTab] = useState<'archive' | 'trash'>('archive');
+
+  // Visible items after search/type/priority/module/status filters
   const visibleItems = useMemo(() => {
     return allProjectItems.filter((item) => {
-      // Do not show archived in Kanban or Sprint views
-      if (activeTab === 'kanban' || activeTab === 'sprint') {
-        if (item.status === 'dismissed' || item.status === 'cancelled') return false;
+      const isDismissedOrCancelled = item.status === 'dismissed' || item.status === 'cancelled';
+
+      if (activeTab === 'archive') {
+        return isDismissedOrCancelled;
+      }
+
+      // Canonical status normalization
+      const canonicalStatus: ItemStatus =
+        item.status === 'ideas' ? 'ideas'
+        : (item.status === 'draft' || item.status === 'backlog') ? 'draft'
+        : (item.status === 'doing' || item.status === 'in_progress') ? 'doing'
+        : (item.status === 'review' || item.status === 'testing_qa') ? 'review'
+        : (item.status === 'ready' || item.status === 'finish') ? 'ready'
+        : (item.status === 'done') ? 'done'
+        : (item.status === 'dismissed' || item.status === 'cancelled') ? 'dismissed'
+        : item.status;
+
+      // In non-archive tabs, verify if item's status is selected
+      if (filters.statuses && filters.statuses.length > 0) {
+        if (!filters.statuses.includes(canonicalStatus) && !filters.statuses.includes(item.status)) {
+          return false;
+        }
+      } else {
+        // If statuses list is somehow empty, exclude dismissed by default
+        if (isDismissedOrCancelled && !filters.includeDismissedCancelled) {
+          return false;
+        }
       }
 
       // Search
-      if (filters.search.trim()) {
+      if (filters.search && filters.search.trim()) {
         const q = filters.search.toLowerCase();
         const matchTitle = item.title.toLowerCase().includes(q);
         const matchCode = item.code.toLowerCase().includes(q);
@@ -786,11 +1038,35 @@ export function App() {
         if (!matchTitle && !matchCode && !matchModule && !matchDesc) return false;
       }
 
-      // Type
-      if (filters.type !== 'all' && item.type !== filters.type) return false;
+      // Types (multiselect)
+      if (filters.types && filters.types.length > 0) {
+        if (!filters.types.includes(item.type)) return false;
+      } else if (filters.type !== 'all' && item.type !== filters.type) {
+        return false;
+      }
 
-      // Priority
-      if (filters.priority !== 'all' && item.priority !== filters.priority) return false;
+      // Priorities (multiselect)
+      if (filters.priorities && filters.priorities.length > 0) {
+        if (!filters.priorities.includes(item.priority)) return false;
+      } else if (filters.priority !== 'all' && item.priority !== filters.priority) {
+        return false;
+      }
+
+      // Sprints
+      if (filters.sprint && filters.sprint !== 'all') {
+        if (filters.sprint === 'backlog') {
+          if (item.sprint || item.targetSprint) return false;
+        } else {
+          if (item.sprint !== filters.sprint && item.targetSprint !== filters.sprint) return false;
+        }
+      }
+
+      // Releases
+      if (filters.release && filters.release !== 'all') {
+        if (item.release !== filters.release && item.targetRelease !== filters.release && item.milestone !== filters.release) {
+          return false;
+        }
+      }
 
       // Module
       if (filters.module !== 'all' && item.module !== filters.module) return false;
@@ -849,6 +1125,8 @@ export function App() {
           filters={filters}
           onChangeFilters={setFilters}
           availableModules={availableModules}
+          availableSprints={availableSprints}
+          availableReleases={availableReleases}
           stats={stats}
         />
       )}
@@ -887,9 +1165,15 @@ export function App() {
             onChangeViewMode={setViewMode}
             config={config}
             availableSprints={availableSprints}
+            sprints={projectSprints}
+            includePreviousDone={filters.includePreviousDone}
+            onTogglePreviousDone={(val) => setFilters((prev) => ({ ...prev, includePreviousDone: val }))}
+            includeDismissedCancelled={filters.includeDismissedCancelled}
+            includeIdeas={filters.includeIdeas}
+            onToggleIdeas={(val) => setFilters((prev) => ({ ...prev, includeIdeas: val }))}
             onNavigateToTab={setActiveTab}
             onUpdateColumnTitle={handleUpdateColumnTitle}
-            onUpdateStatus={(id, status, targetColId, targetIndex) => handleUpdateStatus(id, status, false, targetColId, targetIndex)}
+            onUpdateStatus={(id, status, targetColId, targetIndex, calculatedOrder) => handleUpdateStatus(id, status, false, targetColId, targetIndex, calculatedOrder)}
             onDeleteItem={handleDeleteItem}
             onClickItem={(item) => {
               setEditingItem(item);
@@ -908,6 +1192,7 @@ export function App() {
         {activeTab === 'sprint' && (
           <SprintView
             items={visibleItems}
+            sprints={projectSprints}
             onClickItem={(item) => {
               setEditingItem(item);
               setItemModalOpen(true);
@@ -933,10 +1218,11 @@ export function App() {
                 showToast(`Error al reasignar sprint: ${err.message}`, 'error');
               }
             }}
-            onCreateSprint={(newSprint) => {
-              setCustomSprints((prev) => Array.from(new Set([...prev, newSprint])));
-              showToast(`Sprint "${newSprint}" creado. Arrastra tareas a su contenedor para planificarlo.`, 'success');
-            }}
+            onCreateSprint={handleCreateSprint}
+            onUpdateSprintMeta={handleUpdateSprintMeta}
+            onStartSprint={handleStartSprint}
+            onCompleteSprint={handleCompleteSprint}
+            onDeleteSprint={handleDeleteSprint}
             onDeleteItem={handleDeleteItem}
             availableSprints={availableSprints}
             rankingEnabled={config.rankingEnabled !== false}
@@ -955,15 +1241,67 @@ export function App() {
         )}
 
         {activeTab === 'archive' && (
-          <ArchiveView
-            items={allProjectItems}
-            onRestoreItem={handleRestoreItem}
-            onDeleteItem={handleDeleteItem}
-            onClickItem={(item) => {
-              setEditingItem(item);
-              setItemModalOpen(true);
-            }}
-          />
+          <div className="flex flex-col h-full">
+            {/* Sub-tab switcher: Archive vs Trash */}
+            <div className="flex items-center gap-1 px-6 pt-4 pb-0 shrink-0">
+              <button
+                type="button"
+                onClick={() => setArchiveSubTab('archive')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  archiveSubTab === 'archive'
+                    ? 'bg-slate-900 dark:bg-white/10 text-white dark:text-white'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5" />
+                Archivo
+                {archivedCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400">
+                    {archivedCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setArchiveSubTab('trash')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  archiveSubTab === 'trash'
+                    ? 'bg-rose-600 text-white'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Papelera
+                {trashedItems.length > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                    archiveSubTab === 'trash'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                  }`}>
+                    {trashedItems.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {archiveSubTab === 'archive' ? (
+              <ArchiveView
+                items={allProjectItems.filter((i) => !i.isDeleted)}
+                onRestoreItem={handleRestoreItem}
+                onDeleteItem={handleSoftDeleteItem}
+                onClickItem={(item) => {
+                  setEditingItem(item);
+                  setItemModalOpen(true);
+                }}
+              />
+            ) : (
+              <TrashView
+                trashedItems={trashedItems}
+                onRestore={handleRestoreFromTrash}
+                onPurge={handlePurgeItem}
+              />
+            )}
+          </div>
         )}
 
         {activeTab === 'settings' && (
@@ -993,7 +1331,7 @@ export function App() {
         defaultSprint={defaultNewSprint}
         projects={projects}
         availableModules={availableModules}
-        availableSprints={availableSprints}
+        availableSprints={sprintNamesForAutocomplete}
         availableReleases={availableReleases}
         onSave={handleSaveItem}
         onDelete={handleDeleteItem}

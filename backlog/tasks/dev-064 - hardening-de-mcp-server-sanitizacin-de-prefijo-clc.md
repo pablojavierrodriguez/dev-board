@@ -3,7 +3,7 @@ id: DEV-064
 title: "Hardening de MCP Server: Sanitización de Prefijo, Cálculo Robusto de IDs Secuenciales y Herramienta devboard_sync_backlog"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 09:27'
+updated_date: '2026-09-18 14:57'
 labels:
   - mcp
   - architecture
@@ -15,7 +15,8 @@ milestone: "0.3.1"
 sprint: "Sprint 2"
 release: "0.3.1"
 targetRelease: "0.3.1"
-order: "10"
+order: 30
+targetSprint: "Sprint 2"
 ---
 
 ## Description

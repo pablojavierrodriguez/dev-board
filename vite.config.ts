@@ -41,6 +41,7 @@ interface ProjectBacklog {
   project: ProjectMeta;
   items: any[];
   releases: any[];
+  sprints?: any[];
   lastUpdated: string;
 }
 
@@ -428,10 +429,64 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
         }
       }
 
+      // Read sprints
+      let sprints: any[] = [];
+      const sprintsPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'sprints.json');
+      if (fs.existsSync(sprintsPath)) {
+        try {
+          sprints = JSON.parse(fs.readFileSync(sprintsPath, 'utf8'));
+        } catch {}
+      }
+
+      // Asegurar que cada sprint tenga explícitamente su projectId asignado
+      sprints = (sprints || []).map((s: any) => ({
+        ...s,
+        projectId: s.projectId || project.id
+      }));
+
+      // Auto-inicializar sprints desde tareas si sprints.json no existe o está vacío
+      if (sprints.length === 0 && project.repoPath) {
+        const detectedSprintNames = new Set<string>();
+        for (const it of items) {
+          const sp = it.sprint || it.targetSprint;
+          if (sp && typeof sp === 'string' && sp.trim() && sp.toLowerCase() !== 'backlog') {
+            detectedSprintNames.add(sp.trim());
+          }
+        }
+        if (detectedSprintNames.size > 0) {
+          const sorted = Array.from(detectedSprintNames).sort((a, b) => {
+            const numA = parseInt(a.replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(b.replace(/\D/g, ''), 10) || 0;
+            return numA - numB;
+          });
+          const maxNum = sorted.length > 0 ? (parseInt(sorted[sorted.length - 1].replace(/\D/g, ''), 10) || 0) : 0;
+          
+          sprints = sorted.map((name) => {
+            const num = parseInt(name.replace(/\D/g, ''), 10) || 0;
+            const isLatest = num === maxNum;
+            return {
+              id: `sprint-${num || name.toLowerCase().replace(/\s+/g, '-')}`,
+              projectId: project.id,
+              name,
+              goal: '',
+              status: isLatest ? 'active' : 'completed',
+              createdAt: new Date().toISOString()
+            };
+          });
+          try {
+            if (!fs.existsSync(path.dirname(sprintsPath))) {
+              fs.mkdirSync(path.dirname(sprintsPath), { recursive: true });
+            }
+            fs.writeFileSync(sprintsPath, JSON.stringify(sprints, null, 2), 'utf8');
+          } catch {}
+        }
+      }
+
       return {
         project: { ...project, storageType: 'markdown' },
         items,
         releases,
+        sprints,
         lastUpdated: new Date().toISOString()
       };
     } catch (err: any) {
@@ -440,6 +495,7 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
         project: { ...project, storageType: 'markdown', error: err.message },
         items: [],
         releases: [],
+        sprints: [],
         lastUpdated: new Date().toISOString()
       };
     }
@@ -554,15 +610,30 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
   if (item.impactedFile) taskData.rawExtraFrontmatter!.impactedFile = item.impactedFile;
   if (item.risk) taskData.rawExtraFrontmatter!.risk = item.risk;
   if (item.fix) taskData.rawExtraFrontmatter!.fix = item.fix;
-  if (item.sprint || item.targetSprint) {
-    const sVal = item.sprint || item.targetSprint;
-    taskData.rawExtraFrontmatter!.sprint = sVal;
-    taskData.rawExtraFrontmatter!.targetSprint = sVal;
+  if (item.sprint !== undefined || item.targetSprint !== undefined) {
+    const sVal = item.sprint || item.targetSprint || '';
+    if (sVal) {
+      taskData.rawExtraFrontmatter!.sprint = sVal;
+      taskData.rawExtraFrontmatter!.targetSprint = sVal;
+    } else {
+      delete taskData.rawExtraFrontmatter!.sprint;
+      delete taskData.rawExtraFrontmatter!.targetSprint;
+      if (taskData.milestone && taskData.milestone.toLowerCase().includes('sprint')) {
+        taskData.milestone = undefined;
+      }
+    }
   }
-  if (item.release || item.targetRelease) {
-    const rVal = item.release || item.targetRelease;
-    taskData.rawExtraFrontmatter!.release = rVal;
-    taskData.rawExtraFrontmatter!.targetRelease = rVal;
+  if (item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined) {
+    const rVal = item.release || item.targetRelease || item.milestone || '';
+    if (rVal) {
+      taskData.rawExtraFrontmatter!.release = rVal;
+      taskData.rawExtraFrontmatter!.targetRelease = rVal;
+      taskData.milestone = rVal;
+    } else {
+      delete taskData.rawExtraFrontmatter!.release;
+      delete taskData.rawExtraFrontmatter!.targetRelease;
+      taskData.milestone = undefined;
+    }
   }
   if (item.order !== undefined) taskData.rawExtraFrontmatter!.order = item.order;
 
@@ -580,19 +651,19 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
   fs.writeFileSync(newFilePath, content, 'utf8');
 }
 
-function deleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
-  if (!project.repoPath) return false;
+// DEV-049: Find a backlog MD task file by id/code, returns { file, task } or null
+function findBacklogMdFile(project: ProjectMeta, id: string): { filePath: string; filename: string; task: any } | null {
+  if (!project.repoPath) return null;
   const tasksDir = getBacklogTasksDir(project);
-  if (!fs.existsSync(tasksDir)) return false;
+  if (!fs.existsSync(tasksDir)) return null;
 
   const cleanId = id.toLowerCase();
-  const files = fs.readdirSync(tasksDir).filter(f => f.endsWith('.md'));
-  let found = files.find(f => {
+  const files = fs.readdirSync(tasksDir).filter((f: string) => f.endsWith('.md'));
+  let found = files.find((f: string) => {
     const fLower = f.toLowerCase();
     return fLower.startsWith(`${cleanId} `) || fLower.startsWith(`${cleanId}-`) || fLower === `${cleanId}.md`;
   });
 
-  // Reconciliación por frontmatter si fue renombrado
   if (!found) {
     for (const f of files) {
       try {
@@ -607,27 +678,97 @@ function deleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
     }
   }
 
-  if (found) {
-    const archiveDir = path.join(project.repoPath, project.backlogDir || 'backlog', 'archive');
-    if (!fs.existsSync(archiveDir)) {
-      fs.mkdirSync(archiveDir, { recursive: true });
-    }
-    fs.renameSync(path.join(tasksDir, found), path.join(archiveDir, found));
-    return true;
+  if (!found) return null;
+  const filePath = path.join(tasksDir, found);
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const fallbackId = found.split(' - ')[0] || found.replace(/\.md$/, '');
+    const task = parseBacklogMd(raw, fallbackId);
+    return { filePath, filename: found, task };
+  } catch {
+    return { filePath, filename: found, task: {} };
   }
-  return false;
+}
+
+// DEV-049: Soft delete — marks isDeleted=true, status=dismissed, saves deletedAt and previousStatus
+function softDeleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
+  const found = findBacklogMdFile(project, id);
+  if (!found) return false;
+  const { filePath, task } = found;
+
+  // Protect done items from deletion
+  const currentStatus = (task.status || '').toLowerCase();
+  if (currentStatus === 'done') return false;
+
+  const previousStatus = task.status || 'draft';
+  const raw = fs.readFileSync(filePath, 'utf8');
+  // Inject soft-delete fields into frontmatter
+  let updated = raw;
+  // Replace or add status
+  if (/^status:/m.test(updated)) {
+    updated = updated.replace(/^status:.*$/m, `status: dismissed`);
+  }
+  // Add isDeleted, deletedAt, previousStatus after status line
+  if (!/^isDeleted:/m.test(updated)) {
+    updated = updated.replace(/^(status:.*$)/m, `$1\nisDeleted: true\ndeletedAt: "${new Date().toISOString()}"\npreviousStatus: "${previousStatus}"`);
+  } else {
+    updated = updated.replace(/^isDeleted:.*$/m, `isDeleted: true`);
+    updated = updated.replace(/^deletedAt:.*$/m, `deletedAt: "${new Date().toISOString()}"`);
+    updated = updated.replace(/^previousStatus:.*$/m, `previousStatus: "${previousStatus}"`);
+  }
+  fs.writeFileSync(filePath, updated, 'utf8');
+  return true;
+}
+
+// DEV-049: Restore — reverts status to previousStatus and clears soft-delete fields
+function restoreBacklogMdItem(project: ProjectMeta, id: string): boolean {
+  const found = findBacklogMdFile(project, id);
+  if (!found) return false;
+  const { filePath } = found;
+
+  let raw = fs.readFileSync(filePath, 'utf8');
+  // Extract previousStatus
+  const prevMatch = raw.match(/^previousStatus:\s*"?([^"\n]+)"?/m);
+  const restoreStatus = prevMatch ? prevMatch[1].trim() : 'draft';
+
+  raw = raw.replace(/^status:.*$/m, `status: ${restoreStatus}`);
+  raw = raw.replace(/^isDeleted:.*\n?/m, '');
+  raw = raw.replace(/^deletedAt:.*\n?/m, '');
+  raw = raw.replace(/^previousStatus:.*\n?/m, '');
+  fs.writeFileSync(filePath, raw, 'utf8');
+  return true;
+}
+
+// DEV-049: Physical purge — moves file to backlog/archive/ (permanent, irreversible)
+function purgeBacklogMdItem(project: ProjectMeta, id: string): boolean {
+  if (!project.repoPath) return false;
+  const found = findBacklogMdFile(project, id);
+  if (!found) return false;
+
+  const archiveDir = path.join(project.repoPath, project.backlogDir || 'backlog', 'archive');
+  if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
+  fs.renameSync(found.filePath, path.join(archiveDir, found.filename));
+  return true;
+}
+
+// DEV-049 legacy: kept for compat - now delegates to softDeleteBacklogMdItem
+function deleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
+  return softDeleteBacklogMdItem(project, id);
 }
 
 function writeProjectBacklog(project: ProjectMeta, data: ProjectBacklog) {
   if (isBacklogMdProject(project)) {
-    // In backlog-md mode, save releases into backlog/releases.json
+    // In backlog-md mode, save releases into backlog/releases.json and sprints into backlog/sprints.json
     if (project.repoPath) {
       try {
         const dir = path.join(project.repoPath, project.backlogDir || 'backlog');
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(path.join(dir, 'releases.json'), JSON.stringify(data.releases || [], null, 2), 'utf8');
+        if (data.sprints !== undefined) {
+          fs.writeFileSync(path.join(dir, 'sprints.json'), JSON.stringify(data.sprints || [], null, 2), 'utf8');
+        }
       } catch (err: any) {
-        console.warn(`[DevBoard API] Warning writing releases: ${err.message}`);
+        console.warn(`[DevBoard API] Warning writing releases/sprints: ${err.message}`);
       }
     }
     return;
@@ -811,6 +952,7 @@ function devBoardApi(): PluginOption {
             if (req.method === 'GET' && url === '/api/data') {
               const allItems: any[] = [];
               const allReleases: any[] = [];
+              const allSprints: any[] = [];
               const resolvedProjects: ProjectMeta[] = [];
 
               for (const p of registry.projects) {
@@ -824,6 +966,7 @@ function devBoardApi(): PluginOption {
                 });
                 allItems.push(...(backlog.items || []));
                 allReleases.push(...(backlog.releases || []));
+                allSprints.push(...(backlog.sprints || []));
               }
 
               return sendJson(200, {
@@ -831,6 +974,7 @@ function devBoardApi(): PluginOption {
                 activeProjectId: registry.activeProjectId,
                 items: allItems,
                 releases: allReleases,
+                sprints: allSprints,
                 lastUpdated: new Date().toISOString()
               });
             }
@@ -934,6 +1078,9 @@ function devBoardApi(): PluginOption {
                   if (body.sprint !== undefined) {
                     updatedItem.sprint = body.sprint || undefined;
                     updatedItem.targetSprint = body.sprint || undefined;
+                    if (!body.sprint && updatedItem.milestone && updatedItem.milestone.toLowerCase().includes('sprint')) {
+                      updatedItem.milestone = undefined;
+                    }
                   }
                   if (body.release !== undefined) {
                     updatedItem.release = body.release || undefined;
@@ -956,22 +1103,80 @@ function devBoardApi(): PluginOption {
               return sendJson(404, { error: 'Item not found in any registered project' });
             }
 
-            // DELETE /api/items/:id
+            // PATCH /api/items/:id/restore (DEV-049: Restore soft-deleted item)
+            if (req.method === 'PATCH' && /^\/api\/items\/[^/]+\/restore$/.test(url)) {
+              const id = decodeURIComponent(url.replace('/api/items/', '').replace('/restore', ''));
+              for (const p of registry.projects) {
+                if (isBacklogMdProject(p)) {
+                  const restored = restoreBacklogMdItem(p, id);
+                  if (restored) {
+                    broadcastSse('change', { type: 'item_restored', id });
+                    return sendJson(200, { ok: true, id });
+                  }
+                } else {
+                  const backlog = readProjectBacklog(p);
+                  const item = backlog.items.find((i: any) => i.id === id || i.code === id);
+                  if (item) {
+                    const restoreStatus = (item as any).previousStatus || 'draft';
+                    item.status = restoreStatus;
+                    delete (item as any).isDeleted;
+                    delete (item as any).deletedAt;
+                    delete (item as any).previousStatus;
+                    writeProjectBacklog(p, backlog);
+                    broadcastSse('change', { type: 'item_restored', id });
+                    return sendJson(200, { ok: true, id, item });
+                  }
+                }
+              }
+              return sendJson(404, { error: 'Item not found' });
+            }
+
+            // DELETE /api/items/:id (DEV-049: soft-delete by default, ?purge=true for physical removal)
             if (req.method === 'DELETE' && url.startsWith('/api/items/')) {
-              const id = decodeURIComponent(url.replace('/api/items/', '').split('?')[0]);
+              const rawUrl = url;
+              const isPurge = rawUrl.includes('?purge=true');
+              const id = decodeURIComponent(rawUrl.replace('/api/items/', '').split('?')[0]);
 
               for (const p of registry.projects) {
                 if (isBacklogMdProject(p)) {
-                  const deleted = deleteBacklogMdItem(p, id);
-                  if (deleted) return sendJson(200, { ok: true, id });
+                  if (isPurge) {
+                    const purged = purgeBacklogMdItem(p, id);
+                    if (purged) {
+                      broadcastSse('change', { type: 'item_purged', id });
+                      return sendJson(200, { ok: true, id, purged: true });
+                    }
+                  } else {
+                    // Check done protection
+                    const found = findBacklogMdFile(p, id);
+                    if (found && (found.task.status || '').toLowerCase() === 'done') {
+                      return sendJson(403, { error: 'Cannot soft-delete a done item. Done items are protected historical records.' });
+                    }
+                    const deleted = softDeleteBacklogMdItem(p, id);
+                    if (deleted) {
+                      broadcastSse('change', { type: 'item_soft_deleted', id });
+                      return sendJson(200, { ok: true, id, softDeleted: true });
+                    }
+                  }
                 } else {
                   const backlog = readProjectBacklog(p);
-                  const initialLen = backlog.items.length;
-                  backlog.items = backlog.items.filter(i => i.id !== id && i.code !== id);
-
-                  if (backlog.items.length !== initialLen) {
+                  const idx = backlog.items.findIndex((i: any) => i.id === id || i.code === id);
+                  if (idx !== -1) {
+                    const item = backlog.items[idx] as any;
+                    if (!isPurge) {
+                      // Protect done items
+                      if (item.status === 'done') {
+                        return sendJson(403, { error: 'Cannot soft-delete a done item.' });
+                      }
+                      item.previousStatus = item.status;
+                      item.status = 'dismissed';
+                      item.isDeleted = true;
+                      item.deletedAt = new Date().toISOString();
+                    } else {
+                      backlog.items.splice(idx, 1);
+                    }
                     writeProjectBacklog(p, backlog);
-                    return sendJson(200, { ok: true, id });
+                    broadcastSse('change', { type: isPurge ? 'item_purged' : 'item_soft_deleted', id });
+                    return sendJson(200, { ok: true, id, softDeleted: !isPurge, purged: isPurge });
                   }
                 }
               }
@@ -1499,6 +1704,149 @@ function devBoardApi(): PluginOption {
                 releases: backlog.releases,
                 count: backlog.releases.length
               });
+            }
+
+            // GET /api/sprints
+            if (req.method === 'GET' && url.startsWith('/api/sprints')) {
+              const urlObj = new URL(url, 'http://localhost');
+              const projectId = urlObj.searchParams.get('projectId') || registry.activeProjectId || registry.projects[0]?.id;
+              const project = registry.projects.find(p => p.id === projectId) || registry.projects[0];
+              if (!project) return sendJson(400, { error: 'Project not found' });
+              const backlog = readProjectBacklog(project);
+              return sendJson(200, { ok: true, sprints: backlog.sprints || [] });
+            }
+
+            // POST /api/sprints
+            if (req.method === 'POST' && url === '/api/sprints') {
+              const body = await getBody();
+              const now = new Date().toISOString();
+              const project = registry.projects.find(p => p.id === body.projectId) 
+                || registry.projects.find(p => p.id === registry.activeProjectId)
+                || registry.projects[0];
+              if (!project) return sendJson(400, { error: 'Project not found' });
+
+              const backlog = readProjectBacklog(project);
+              backlog.sprints = backlog.sprints || [];
+
+              const requestedStatus = body.status === 'active' ? 'active' : (body.status === 'completed' ? 'completed' : 'planned');
+
+              // Si se crea como activo, desmarcar cualquier otro sprint activo
+              if (requestedStatus === 'active') {
+                backlog.sprints = backlog.sprints.map((s: any) => s.status === 'active' ? { ...s, status: 'planned' } : s);
+              }
+
+              const newSprint = {
+                id: body.id || `sprint-${Date.now()}`,
+                projectId: project.id,
+                name: (body.name || `Sprint ${backlog.sprints.length + 1}`).trim(),
+                goal: body.goal || '',
+                startDate: body.startDate || undefined,
+                endDate: body.endDate || undefined,
+                durationWeeks: body.durationWeeks || undefined,
+                status: requestedStatus,
+                createdAt: now
+              };
+
+              backlog.sprints.push(newSprint);
+              writeProjectBacklog(project, backlog);
+              broadcastSse('backlog_changed', { projectId: project.id, action: 'sprint_created', sprintId: newSprint.id, timestamp: Date.now() });
+
+              return sendJson(201, { ok: true, sprint: newSprint });
+            }
+
+            // PUT /api/sprints/:id
+            if (req.method === 'PUT' && url.startsWith('/api/sprints/')) {
+              const sprintId = decodeURIComponent(url.replace('/api/sprints/', '').split('?')[0]);
+              const body = await getBody();
+              const now = new Date().toISOString();
+              const project = registry.projects.find(p => p.id === body.projectId) 
+                || registry.projects.find(p => p.id === registry.activeProjectId)
+                || registry.projects[0];
+              if (!project) return sendJson(400, { error: 'Project not found' });
+
+              const backlog = readProjectBacklog(project);
+              backlog.sprints = backlog.sprints || [];
+
+              const sIdx = backlog.sprints.findIndex((s: any) => s.id === sprintId || s.name === sprintId);
+              if (sIdx === -1) return sendJson(404, { error: 'Sprint no encontrado' });
+
+              const existingSprint = backlog.sprints[sIdx];
+              const oldName = existingSprint.name;
+              const newName = body.name ? body.name.trim() : oldName;
+              const newStatus = body.status || existingSprint.status;
+
+              // Si pasa a activo, asegurar que solo 1 sprint esté activo a la vez
+              if (newStatus === 'active') {
+                backlog.sprints = backlog.sprints.map((s: any) => s.id !== existingSprint.id && s.status === 'active' ? { ...s, status: 'planned' } : s);
+              }
+
+              const updatedSprint = {
+                ...existingSprint,
+                name: newName,
+                goal: body.goal !== undefined ? body.goal : existingSprint.goal,
+                startDate: body.startDate !== undefined ? body.startDate : existingSprint.startDate,
+                endDate: body.endDate !== undefined ? body.endDate : existingSprint.endDate,
+                durationWeeks: body.durationWeeks !== undefined ? body.durationWeeks : existingSprint.durationWeeks,
+                status: newStatus,
+                completedAt: newStatus === 'completed' ? (existingSprint.completedAt || now) : undefined
+              };
+
+              backlog.sprints[sIdx] = updatedSprint;
+
+              // Si se cambió el nombre del sprint, actualizar referencias en las tareas
+              if (oldName && newName && oldName !== newName) {
+                backlog.items.forEach((it: any) => {
+                  if (it.sprint === oldName || it.targetSprint === oldName) {
+                    it.sprint = newName;
+                    it.targetSprint = newName;
+                    if (isBacklogMdProject(project)) {
+                      saveBacklogMdItem(project, it);
+                    }
+                  }
+                });
+              }
+
+              writeProjectBacklog(project, backlog);
+              broadcastSse('backlog_changed', { projectId: project.id, action: 'sprint_updated', sprintId: updatedSprint.id, timestamp: Date.now() });
+
+              return sendJson(200, { ok: true, sprint: updatedSprint });
+            }
+
+            // DELETE /api/sprints/:id
+            if (req.method === 'DELETE' && url.startsWith('/api/sprints/')) {
+              const urlObj = new URL(url, 'http://localhost');
+              const sprintId = decodeURIComponent(url.replace('/api/sprints/', '').split('?')[0]);
+              const projectId = urlObj.searchParams.get('projectId') || registry.activeProjectId || registry.projects[0]?.id;
+              const project = registry.projects.find(p => p.id === projectId) || registry.projects[0];
+              if (!project) return sendJson(400, { error: 'Project not found' });
+
+              const backlog = readProjectBacklog(project);
+              backlog.sprints = backlog.sprints || [];
+
+              const sIdx = backlog.sprints.findIndex((s: any) => s.id === sprintId || s.name === sprintId);
+              if (sIdx === -1) return sendJson(404, { error: 'Sprint no encontrado' });
+
+              const deletedSprint = backlog.sprints[sIdx];
+              backlog.sprints.splice(sIdx, 1);
+
+              // Reasignar tareas que pertenecían a este sprint hacia el Backlog
+              backlog.items.forEach((it: any) => {
+                if (it.sprint === deletedSprint.name || it.targetSprint === deletedSprint.name || it.sprint === deletedSprint.id) {
+                  it.sprint = undefined;
+                  it.targetSprint = undefined;
+                  if (it.milestone && it.milestone.toLowerCase().includes('sprint')) {
+                    it.milestone = undefined;
+                  }
+                  if (isBacklogMdProject(project)) {
+                    saveBacklogMdItem(project, it);
+                  }
+                }
+              });
+
+              writeProjectBacklog(project, backlog);
+              broadcastSse('backlog_changed', { projectId: project.id, action: 'sprint_deleted', sprintId, timestamp: Date.now() });
+
+              return sendJson(200, { ok: true, deleted: true });
             }
 
             // POST /api/import (DEV-012)

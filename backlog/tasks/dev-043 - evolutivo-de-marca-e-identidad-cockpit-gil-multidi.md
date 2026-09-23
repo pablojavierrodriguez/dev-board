@@ -3,7 +3,7 @@ id: DEV-043
 title: "Evolutivo de Marca e Identidad: Cockpit Ágil Multidisciplinario (Naming Simple y Disponibilidad)"
 status: Draft
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:01'
+updated_date: '2026-09-19 04:25'
 labels:
   - branding
   - identity
@@ -12,6 +12,9 @@ dependencies: []
 priority: medium
 type: feature
 milestone: "0.4.0"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: 200
 ---
 
 ## Description

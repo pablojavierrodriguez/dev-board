@@ -3,12 +3,15 @@ id: DEV-023
 title: "Gestión e Inspección de Releases en MCP (devboard_list_releases)"
 status: Done
 created_date: '2026-09-16'
-updated_date: '2026-09-17 02:50'
+updated_date: '2026-09-19 04:25'
 labels: []
 dependencies: []
 priority: medium
 type: feature
 milestone: "v1.3.0"
+release: "v1.3.0"
+targetRelease: "v1.3.0"
+order: 150
 ---
 
 ## Description

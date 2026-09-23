@@ -3,7 +3,7 @@ id: DEV-054
 title: "Rediseño Ergonómico y Expansión del Modal de Crear y Editar Card (Layout de 2 Columnas)"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-18 10:00'
+updated_date: '2026-09-18 14:57'
 labels:
   - ux
   - modal
@@ -13,10 +13,10 @@ priority: medium
 type: ux
 milestone: "0.3.2"
 sprint: "Sprint 2"
-targetSprint: "Sprint 2"
 release: "0.3.2"
 targetRelease: "0.3.2"
 order: 40
+targetSprint: "Sprint 2"
 ---
 
 ## Description

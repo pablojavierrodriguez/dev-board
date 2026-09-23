@@ -5,7 +5,7 @@ status: Done
 assignee:
   - "Antigravity"
 created_date: '2026-09-16'
-updated_date: '2026-09-17 02:48'
+updated_date: '2026-09-19 04:25'
 labels:
   - ux
   - ui
@@ -14,6 +14,9 @@ dependencies: []
 priority: high
 type: ux
 milestone: "v1.1.0"
+release: "v1.1.0"
+targetRelease: "v1.1.0"
+order: 30
 ---
 
 ## Description

@@ -1,4 +1,4 @@
-export type ItemType = "bug" | "feature" | "tech_debt" | "ux";
+export type ItemType = "bug" | "feature" | "tech_debt" | "ux" | "epic" | "initiative";
 export type Priority = "p0" | "p1" | "p2" | "p3";
 export type ItemStatus =
   | "draft"
@@ -71,6 +71,10 @@ export interface BacklogItem {
   completedAt?: string;
   releasedAt?: string;
   mtime?: number; // File modification timestamp (ms) for optimistic concurrency locking
+  // DEV-049: Soft delete / Trash fields
+  isDeleted?: boolean;
+  deletedAt?: string;
+  previousStatus?: ItemStatus; // Status before soft-delete, for restore
 }
 
 export type ReleaseStatus = 'unreleased' | 'released';
@@ -90,11 +94,27 @@ export interface Release {
   scopeNotes?: string;
 }
 
+export type SprintStatus = 'planned' | 'active' | 'completed';
+
+export interface Sprint {
+  id: string;
+  projectId: string;
+  name: string;
+  goal?: string;
+  startDate?: string;
+  endDate?: string;
+  durationWeeks?: number;
+  status: SprintStatus;
+  createdAt: string;
+  completedAt?: string;
+}
+
 export interface BoardData {
   projects: Project[];
   activeProjectId?: string;
   items: BacklogItem[];
   releases: Release[];
+  sprints?: Sprint[];
   lastUpdated: string;
 }
 
@@ -140,7 +160,17 @@ export interface DevBoardConfig {
 export interface FilterState {
   search: string;
   type: ItemType | "all";
+  types?: ItemType[];
   priority: Priority | "all";
+  priorities?: Priority[];
+  statuses?: ItemStatus[];
+  includeIdeas?: boolean;
+  includePreviousDone?: boolean;
+  includeDismissedCancelled?: boolean;
   module: string | "all";
+  modules?: string[];
   sprint: string | "all";
+  sprints?: string[];
+  release?: string | "all";
+  releases?: string[];
 }

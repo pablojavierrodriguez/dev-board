@@ -304,6 +304,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setActiveColumnsList(list);
   };
 
+  // DEV-053: Drag & Drop between column chips
+  const [draggingStatus, setDraggingStatus] = useState<{ status: ItemStatus; fromColId: string } | null>(null);
+  const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+
+  const handleMoveStatusToColumn = (toColId: string) => {
+    if (!draggingStatus || draggingStatus.fromColId === toColId) return;
+    handleAddStatusToColumn(toColId, draggingStatus.status);
+    setDraggingStatus(null);
+    setDragOverColId(null);
+  };
+
   const handleResetColumns = () => {
     if (kanbanEditMode === 'ampliada') {
       setCustomColumns(JSON.parse(JSON.stringify(EXPANDED_COLUMNS)));
@@ -854,7 +865,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   return (
                     <div
                       key={col.id}
-                      className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4"
+                      className={`p-4 sm:p-5 rounded-2xl bg-white dark:bg-white/[0.02] border shadow-xs space-y-4 transition-all duration-150 ${
+                        dragOverColId === col.id && draggingStatus?.fromColId !== col.id
+                          ? 'border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-300/50 dark:ring-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/[0.04]'
+                          : 'border-slate-200 dark:border-white/[0.08]'
+                      }`}
+                      onDragOver={(e) => { if (draggingStatus) { e.preventDefault(); setDragOverColId(col.id); } }}
+                      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColId(null); }}
+                      onDrop={(e) => { e.preventDefault(); handleMoveStatusToColumn(col.id); }}
                     >
                       {/* Header: Dot + Title Input + Subtitle + Reorder Buttons */}
                       <div className="flex items-center justify-between gap-3">
@@ -951,11 +969,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
+                          {draggingStatus && draggingStatus.fromColId !== col.id && (
+                            <span className="text-[10px] text-indigo-500 dark:text-indigo-400 italic animate-pulse">
+                              Suelta aquí para mover
+                            </span>
+                          )}
                           {col.statuses.map((st) => (
                             <span
                               key={st}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-medium bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/20 shadow-2xs group/st"
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.effectAllowed = 'move';
+                                setDraggingStatus({ status: st as ItemStatus, fromColId: col.id });
+                              }}
+                              onDragEnd={() => { setDraggingStatus(null); setDragOverColId(null); }}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-medium border shadow-2xs group/st cursor-grab active:cursor-grabbing select-none transition-opacity ${
+                                draggingStatus?.status === st && draggingStatus?.fromColId === col.id
+                                  ? 'opacity-40 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/20'
+                                  : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/20'
+                              }`}
                             >
+                              <span className="text-indigo-300 dark:text-indigo-600 mr-0.5">⠿</span>
                               <span>{st}</span>
                               {col.statuses.length > 1 && (
                                 <button

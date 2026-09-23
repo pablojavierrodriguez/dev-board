@@ -1,11 +1,11 @@
 ---
 id: DEV-013
 title: "Estandarización de storageType a 'markdown' para desacoplar de Backlog.md"
-status: done
+status: Done
 assignee:
-  - Antigravity
+  - "Antigravity"
 created_date: '2026-09-16'
-updated_date: '2026-09-16'
+updated_date: '2026-09-19 04:25'
 labels:
   - refactor
   - types
@@ -15,7 +15,9 @@ dependencies: []
 priority: medium
 type: tech_debt
 milestone: "v1.2.0"
-order: 42
+order: 300
+release: "v1.2.0"
+targetRelease: "v1.2.0"
 ---
 
 ## Description
@@ -44,6 +46,8 @@ Esto evita cualquier confusión conceptual con proyectos externos (como la herra
 3. Limpiar comparaciones en `Header.tsx`, `ProjectModal.tsx`, `FolderPickerModal.tsx` y `mcp-server.ts`.
 4. Verificar con `npx tsc --noEmit` y `npm run test:backlog`.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Completado exitosamente. Todo el sistema ahora utiliza de forma consistente los dos únicos valores canónicos: 'json' y 'markdown'.

@@ -3,11 +3,12 @@ id: DEV-039
 title: "Sincronización no invasiva de árbol Git con estados de backlog y releases"
 status: Draft
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:41'
+updated_date: '2026-09-19 04:25'
 labels: []
 dependencies: []
 priority: low
 type: feature
+order: 190
 ---
 
 ## Description

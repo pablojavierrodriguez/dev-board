@@ -3,7 +3,7 @@ id: DEV-057
 title: "Centro de Gestión de Releases: Inspección de Release Notes, Conjunto de Cards y Sincronización con Git"
 status: Draft
 created_date: '2026-09-18'
-updated_date: '2026-09-18 00:08'
+updated_date: '2026-09-19 04:25'
 labels:
   - releases
   - changelog
@@ -14,6 +14,9 @@ dependencies:
 priority: high
 type: feature
 milestone: "0.4.0"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: 20
 ---
 
 ## Description
