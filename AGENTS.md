@@ -37,6 +37,13 @@ Usa el servidor MCP de DevBoard (`npm run mcp` o `bin/devboard-mcp.js`) para int
 ## 4. Git Hooks y Salvaguardas Pre-Commit
 El repositorio utiliza `.githooks/pre-commit` para impedir commits con tareas desactualizadas o desincronizadas. Se configura automáticamente con `npm install` (vía script `prepare`).
 
+> [!CAUTION]
+> **Regla de Cero Commits No Solicitados — Prohibido `git commit` por Deducción**
+>
+> El agente NUNCA debe ejecutar `git commit` por iniciativa propia. Resolver un bug, tildar ACs, sincronizar el backlog o empaquetar archivos NO autoriza a hacer commit.
+> - El agente sólo prepara los cambios en el árbol de trabajo y los valida (`tsc`, `build`, `backlog:check`).
+> - Se ejecuta `git commit` **única y exclusivamente ante una orden textual y explícita del usuario** (ej: *"hacé el commit"*, *"comiteá"*).
+
 ## 5. Metodología de Referencia
 - **[Agentic Team Playbook](docs/AGENTIC_PLAYBOOK.md):** Guía metodológica para colaboración estructurada entre humanos y agentes de IA, definición de roles y guardrails anti-alucinación.
 - **[Arquitectura de DevBoard](docs/ARCHITECTURE.md):** Mapa canónico de capas, componentes y tabla de impacto rápido.
@@ -98,6 +105,23 @@ Estas reglas provienen de errores detectados en sesiones reales. Son **obligator
 > 1. **Para saber si el servidor está escuchando:** usar `lsof -nP -iTCP:4100 -sTCP:LISTEN` (inspección de procesos/sockets a nivel kernel, 100% sandboxed y sin fallas).
 > 2. **Para validar la interfaz y comportamiento visual:** usar `browser_subagent` (el motor Chromium tiene acceso directo a `http://localhost:4100` sin pasar por el sandbox del shell).
 
+> [!IMPORTANT]
+> **Principio de Ortogonalidad de Dimensiones y Anti-Sobrecarga Semántica ("Anti-Label-Smuggling")**
+>
+> Toda dimensión de datos del modelo (Estado, Sprint, Release, Módulo, Prioridad, Tipo, Asignado, etc.) debe ser 100% ortogonal, independiente y coherente a través de las 3 capas:
+> 1. **Modelo/Storage**: Cada atributo almacena exclusivamente su tipo de dato propio. Prohibido mezclar conceptos (ej: usar términos de una dimensión para representar el estado de otra).
+> 2. **Prohibido el "Label Smuggling" (sobrecarga semántica)**: Nunca usar un término genérico o global del dominio (como *"Backlog"*, *"General"*, *"Default"*, *"None"*) para ocultar o sustituir un valor ausente de un campo específico. Si un campo no tiene asignación, su valor visual canónico debe ser unívoco y transparente: `Sin Sprint`, `Sin Módulo`, `Sin Épica`, `Sin Asignar` o `—`.
+> 3. **Filtros Independientes**: Cada filtro opera exclusivamente sobre su campo sin efectos colaterales en otras dimensiones.
+> 4. **UI, Tablas y Formularios**: Cada columna o campo de entrada es independiente. Ocultar o alterar una columna en una tabla (ej. en `SprintView` o `KanbanBoard`) jamás debe ocultar, desplazar ni mutar la visualización de otra columna.
+
+> [!WARNING]
+> **Protocolo de Inspección Previa — Prohibido Formular Preguntas Especulativas**
+>
+> Cuando el usuario reporte una falla visual, confusión de campos o comportamiento anómalo:
+> 1. **Cero deducciones al aire**: Prohibido formular cuestionarios teóricos o preguntar *"¿qué preferís hacer?"* antes de haber leído el código y el DOM vivo.
+> 2. **Inspección quirúrgica obligatoria**: El agente DEBE abrir inmediatamente el componente TSX responsable (`view_file`) y contrastar con el DOM en el navegador (`browser_subagent`).
+> 3. Las preguntas se reservan únicamente para decisiones de producto genuinamente ambiguas tras haber identificado y explicado con precisión técnica la causa raíz en el código.
+
 ---
 
 ## 7. Gate de Calidad Antes de Marcar `ready`
@@ -114,6 +138,12 @@ Antes de pasar cualquier tarea a `ready`, el agente DEBE verificar en orden:
 > Si el usuario corrige o ajusta algo visual mientras se trabaja (aunque no sea una tarea formal),
 > ese feedback se atiende inmediatamente — no al final del sprint. El feedback en caliente
 > tiene el mayor valor de retorno y el menor costo de contexto.
+
+### Auditoría de Alcance Pre-Release (Regla del 100% en Producción)
+Antes de promover cualquier versión a `released` en `backlog/releases.json`:
+- Ninguna versión en producción puede tener tareas incompletas asociadas (`draft`, `doing`, `review`).
+- El agente DEBE verificar que el 100% de las tareas con `milestone` o `targetRelease` asignado a esa versión estén en estado `done`.
+- Si existen tareas no terminadas, DEBEN ser formalmente reasignadas a la siguiente versión planificada (ej: `0.5.0`) antes de sellar el release, garantizando que el indicador de Alcance de la versión entregada sea estrictamente del **100%**.
 
 ---
 

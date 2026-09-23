@@ -241,3 +241,17 @@ Si no tienes acceso a herramientas MCP en tu entorno, puedes manipular directame
 > - `npx tsc --noEmit` → garantiza 0 errores de tipado
 > - `grep` sobre archivos fuente → confirma implementación
 > - Reservar el browser subagent solo para validaciones UX que no pueden verificarse por código
+
+> [!IMPORTANT]
+> **Ortogonalidad de Dimensiones y Anti-Sobrecarga Semántica ("Anti-Label-Smuggling")**
+>
+> Toda dimensión de datos (Estado, Sprint, Release, Módulo, Prioridad, Tipo) debe ser 100% ortogonal:
+> - **Prohibido sobrecargar términos**: Nunca usar un concepto global o de otra dimensión (como *"Backlog"*, *"General"*, *"Default"*) para representar valores ausentes.
+> - Si un campo no tiene asignación, su valor canónico es transparente: `Sin Sprint`, `Sin Módulo`, `Sin Épica`, `Sin Asignar` o `—`.
+> - En la UI, cada columna o selector es independiente: ocultar una columna nunca debe ocultar o afectar datos de otra.
+
+> [!CAUTION]
+> **Cero Commits No Solicitados & Auditoría de Alcance Pre-Release**
+>
+> 1. **Cero Commits No Solicitados**: NUNCA ejecutar `git commit` por deducción propia al resolver un task. El commit requiere orden explícita del usuario.
+> 2. **Alcance 100% en Producción**: Antes de promover una versión a `released` en `releases.json`, verificar que todas las tareas con ese `milestone`/`targetRelease` estén en `done`. Las tareas incompletas deben reasignarse a la siguiente versión planificada antes de sellar el release.

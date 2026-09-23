@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (8)
+### 📋 Backlog / Draft (9)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -128,6 +128,16 @@ por lo menos aquellos que no son de texto amplio (ej plan de implementacion, sol
 - **Prioridad**: `medium` | **Tipo**: `bug`
 
 la retro debe estar asignada al sprint no al release, es un error conceptual
+
+**Criterios de Aceptación:**
+- [ ] #1 Criterio de aceptación inicial definido.
+
+---
+
+#### [DEV-081] cambios pendientes apenas al entrar a config
+- **Prioridad**: `medium` | **Tipo**: `bug`
+
+aparece el mensaje de cambios pendientes y deshacer cambios apenas ingreso a config sin haber modificado nada
 
 **Criterios de Aceptación:**
 - [ ] #1 Criterio de aceptación inicial definido.

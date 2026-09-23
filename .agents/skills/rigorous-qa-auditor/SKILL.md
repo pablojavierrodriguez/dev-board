@@ -59,15 +59,26 @@ Para tareas que modifiquen la interfaz visual (`KanbanBoard`, `ItemModal`, `Filt
 3. **FilterBar & Búsqueda:**
    - Escribir en la barra de búsqueda y filtrar por prioridad o hito.
    - Comprobar que el botón de "Limpiar filtros" reaparece y restablece el tablero.
-4. **Consola del Navegador:**
-   - Inspeccionar los logs de consola: **CERO errores rojos** (`uncaught TypeError`, `key prop missing`, etc.).
+5. **Protocolo de Inspección Previa (Anti-Preguntas Especulativas):**
+   - Ante reportes de discrepancias o fallas visuales, **prohibido teorizar o preguntar sin evidencia**.
+   - Inspeccionar primero el componente TSX y el DOM vivo con `browser_subagent` para constatar el renderizado real.
+
+---
+
+## 📦 Gate de Auditoría de Alcance Pre-Release (100% en Producción)
+
+Antes de promover un release a `released`:
+1. Comprobar que **todas** las tareas asignadas (`milestone` o `targetRelease`) estén en estado `done`.
+2. Si existen tareas en `draft`/`doing`, reasignarlas formalmente a la siguiente versión planificada (`0.5.0`) antes de sellar el release.
+3. El indicador de Alcance en el Centro de Releases debe marcar estrictamente **100%** (barra verde).
 
 ---
 
 ## 📋 Protocolo de Cierre de Tarea (Signoff)
 
-Un agente **solo** puede dar por concluida una tarea si se cumplen las siguientes 4 condiciones:
+Un agente **solo** puede dar por concluida una tarea si se cumplen las siguientes 5 condiciones:
 1. ✅ **100% de Criterios Cumplidos:** Todos los checkboxes en `backlog/tasks/<ID>.md` están en `- [x]`.
 2. ✅ **Build y Backlog Limpios:** `npm run build` y `npm run backlog:check` retornan código 0.
 3. ✅ **Auditoría UX Aprobada:** `npm run audit:ux` ejecutado con éxito.
 4. ✅ **Trazabilidad:** La tarea está promocionada a `ready` o `done` mediante `devboard_update_task`.
+5. ✅ **Cero Commits No Solicitados:** Los cambios quedan preparados en el working tree sin ejecutar `git commit` hasta que el usuario lo ordene explícitamente.
