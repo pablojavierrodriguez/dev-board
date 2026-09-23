@@ -1,19 +1,18 @@
 ---
 id: DEV-042
 title: "Empaquetado y DX como devDependency (Cero Fricción con npm i -D y npx)"
-status: Draft
+status: Ready
 created_date: '2026-09-18'
-updated_date: '2026-09-22 03:56'
+updated_date: '2026-09-23 17:14'
 labels: []
 dependencies: []
 priority: medium
 type: feature
 milestone: "Sprint 4"
 sprint: "Sprint 4"
-order: 70
+order: "70"
 release: "Sprint 4"
 targetRelease: "Sprint 4"
-targetSprint: "Sprint 4"
 ---
 
 ## Description
@@ -25,10 +24,10 @@ Optimizar la experiencia de desarrollador (DX) y empaquetado para que DevBoard p
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Habilitar instalación local mediante npm i -D devboard (o package runner) con script de inicio 'devboard'
-- [ ] #2 Soporte para comando rápido de inicialización 'npx devboard --init' que prepare .devboard/ y carpetas base si no existen
-- [ ] #3 Configuración automática o asistida de scripts en package.json del proyecto anfitrión (ej: "board": "devboard")
-- [ ] #4 Verificar funcionamiento como devDependency aislada sin interferir con dependencias de React/Vite del proyecto anfitrión
+- [x] #1 Habilitar instalación local mediante npm i -D devboard (o package runner) con script de inicio 'devboard'
+- [x] #2 Soporte para comando rápido de inicialización 'npx devboard --init' que prepare .devboard/ y carpetas base si no existen
+- [x] #3 Configuración automática o asistida de scripts en package.json del proyecto anfitrión (ej: "board": "devboard")
+- [x] #4 Verificar funcionamiento como devDependency aislada sin interferir con dependencias de React/Vite del proyecto anfitrión
 <!-- AC:END -->
 
 ## Implementation Plan

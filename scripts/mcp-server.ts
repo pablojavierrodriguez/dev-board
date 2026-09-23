@@ -114,7 +114,8 @@ function readTasksForProject(project: ProjectMeta): any[] {
           implementationPlan: task.implementationPlan,
           notes: task.implementationNotes,
           acceptanceCriteriaList: task.acceptanceCriteria,
-          targetSprint: task.milestone,
+          sprint: task.sprint || task.targetSprint || task.rawExtraFrontmatter?.sprint,
+          targetSprint: task.targetSprint || task.sprint || task.rawExtraFrontmatter?.sprint || task.milestone,
           milestone: task.milestone,
           createdAt: task.createdDate ? `${task.createdDate}T00:00:00.000Z` : undefined,
           updatedAt: task.updatedDate ? `${task.updatedDate}T00:00:00.000Z` : undefined
@@ -166,6 +167,7 @@ const TOOLS = [
           description: 'Si es true, excluye tareas en done, dismissed o cancelled, devolviendo solo tareas activas o en backlog.'
         },
         priority: { type: 'string', description: 'Filtrar por prioridad: "urgent", "high", "medium", "low".' },
+        sprint: { type: 'string', description: 'Filtrar por sprint asignado o targetSprint (ej: "Sprint 3", "Sprint 4").' },
         milestone: { type: 'string', description: 'Filtrar por milestone o sprint (ej: "v1.1.0").' },
         search: { type: 'string', description: 'Término de búsqueda para filtrar en título, código o etiquetas.' },
         prefix: { type: 'string', description: 'Filtrar por prefijo de código (ej: "FEAT-", "BUG-", "CORE-").' },
@@ -272,7 +274,23 @@ const TOOLS = [
       properties: {
         taskId: { type: 'string', description: 'Código o ID de la tarea a actualizar.' },
         projectId: { type: 'string', description: 'ID del proyecto.' },
-        status: { type: 'string', enum: ['draft', 'doing', 'review', 'ready', 'done', 'dismissed', 'cancelled'] },
+        status: { 
+          type: 'string', 
+          enum: ['draft', 'doing', 'review', 'ready', 'done', 'dismissed', 'cancelled'],
+          description: 'Estado de la tarea (campo canónico top-level recomendado por AGENTS.md).'
+        },
+        updates: {
+          type: 'object',
+          description: 'Objeto de actualizaciones opcional (soporta status, title, description, priority, etc. para retrocompatibilidad).',
+          properties: {
+            status: { type: 'string', enum: ['draft', 'doing', 'review', 'ready', 'done', 'dismissed', 'cancelled'] },
+            title: { type: 'string' },
+            description: { type: 'string' },
+            priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
+            implementationPlan: { type: 'string' },
+            milestone: { type: 'string' }
+          }
+        },
         title: { type: 'string' },
         description: { type: 'string' },
         priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
@@ -312,6 +330,37 @@ const TOOLS = [
       properties: {
         projectId: { type: 'string', description: 'ID del proyecto a sincronizar. Si se omite, usa el proyecto activo.' },
         autoFix: { type: 'boolean', description: 'Si es true, auto-promociona tareas con todos sus ACs cumplidos a Done y reconcilia ACs en tareas cerradas.' }
+      }
+    }
+  },
+  {
+    name: 'devboard_create_retro',
+    description: 'Registra y persiste una retrospectiva estructurada de sprint en formato Markdown dentro de backlog/retros/sprint-N-retro.md.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'ID del proyecto. Si se omite, usa el activo.' },
+        sprintId: { type: 'string', description: 'ID o número del sprint (ej: "sprint-4" o "Sprint 4").' },
+        sprintName: { type: 'string', description: 'Nombre legible del sprint (ej: "Sprint 4").' },
+        whatWentWell: { type: 'string', description: 'Fortalezas: ¿Qué funcionó bien y debe repetirse?' },
+        whatWentWrong: { type: 'string', description: 'Problemas: ¿Qué falló, se rompió o tomó más tiempo del esperado?' },
+        whatToImprove: { type: 'string', description: 'Eficiencia: ¿Qué podría haberse hecho en menos pasos o con menos tokens?' },
+        actions: { 
+          type: 'array', 
+          items: { type: 'string' }, 
+          description: 'Acciones concretas o mejoras para el próximo sprint.' 
+        }
+      },
+      required: ['sprintId']
+    }
+  },
+  {
+    name: 'devboard_list_retros',
+    description: 'Lista las retrospectivas de sprints guardadas en backlog/retros/ con sus resúmenes y fechas.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', description: 'ID del proyecto.' }
       }
     }
   }
@@ -355,6 +404,14 @@ async function handleToolCall(name: string, args: any): Promise<any> {
     if (args.priority) {
       const normP = normalizePriority(args.priority);
       tasks = tasks.filter(t => normalizePriority(t.priority) === normP);
+    }
+    if (args.sprint) {
+      const sp = String(args.sprint).toLowerCase();
+      tasks = tasks.filter(t => 
+        (t.sprint && String(t.sprint).toLowerCase() === sp) ||
+        (t.targetSprint && String(t.targetSprint).toLowerCase() === sp) ||
+        (t.milestone && String(t.milestone).toLowerCase() === sp)
+      );
     }
     if (args.milestone) {
       tasks = tasks.filter(t => t.milestone === args.milestone || t.targetSprint === args.milestone);
@@ -755,12 +812,20 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           const raw = fs.readFileSync(fullPath, 'utf8');
           const current = parseBacklogMd(raw, args.taskId);
 
-          if (args.status) current.status = normalizeStatus(args.status);
-          if (args.title) current.title = args.title;
-          if (args.description !== undefined) current.description = args.description;
-          if (args.priority) current.priority = normalizePriority(args.priority);
-          if (args.implementationPlan !== undefined) current.implementationPlan = args.implementationPlan;
-          if (args.milestone !== undefined) current.milestone = args.milestone;
+          const effectiveStatus = args.status || args.updates?.status;
+          const effectiveTitle = args.title || args.updates?.title;
+          const effectiveDesc = args.description !== undefined ? args.description : args.updates?.description;
+          const effectivePriority = args.priority || args.updates?.priority;
+          const effectivePlan = args.implementationPlan !== undefined ? args.implementationPlan : args.updates?.implementationPlan;
+          const effectiveMilestone = args.milestone !== undefined ? args.milestone : args.updates?.milestone;
+          const usedUpdatesObject = Boolean(args.updates && !args.status && args.updates.status);
+
+          if (effectiveStatus) current.status = normalizeStatus(effectiveStatus);
+          if (effectiveTitle) current.title = effectiveTitle;
+          if (effectiveDesc !== undefined) current.description = effectiveDesc;
+          if (effectivePriority) current.priority = normalizePriority(effectivePriority);
+          if (effectivePlan !== undefined) current.implementationPlan = effectivePlan;
+          if (effectiveMilestone !== undefined) current.milestone = effectiveMilestone;
           current.updatedDate = today;
 
           if (args.toggleAcIndex !== undefined && current.acceptanceCriteria) {
@@ -781,7 +846,11 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           }
 
           fs.writeFileSync(canonicalPath, serialized, 'utf8');
-          return { ok: true, updatedTask: current, filePath: canonicalPath };
+          const resp: any = { ok: true, updatedTask: current, filePath: canonicalPath };
+          if (usedUpdatesObject) {
+            resp.warning = "Aviso: Se aplicó 'status' recibido dentro del objeto 'updates'. Para máxima compatibilidad con AGENTS.md se recomienda pasar 'status' como campo top-level.";
+          }
+          return resp;
         }
       } else {
         // JSON storage update
@@ -798,12 +867,20 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           );
           if (idx >= 0) {
             const current = data.items[idx];
-            if (args.status) current.status = normalizeStatus(args.status);
-            if (args.title) current.title = args.title;
-            if (args.description !== undefined) current.description = args.description;
-            if (args.priority) current.priority = normalizePriority(args.priority);
-            if (args.implementationPlan !== undefined) current.implementationPlan = args.implementationPlan;
-            if (args.milestone !== undefined) current.milestone = args.milestone;
+            const effectiveStatus = args.status || args.updates?.status;
+            const effectiveTitle = args.title || args.updates?.title;
+            const effectiveDesc = args.description !== undefined ? args.description : args.updates?.description;
+            const effectivePriority = args.priority || args.updates?.priority;
+            const effectivePlan = args.implementationPlan !== undefined ? args.implementationPlan : args.updates?.implementationPlan;
+            const effectiveMilestone = args.milestone !== undefined ? args.milestone : args.updates?.milestone;
+            const usedUpdatesObject = Boolean(args.updates && !args.status && args.updates.status);
+
+            if (effectiveStatus) current.status = normalizeStatus(effectiveStatus);
+            if (effectiveTitle) current.title = effectiveTitle;
+            if (effectiveDesc !== undefined) current.description = effectiveDesc;
+            if (effectivePriority) current.priority = normalizePriority(effectivePriority);
+            if (effectivePlan !== undefined) current.implementationPlan = effectivePlan;
+            if (effectiveMilestone !== undefined) current.milestone = effectiveMilestone;
             current.updatedAt = now;
 
             if (args.toggleAcIndex !== undefined && current.acceptanceCriteriaList) {
@@ -814,7 +891,11 @@ async function handleToolCall(name: string, args: any): Promise<any> {
 
             data.items[idx] = current;
             fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-            return { ok: true, updatedTask: current, filePath };
+            const resp: any = { ok: true, updatedTask: current, filePath };
+            if (usedUpdatesObject) {
+              resp.warning = "Aviso: Se aplicó 'status' recibido dentro del objeto 'updates'. Para máxima compatibilidad con AGENTS.md se recomienda pasar 'status' como campo top-level.";
+            }
+            return resp;
           }
         }
       }
@@ -1075,6 +1156,90 @@ async function handleToolCall(name: string, args: any): Promise<any> {
         itemCount: Array.isArray(r.itemCodes) ? r.itemCodes.length : 0,
         itemCodes: r.itemCodes || []
       }))
+    };
+  }
+
+  if (name === 'devboard_create_retro') {
+    const targetProject = registry.projects.find(p => p.id === args.projectId) 
+      || registry.projects.find(p => p.id === registry.activeProjectId) 
+      || registry.projects[0];
+    if (!targetProject) throw new Error('Proyecto no encontrado.');
+
+    const sprintKey = String(args.sprintId || args.sprintName || 'sprint').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    const retrosDir = path.join(targetProject.repoPath || ROOT_DIR, targetProject.backlogDir || 'backlog', 'retros');
+    if (!fs.existsSync(retrosDir)) {
+      fs.mkdirSync(retrosDir, { recursive: true });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const sprintTitle = args.sprintName || args.sprintId;
+    const filePath = path.join(retrosDir, `${sprintKey}-retro.md`);
+
+    const mdContent = `# Retrospectiva — ${sprintTitle}
+
+**Fecha:** ${today}  
+**Sprint:** ${sprintTitle}  
+**Proyecto:** ${targetProject.name}
+
+---
+
+## 🟢 Fortalezas (¿Qué funcionó bien y debe repetirse?)
+${args.whatWentWell ? args.whatWentWell.trim() : 'No se registraron comentarios específicos.'}
+
+## 🔴 Problemas (¿Qué falló, se rompió o tomó más tiempo del esperado?)
+${args.whatWentWrong ? args.whatWentWrong.trim() : 'No se registraron incidentes críticos.'}
+
+## 🟡 Eficiencia (¿Qué podría haberse hecho en menos pasos o con menos tokens?)
+${args.whatToImprove ? args.whatToImprove.trim() : 'Flujo eficiente y directo.'}
+
+## 📌 Acciones Concretas (Compromisos y Mejoras)
+${Array.isArray(args.actions) && args.actions.length > 0 
+  ? args.actions.map((act: string) => `- [ ] ${act}`).join('\n') 
+  : '- [ ] Continuar aplicando las buenas prácticas establecidas.'}
+`;
+
+    fs.writeFileSync(filePath, mdContent, 'utf8');
+    return {
+      ok: true,
+      sprint: sprintTitle,
+      savedFile: filePath,
+      actionsCount: Array.isArray(args.actions) ? args.actions.length : 0
+    };
+  }
+
+  if (name === 'devboard_list_retros') {
+    const targetProject = registry.projects.find(p => p.id === args.projectId) 
+      || registry.projects.find(p => p.id === registry.activeProjectId) 
+      || registry.projects[0];
+    if (!targetProject) throw new Error('Proyecto no encontrado.');
+
+    const retrosDir = path.join(targetProject.repoPath || ROOT_DIR, targetProject.backlogDir || 'backlog', 'retros');
+    if (!fs.existsSync(retrosDir)) {
+      return { ok: true, retros: [] };
+    }
+
+    const files = fs.readdirSync(retrosDir).filter(f => f.endsWith('.md'));
+    const retros: any[] = [];
+
+    for (const f of files) {
+      try {
+        const full = path.join(retrosDir, f);
+        const raw = fs.readFileSync(full, 'utf8');
+        const titleMatch = raw.match(/^#\s+(.+)$/m);
+        const dateMatch = raw.match(/\*\*Fecha:\*\*\s*([^\n]+)/);
+        retros.push({
+          file: f,
+          path: full,
+          title: titleMatch ? titleMatch[1].trim() : f.replace(/\.md$/, ''),
+          date: dateMatch ? dateMatch[1].trim() : ''
+        });
+      } catch {}
+    }
+
+    return {
+      ok: true,
+      total: retros.length,
+      retros
     };
   }
 

@@ -1,19 +1,18 @@
 ---
 id: DEV-040
 title: "Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/"
-status: Draft
+status: Ready
 created_date: '2026-09-18'
-updated_date: '2026-09-22 03:56'
+updated_date: '2026-09-23 17:13'
 labels: []
 dependencies: []
 priority: high
 type: feature
 milestone: "Sprint 4"
 sprint: "Sprint 4"
-order: 90
+order: "90"
 release: "Sprint 4"
 targetRelease: "Sprint 4"
-targetSprint: "Sprint 4"
 ---
 
 ## Description
@@ -25,10 +24,10 @@ Desacoplar la configuración de DevBoard del registro central global (data/proje
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Almacenar configuraciones de vista, columnas y metodología en .devboard/config.json dentro del repositorio del proyecto
-- [ ] #2 Priorizar lectura y escritura de configuración local sobre el registro central data/projects-registry.json
-- [ ] #3 Garantizar que al clonar el repositorio en otra máquina o entorno, DevBoard cargue la configuración de .devboard/config.json sin pasos manuales
-- [ ] #4 Mantener compatibilidad hacia atrás con proyectos existentes y proyectos con múltiples carpetas
+- [x] #1 Almacenar configuraciones de vista, columnas y metodología en .devboard/config.json dentro del repositorio del proyecto
+- [x] #2 Priorizar lectura y escritura de configuración local sobre el registro central data/projects-registry.json
+- [x] #3 Garantizar que al clonar el repositorio en otra máquina o entorno, DevBoard cargue la configuración de .devboard/config.json sin pasos manuales
+- [x] #4 Mantener compatibilidad hacia atrás con proyectos existentes y proyectos con múltiples carpetas
 <!-- AC:END -->
 
 ## Implementation Plan

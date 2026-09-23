@@ -3,31 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (15)
-
-#### [DEV--066] falta en settings un boton para deshacer cambios
-- **Prioridad**: `medium` | **Tipo**: `feature`
-
-al lado de guardar cambios debiera estar el boton que permita borrar la config selecciona/editada, para restaabler las settings al estado anterior a la edición
-
-**Criterios de Aceptación:**
-- [ ] #1 Criterio de aceptación inicial definido.
-
----
-
-#### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
-- **Prioridad**: `low` | **Tipo**: `feature`
-
-Inspección de solo lectura del árbol Git local (commits, ramas, tags) para correlacionar tareas y releases sin alterar el repositorio ni requerir permisos especiales. Modo sugerencia asistida.
-
-**Criterios de Aceptación:**
-- [ ] #1 Lector pasivo de Git usando child_process.execFile con sanitización estricta y timeout
-- [ ] #2 Mapeo de tags de release semánticos a entidades Release de DevBoard
-- [ ] #3 Detección de commits asociados a tareas mediante regex sobre mensajes de commit
-- [ ] #4 Indicador de estado Git no invasivo en la UI (asistente de sugerencias, sin mutación forzada)
-- [ ] #5 Garantía estricta de cero comandos de escritura de Git en cumplimiento con .agents/rules/git-approval.md
-
----
+### 🚀 Ready for Deploy (10)
 
 #### [DEV-040] Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -36,10 +12,10 @@ Inspección de solo lectura del árbol Git local (commits, ramas, tags) para cor
 Desacoplar la configuración de DevBoard del registro central global (data/projects-registry.json), permitiendo que toda la configuración de columnas, metodología, vistas y preferencias viva autocontenida en .devboard/config.json dentro del repositorio del proyecto.
 
 **Criterios de Aceptación:**
-- [ ] #1 Almacenar configuraciones de vista, columnas y metodología en .devboard/config.json dentro del repositorio del proyecto
-- [ ] #2 Priorizar lectura y escritura de configuración local sobre el registro central data/projects-registry.json
-- [ ] #3 Garantizar que al clonar el repositorio en otra máquina o entorno, DevBoard cargue la configuración de .devboard/config.json sin pasos manuales
-- [ ] #4 Mantener compatibilidad hacia atrás con proyectos existentes y proyectos con múltiples carpetas
+- [x] #1 Almacenar configuraciones de vista, columnas y metodología en .devboard/config.json dentro del repositorio del proyecto
+- [x] #2 Priorizar lectura y escritura de configuración local sobre el registro central data/projects-registry.json
+- [x] #3 Garantizar que al clonar el repositorio en otra máquina o entorno, DevBoard cargue la configuración de .devboard/config.json sin pasos manuales
+- [x] #4 Mantener compatibilidad hacia atrás con proyectos existentes y proyectos con múltiples carpetas
 
 ---
 
@@ -50,11 +26,11 @@ Desacoplar la configuración de DevBoard del registro central global (data/proje
 Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta en un repositorio único, eliminando el ruido de selectores de proyectos globales, modales de importación y cambio de repositorios, ofreciendo una experiencia enfocada y limpia similar a Storybook o Prisma Studio.
 
 **Criterios de Aceptación:**
-- [ ] #1 Detectar modo monoproyecto (Single-Project Mode) cuando devboard se ejecuta apuntando a un único repositorio local
-- [ ] #2 Ocultar selector desplegable de proyectos en la cabecera cuando se ejecuta en modo monoproyecto
-- [ ] #3 Ocultar botones y modales de 'Añadir Proyecto' e 'Importar Proyecto' en la navegación principal en modo monoproyecto
-- [ ] #4 Mostrar en la cabecera el nombre del repositorio activo con un indicador sutil de estado local
-- [ ] #5 Reservar la interfaz multi-proyecto completa para cuando se invoque explícitamente con flag --hub o --multi
+- [x] #1 Detectar modo monoproyecto (Single-Project Mode) cuando devboard se ejecuta apuntando a un único repositorio local
+- [x] #2 Ocultar selector desplegable de proyectos en la cabecera cuando se ejecuta en modo monoproyecto
+- [x] #3 Ocultar botones y modales de 'Añadir Proyecto' e 'Importar Proyecto' en la navegación principal en modo monoproyecto
+- [x] #4 Mostrar en la cabecera el nombre del repositorio activo con un indicador sutil de estado local
+- [x] #5 Reservar la interfaz multi-proyecto completa para cuando se invoque explícitamente con flag --hub o --multi
 
 ---
 
@@ -65,28 +41,10 @@ Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta
 Optimizar la experiencia de desarrollador (DX) y empaquetado para que DevBoard pueda ser consumido limpiamente como devDependency en cualquier proyecto Node/TypeScript, levantando el cockpit local y el servidor MCP con cero fricción.
 
 **Criterios de Aceptación:**
-- [ ] #1 Habilitar instalación local mediante npm i -D devboard (o package runner) con script de inicio 'devboard'
-- [ ] #2 Soporte para comando rápido de inicialización 'npx devboard --init' que prepare .devboard/ y carpetas base si no existen
-- [ ] #3 Configuración automática o asistida de scripts en package.json del proyecto anfitrión (ej: "board": "devboard")
-- [ ] #4 Verificar funcionamiento como devDependency aislada sin interferir con dependencias de React/Vite del proyecto anfitrión
-
----
-
-#### [DEV-043] Evolutivo de Marca e Identidad: Cockpit Ágil Multidisciplinario (Naming Simple y Disponibilidad)
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.4.0
-
-Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una plataforma integral de gestión ágil para equipos multidisciplinarios (producto, diseño, arquitectura, Scrum Masters y desarrolladores) y agentes de IA:
-1. Trascender la denominación "dev-board" hacia un nombre simple, distintivo, con personalidad y agradable al oído, lejos de clichés corporativos o compuestos que terminen en "Board" o "App".
-2. Validar disponibilidad en npm/npx y repositorios públicos (GitHub) para asegurar un namespace limpio y ejecutable sin fricción.
-3. Planificar una estrategia de migración no destructiva con soporte de binarios duales/alias en `package.json` para garantizar que `npx devboard` siga funcionando mientras se adopta el nuevo comando.
-4. Actualizar identidad visual mínima (isotipo, favicon, splash y playbooks de colaboración).
-
-**Criterios de Aceptación:**
-- [ ] #1 Realizar relevamiento y matriz de disponibilidad pública en npm/npx y GitHub de nombres candidatos con personalidad
-- [ ] #2 Definir el nombre definitivo del producto y aplicación alineado con la visión de cockpit ágil para todo el equipo
-- [ ] #3 Configurar soporte de alias/binarios duales en package.json (retrocompatibilidad con npx devboard y adopción del nuevo comando)
-- [ ] #4 Actualizar referencias de marca en documentación técnica (README.md, AGENTS.md, docs/)
+- [x] #1 Habilitar instalación local mediante npm i -D devboard (o package runner) con script de inicio 'devboard'
+- [x] #2 Soporte para comando rápido de inicialización 'npx devboard --init' que prepare .devboard/ y carpetas base si no existen
+- [x] #3 Configuración automática o asistida de scripts en package.json del proyecto anfitrión (ej: "board": "devboard")
+- [x] #4 Verificar funcionamiento como devDependency aislada sin interferir con dependencias de React/Vite del proyecto anfitrión
 
 ---
 
@@ -104,11 +62,11 @@ Modelado completo de relaciones entre tarjetas tanto a nivel vertical como horiz
 4. **Persistencia Frontmatter:** Almacenamiento directo en frontmatter Markdown (`parent: 'DEV-010'`, `blocks: ['DEV-020']`, `dependencies: ['DEV-015']`).
 
 **Criterios de Aceptación:**
-- [ ] #1 Un ítem solo puede tener asignado un único padre (parentId), con selector modal interactivo
-- [ ] #2 Soporte de relaciones horizontales bidireccionales automáticas (blocks <-> blocked_by, related_to)
-- [ ] #3 Badge indicador en tarjetas Kanban que señala dependencias bloqueadas y advertencias de precedencia
-- [ ] #4 En ItemModal, sección interactiva 'Relaciones y Dependencias' para vincular y desvincular ítems
-- [ ] #5 Persistencia transparente en frontmatter Markdown sin pérdida de datos en hot-reload
+- [x] #1 Un ítem solo puede tener asignado un único padre (parentId), con selector modal interactivo
+- [x] #2 Soporte de relaciones horizontales bidireccionales automáticas (blocks <-> blocked_by, related_to)
+- [x] #3 Badge indicador en tarjetas Kanban que señala dependencias bloqueadas y advertencias de precedencia
+- [x] #4 En ItemModal, sección interactiva 'Relaciones y Dependencias' para vincular y desvincular ítems
+- [x] #5 Persistencia transparente en frontmatter Markdown sin pérdida de datos en hot-reload
 
 ---
 
@@ -127,11 +85,139 @@ Evolución del modelo de datos para Sprints y Releases en las tarjetas, adoptand
 3. **Persistencia Frontmatter:** Almacenamiento limpio en Markdown (`sprints: ['Sprint 1', 'Sprint 2']`, `releases: ['0.2.1', '0.3.0']`).
 
 **Criterios de Aceptación:**
-- [ ] #1 BacklogItem unifica los sprints en un único campo array 'sprints?: string[]' sin campos paralelos de historial
-- [ ] #2 Regla de negocio que valida máximo 1 sprint en estado activo asociado a la tarjeta a la vez
-- [ ] #3 Al completar un sprint, las tarjetas asociadas conservan el sprint finalizado en su lista 'sprints'
-- [ ] #4 Soporte para asociar múltiples versiones/releases por tarjeta (releases?: string[])
-- [ ] #5 Sincronización y persistencia transparente en frontmatter Markdown sin pérdida de datos
+- [x] #1 BacklogItem unifica los sprints en un único campo array 'sprints?: string[]' sin campos paralelos de historial
+- [x] #2 Regla de negocio que valida máximo 1 sprint en estado activo asociado a la tarjeta a la vez
+- [x] #3 Al completar un sprint, las tarjetas asociadas conservan el sprint finalizado en su lista 'sprints'
+- [x] #4 Soporte para asociar múltiples versiones/releases por tarjeta (releases?: string[])
+- [x] #5 Sincronización y persistencia transparente en frontmatter Markdown sin pérdida de datos
+
+---
+
+#### [DEV-059] Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.5.0
+
+Otorgar soberanía total y personalización al usuario/admin para definir y gestionar la taxonomía de tipos de tarjeta y flujos de trabajo de su proyecto:
+1. **Soberanía Administrativa:** Aunque DevBoard incluye tipos predeterminados (`feature`, `bug`, `tech_debt`, `ux`, etc.), el usuario es el dueño de su proyecto y flujo. Debe poder crear nuevos tipos personalizados (ej. `spike`, `research`, `design`, `meeting`, `infra`), editar los existentes (nombre, color semántico, icono) o eliminar los que no utilice.
+2. **Editor de Tipos en Settings:** Incorporar en `SettingsView` una sección dedicada "Tipos de Tarjeta y Taxonomía" donde se listen los tipos actuales con acciones de edición inline, cambio de paleta cromática, asignación de icono de Lucide y botón "+ Nuevo Tipo".
+3. **Integración Universal:** Los nuevos tipos creados deben poblarse automáticamente en los modales de creación y edición (`ItemModal.tsx`), filtros de búsqueda (`FilterBar.tsx`) y badges de las tarjetas (`ItemCard.tsx`).
+4. **Persistencia Local:** Almacenamiento directo en `.devboard/config.json` bajo `config.customItemTypes`.
+
+**Criterios de Aceptación:**
+- [x] #1 Sección 'Tipos de Tarjeta' en SettingsView con gestión CRUD completa (crear, editar, eliminar)
+- [x] #2 Formulario de configuración de tipo: identificador clave, nombre legible, color semántico e icono
+- [x] #3 Los tipos personalizados se reflejan automáticamente en los selectores de ItemModal y FilterBar
+- [x] #4 Los badges de ItemCard renderizan adecuadamente el color e icono del tipo personalizado
+- [x] #5 Persistencia automática y aislada en .devboard/config.json sin romper esquemas preexistentes
+
+---
+
+#### [DEV-068] Fix: devboard_list_tasks — Filtro por Sprint Retorna Todos los Tasks
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: Sprint 4
+
+El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por sprint: retorna todos los tasks del proyecto. Esto genera confusión en auditorías de sprint y obliga al agente a filtrar manualmente el JSON.
+
+**Root cause posible:** El campo `sprint` en el frontmatter Markdown puede estar bajo nombres alternativos (`targetSprint`, `milestone`) que el parser no mapea al filtro `sprint` de la API.
+
+**Fix esperado:** El filtro `sprint` en `devboard_list_tasks` debe matchear los campos `sprint`, `targetSprint`, y el frontmatter `sprint:` del archivo Markdown.
+
+**Criterios de Aceptación:**
+- [x] #1 devboard_list_tasks con { sprint: 'Sprint 3' } retorna solo tasks cuyo frontmatter contiene sprint: Sprint 3
+- [x] #2 El filtro también matchea el campo targetSprint cuando coincide con el valor buscado
+- [x] #3 Test con proyecto dev-board: filtrar por Sprint 3 retorna exactamente DEV-047, DEV-049, DEV-051, DEV-052, DEV-053, DEV-055, DEV-067 y nada más
+- [x] #4 Documentar el filtro corregido en el schema MCP
+- [x] #5 La corrección es backwards-compatible con el CLI devboard list
+
+---
+
+#### [DEV-069] Fix: devboard_update_task — Ignorar status dentro del objeto updates silenciosamente
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: Sprint 4
+
+Cuando se pasa `{ "taskId": "DEV-001", "updates": { "status": "ready" } }`, el servidor MCP ignora el campo `status` dentro de `updates` sin retornar error. El task mantiene su estado anterior.
+
+Esto genera un bug silencioso muy difícil de detectar: el agente cree que actualizó el status, pero el archivo Markdown no cambia.
+
+**Fix esperado:** El servidor MCP debe aceptar `status` tanto como campo top-level como dentro de `updates`, O retornar un error claro indicando que `status` no es válido dentro de `updates` para evitar la confusión.
+
+**Criterios de Aceptación:**
+- [x] #1 devboard_update_task acepta status dentro de updates Y lo aplica correctamente
+- [x] #2 O bien: devboard_update_task retorna un warning/error cuando se detecta status dentro de updates (para que el agente pueda corregirlo)
+- [x] #3 Documentar claramente en el schema MCP el campo correcto para cambiar status
+- [x] #4 Añadir test unitario que valide ambas formas de pasar el status
+
+---
+
+#### [DEV-070] Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado
+- **Prioridad**: `medium` | **Tipo**: `feature`
+
+Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
+
+**Motivación:** Las retros manuales al final de cada sprint son valiosas pero se omiten cuando el sprint se cierra rápidamente. Se necesita un mecanismo que las haga obligatorias y estructuradas.
+
+**Funcionalidad esperada:**
+1. Al marcar el último item de un sprint como `ready` o al ejecutar 'Completar Sprint', DevBoard muestra un prompt de retro.
+2. El template de retro incluye las 4 dimensiones: Problemas, Eficiencia, Fortalezas, Acciones.
+3. Las acciones concretas de la retro se convierten automáticamente en nuevas tareas del backlog.
+4. La retro queda guardada como archivo en `backlog/retros/sprint-N-retro.md`.
+5. El MCP expone `devboard_create_retro` y `devboard_list_retros`.
+
+**Criterios de Aceptación:**
+- [x] #1 Al completar un sprint, CompleteSprintModal incluye paso de retro opcional pero promovido
+- [x] #2 Template de retro con secciones: ¿Qué salió bien?, ¿Qué mejorar?, ¿Qué cambiar?, Acciones concretas
+- [x] #3 Las acciones se pueden convertir en tasks con un click (Create Task from Action)
+- [x] #4 La retro se persiste en backlog/retros/ como archivo Markdown estándar
+- [x] #5 devboard_list_retros MCP tool lista las retros guardadas con resumen
+- [x] #6 La retro aparece en el timeline de la Release Notes si el sprint tiene release asociado
+
+---
+
+#### [DEV-074] Botón Deshacer Cambios en Settings (Restablecer Estado no Guardado)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: Sprint 4
+
+Al lado del botón 'Guardar Cambios' en la vista de configuración (`SettingsView.tsx`), agregar un botón 'Deshacer Cambios' que permita descartar la configuración editada en el formulario y restablecer todas las preferencias locales al estado guardado en disco (`config`), evitando guardar modificaciones no deseadas.
+
+**Criterios de Aceptación:**
+- [x] #1 Mostrar botón 'Deshacer Cambios' al lado de 'Guardar Cambios' en SettingsView cuando existan modificaciones no guardadas (isDirty)
+- [x] #2 Al hacer clic en 'Deshacer Cambios', restablecer inmediatamente todos los estados locales al valor persistido en config
+- [x] #3 Deshabilitar u ocultar el botón 'Deshacer Cambios' cuando no haya cambios pendientes (!isDirty)
+- [x] #4 Proporcionar feedback visual y toast confirmando el restablecimiento de los ajustes
+
+---
+
+### 📋 Backlog / Draft (5)
+
+#### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
+- **Prioridad**: `low` | **Tipo**: `feature`
+
+Inspección de solo lectura del árbol Git local (commits, ramas, tags) para correlacionar tareas y releases sin alterar el repositorio ni requerir permisos especiales. Modo sugerencia asistida.
+
+**Criterios de Aceptación:**
+- [ ] #1 Lector pasivo de Git usando child_process.execFile con sanitización estricta y timeout
+- [ ] #2 Mapeo de tags de release semánticos a entidades Release de DevBoard
+- [ ] #3 Detección de commits asociados a tareas mediante regex sobre mensajes de commit
+- [ ] #4 Indicador de estado Git no invasivo en la UI (asistente de sugerencias, sin mutación forzada)
+- [ ] #5 Garantía estricta de cero comandos de escritura de Git en cumplimiento con .agents/rules/git-approval.md
+
+---
+
+#### [DEV-043] Evolutivo de Marca e Identidad: Cockpit Ágil Multidisciplinario (Naming Simple y Disponibilidad)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.4.0
+
+Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una plataforma integral de gestión ágil para equipos multidisciplinarios (producto, diseño, arquitectura, Scrum Masters y desarrolladores) y agentes de IA:
+1. Trascender la denominación "dev-board" hacia un nombre simple, distintivo, con personalidad y agradable al oído, lejos de clichés corporativos o compuestos que terminen en "Board" o "App".
+2. Validar disponibilidad en npm/npx y repositorios públicos (GitHub) para asegurar un namespace limpio y ejecutable sin fricción.
+3. Planificar una estrategia de migración no destructiva con soporte de binarios duales/alias en `package.json` para garantizar que `npx devboard` siga funcionando mientras se adopta el nuevo comando.
+4. Actualizar identidad visual mínima (isotipo, favicon, splash y playbooks de colaboración).
+
+**Criterios de Aceptación:**
+- [ ] #1 Realizar relevamiento y matriz de disponibilidad pública en npm/npx y GitHub de nombres candidatos con personalidad
+- [ ] #2 Definir el nombre definitivo del producto y aplicación alineado con la visión de cockpit ágil para todo el equipo
+- [ ] #3 Configurar soporte de alias/binarios duales en package.json (retrocompatibilidad con npx devboard y adopción del nuevo comando)
+- [ ] #4 Actualizar referencias de marca en documentación técnica (README.md, AGENTS.md, docs/)
 
 ---
 
@@ -154,25 +240,6 @@ Evolución integral del módulo de Releases hacia un centro de control y auditor
 - [ ] #3 Correlación y badge de coherencia con tags locales de Git proveniente de la integración DEV-039
 - [ ] #4 Asistente para detectar discrepancias entre código tageado y tareas asociadas
 - [ ] #5 Botón de copiado en un click del changelog formateado para GitHub Releases
-
----
-
-#### [DEV-059] Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
-
-Otorgar soberanía total y personalización al usuario/admin para definir y gestionar la taxonomía de tipos de tarjeta y flujos de trabajo de su proyecto:
-1. **Soberanía Administrativa:** Aunque DevBoard incluye tipos predeterminados (`feature`, `bug`, `tech_debt`, `ux`, etc.), el usuario es el dueño de su proyecto y flujo. Debe poder crear nuevos tipos personalizados (ej. `spike`, `research`, `design`, `meeting`, `infra`), editar los existentes (nombre, color semántico, icono) o eliminar los que no utilice.
-2. **Editor de Tipos en Settings:** Incorporar en `SettingsView` una sección dedicada "Tipos de Tarjeta y Taxonomía" donde se listen los tipos actuales con acciones de edición inline, cambio de paleta cromática, asignación de icono de Lucide y botón "+ Nuevo Tipo".
-3. **Integración Universal:** Los nuevos tipos creados deben poblarse automáticamente en los modales de creación y edición (`ItemModal.tsx`), filtros de búsqueda (`FilterBar.tsx`) y badges de las tarjetas (`ItemCard.tsx`).
-4. **Persistencia Local:** Almacenamiento directo en `.devboard/config.json` bajo `config.customItemTypes`.
-
-**Criterios de Aceptación:**
-- [ ] #1 Sección 'Tipos de Tarjeta' en SettingsView con gestión CRUD completa (crear, editar, eliminar)
-- [ ] #2 Formulario de configuración de tipo: identificador clave, nombre legible, color semántico e icono
-- [ ] #3 Los tipos personalizados se reflejan automáticamente en los selectores de ItemModal y FilterBar
-- [ ] #4 Los badges de ItemCard renderizan adecuadamente el color e icono del tipo personalizado
-- [ ] #5 Persistencia automática y aislada en .devboard/config.json sin romper esquemas preexistentes
 
 ---
 
@@ -218,68 +285,7 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-#### [DEV-068] Fix: devboard_list_tasks — Filtro por Sprint Retorna Todos los Tasks
-- **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: Sprint 4
-
-El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por sprint: retorna todos los tasks del proyecto. Esto genera confusión en auditorías de sprint y obliga al agente a filtrar manualmente el JSON.
-
-**Root cause posible:** El campo `sprint` en el frontmatter Markdown puede estar bajo nombres alternativos (`targetSprint`, `milestone`) que el parser no mapea al filtro `sprint` de la API.
-
-**Fix esperado:** El filtro `sprint` en `devboard_list_tasks` debe matchear los campos `sprint`, `targetSprint`, y el frontmatter `sprint:` del archivo Markdown.
-
-**Criterios de Aceptación:**
-- [ ] #1 devboard_list_tasks con { sprint: 'Sprint 3' } retorna solo tasks cuyo frontmatter contiene sprint: Sprint 3
-- [ ] #2 El filtro también matchea el campo targetSprint cuando coincide con el valor buscado
-- [ ] #3 Test con proyecto dev-board: filtrar por Sprint 3 retorna exactamente DEV-047, DEV-049, DEV-051, DEV-052, DEV-053, DEV-055, DEV-067 y nada más
-- [ ] #4 Documentar el filtro corregido en el schema MCP
-- [ ] #5 La corrección es backwards-compatible con el CLI devboard list
-
----
-
-#### [DEV-069] Fix: devboard_update_task — Ignorar status dentro del objeto updates silenciosamente
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: Sprint 4
-
-Cuando se pasa `{ "taskId": "DEV-001", "updates": { "status": "ready" } }`, el servidor MCP ignora el campo `status` dentro de `updates` sin retornar error. El task mantiene su estado anterior.
-
-Esto genera un bug silencioso muy difícil de detectar: el agente cree que actualizó el status, pero el archivo Markdown no cambia.
-
-**Fix esperado:** El servidor MCP debe aceptar `status` tanto como campo top-level como dentro de `updates`, O retornar un error claro indicando que `status` no es válido dentro de `updates` para evitar la confusión.
-
-**Criterios de Aceptación:**
-- [ ] #1 devboard_update_task acepta status dentro de updates Y lo aplica correctamente
-- [ ] #2 O bien: devboard_update_task retorna un warning/error cuando se detecta status dentro de updates (para que el agente pueda corregirlo)
-- [ ] #3 Documentar claramente en el schema MCP el campo correcto para cambiar status
-- [ ] #4 Añadir test unitario que valide ambas formas de pasar el status
-
----
-
-#### [DEV-070] Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado
-- **Prioridad**: `medium` | **Tipo**: `feature`
-
-Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
-
-**Motivación:** Las retros manuales al final de cada sprint son valiosas pero se omiten cuando el sprint se cierra rápidamente. Se necesita un mecanismo que las haga obligatorias y estructuradas.
-
-**Funcionalidad esperada:**
-1. Al marcar el último item de un sprint como `ready` o al ejecutar 'Completar Sprint', DevBoard muestra un prompt de retro.
-2. El template de retro incluye las 4 dimensiones: Problemas, Eficiencia, Fortalezas, Acciones.
-3. Las acciones concretas de la retro se convierten automáticamente en nuevas tareas del backlog.
-4. La retro queda guardada como archivo en `backlog/retros/sprint-N-retro.md`.
-5. El MCP expone `devboard_create_retro` y `devboard_list_retros`.
-
-**Criterios de Aceptación:**
-- [ ] #1 Al completar un sprint, CompleteSprintModal incluye paso de retro opcional pero promovido
-- [ ] #2 Template de retro con secciones: ¿Qué salió bien?, ¿Qué mejorar?, ¿Qué cambiar?, Acciones concretas
-- [ ] #3 Las acciones se pueden convertir en tasks con un click (Create Task from Action)
-- [ ] #4 La retro se persiste en backlog/retros/ como archivo Markdown estándar
-- [ ] #5 devboard_list_retros MCP tool lista las retros guardadas con resumen
-- [ ] #6 La retro aparece en el timeline de la Release Notes si el sprint tiene release asociado
-
----
-
-### ✅ Done / Deployed (55)
+### ✅ Done / Deployed (57)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1250,5 +1256,33 @@ En instalaciones multi-proyecto, los sprints registrados en otros proyectos (ej.
 - [x] #3 Pasar projectSprints y availableSprints contextuales a SprintView, KanbanBoard y selectores de modal
 - [x] #4 En handleDeleteSprint y mutaciones de sprints, enviar el projectId específico del sprint para permitir su eliminación adecuada
 - [x] #5 Eliminar la fuga de sprints de proyectos foráneos en la vista Sprint & Priorización
+
+---
+
+#### [DEV-072] Integración de CodeGraph MCP, Codegraph Studio y Guía de Arquitectura de Código
+- **Prioridad**: `high` | **Tipo**: `tech_debt`
+- **Sprint / Milestone**: Sprint 4
+
+Integración de la extensión CodeGraph MCP (Andrey Gavrilov) y Codegraph Studio en el entorno de desarrollo para agilizar el análisis semántico de código, reducir consumo de tokens y prevenir regresiones antes del Sprint 4. Incluye la documentación canónica de arquitectura y reglas de navegación para agentes.
+
+**Criterios de Aceptación:**
+- [x] #1 Configurar el servidor CodeGraph MCP en mcp_config.json apuntando a http://localhost:6010/mcp
+- [x] #2 Crear docs/ARCHITECTURE.md con la topología integral del proyecto (Vite backend, Vistas React, Storage y MCP)
+- [x] #3 Crear regla en .agents/rules/codebase-navigation.md para guiar la navegación de agentes con CodeGraph y el mapa arquitectónico
+- [x] #4 Verificar que los tipos y el build continúen pasando sin regresiones
+
+---
+
+#### [DEV-073] Documentación técnica de CodeGraph MCP y refinamiento de skills de ingeniería
+- **Prioridad**: `medium` | **Tipo**: `tech_debt`
+- **Sprint / Milestone**: Sprint 4
+
+Refinar la documentación y skills de DevBoard incorporando las herramientas de CodeGraph MCP, sus comandos de consulta semántica, el gotcha de activación del Language Server de TypeScript y la estrategia de fallback con docs/ARCHITECTURE.md.
+
+**Criterios de Aceptación:**
+- [x] #1 Documentar el servidor CodeGraph MCP y su gotcha de activación en AGENTS.md
+- [x] #2 Actualizar la regla .agents/rules/codebase-navigation.md con el protocolo de fallback inteligente
+- [x] #3 Actualizar el skill .agents/skills/principal-engineer/SKILL.md con las directivas de análisis semántico e impacto antes de refactors
+- [x] #4 Validar compilación tsc y sincronización de backlog
 
 ---

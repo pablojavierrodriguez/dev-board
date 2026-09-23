@@ -122,8 +122,59 @@ function getSafeInitialBrowseDir(): string {
 }
 
 function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
+  let reg: { activeProjectId: string; projects: ProjectMeta[] };
   if (!fs.existsSync(REGISTRY_FILE)) {
-    const defaultRegistry = {
+    reg = {
+      activeProjectId: '',
+      projects: []
+    };
+  } else {
+    try {
+      reg = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+    } catch {
+      reg = { activeProjectId: '', projects: [] };
+    }
+  }
+
+  // DEV-040: Auto-discover local repo if running inside a repo with .devboard/ or backlog/
+  const cwd = process.cwd();
+  const hasLocalDevboard = fs.existsSync(path.join(cwd, '.devboard')) || fs.existsSync(path.join(cwd, 'backlog'));
+  if (hasLocalDevboard) {
+    const cwdResolved = path.resolve(cwd);
+    const existingLocal = reg.projects.find(p => p.repoPath && path.resolve(p.repoPath) === cwdResolved);
+    if (!existingLocal) {
+      const detected = detectProjectStorage(cwdResolved);
+      const pkgJsonPath = path.join(cwdResolved, 'package.json');
+      let localName = path.basename(cwdResolved);
+      if (fs.existsSync(pkgJsonPath)) {
+        try {
+          const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+          if (pkg.name) localName = pkg.name;
+        } catch {}
+      }
+      const localId = localName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+      const localProject: ProjectMeta = {
+        id: localId,
+        name: localName,
+        codePrefix: localName.substring(0, 4).toUpperCase(),
+        repoPath: cwdResolved,
+        storageType: detected.storageType,
+        backlogDir: detected.backlogDir || 'backlog',
+        createdAt: new Date().toISOString()
+      };
+      reg.projects.unshift(localProject);
+      if (!reg.activeProjectId || reg.projects.length === 1) {
+        reg.activeProjectId = localId;
+      }
+    } else {
+      if (!reg.activeProjectId) {
+        reg.activeProjectId = existingLocal.id;
+      }
+    }
+  }
+
+  if (reg.projects.length === 0) {
+    reg = {
       activeProjectId: 'demo',
       projects: [
         {
@@ -137,13 +188,8 @@ function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
         }
       ]
     };
-    if (!fs.existsSync(path.dirname(REGISTRY_FILE))) {
-      fs.mkdirSync(path.dirname(REGISTRY_FILE), { recursive: true });
-    }
-    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(defaultRegistry, null, 2), 'utf8');
-    return defaultRegistry;
   }
-  const reg = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
+
   // Ensure storageType is populated
   reg.projects = reg.projects.map((p: ProjectMeta) => {
     if (!p.storageType && p.repoPath) {
@@ -186,7 +232,7 @@ function getConfigFilepath(project?: ProjectMeta): string {
   if (project?.repoPath) {
     return path.join(project.repoPath, '.devboard/config.json');
   }
-  return path.resolve(__dirname, '.devboard/config.json');
+  return path.resolve(process.cwd(), '.devboard/config.json');
 }
 
 const DEFAULT_CONFIG = {
@@ -363,6 +409,13 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
             targetSprint: sprintVal,
             targetRelease: releaseVal,
             milestone: task.milestone || releaseVal || sprintVal,
+            parentId: task.parentId || rawFm.parent || rawFm.parentId || undefined,
+            blocks: task.blocks || (rawFm.blocks ? (Array.isArray(rawFm.blocks) ? rawFm.blocks : [rawFm.blocks]) : []),
+            blockedBy: task.blockedBy || (rawFm.blocked_by ? (Array.isArray(rawFm.blocked_by) ? rawFm.blocked_by : [rawFm.blocked_by]) : []),
+            relatedTo: task.relatedTo || (rawFm.related_to ? (Array.isArray(rawFm.related_to) ? rawFm.related_to : [rawFm.related_to]) : []),
+            dependencies: task.dependencies || [],
+            sprints: task.sprints && task.sprints.length > 0 ? task.sprints : (sprintVal ? [sprintVal] : []),
+            releases: task.releases && task.releases.length > 0 ? task.releases : (releaseVal ? [releaseVal] : []),
             impactedFile: rawFm.impactedFile || undefined,
             risk: rawFm.risk || undefined,
             fix: rawFm.fix || undefined,
@@ -594,6 +647,12 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
     assignees: item.assignees || existingTask.assignees || [],
     labels: item.labels || existingTask.labels || [],
     dependencies: item.dependencies || existingTask.dependencies || [],
+    parentId: item.parentId !== undefined ? item.parentId : existingTask.parentId,
+    blocks: item.blocks !== undefined ? item.blocks : existingTask.blocks,
+    blockedBy: item.blockedBy !== undefined ? item.blockedBy : existingTask.blockedBy,
+    relatedTo: item.relatedTo !== undefined ? item.relatedTo : existingTask.relatedTo,
+    sprints: item.sprints !== undefined ? item.sprints : existingTask.sprints,
+    releases: item.releases !== undefined ? item.releases : existingTask.releases,
     milestone: item.release || item.targetRelease || item.milestone || existingTask.milestone,
     createdDate: item.createdAt || existingTask.createdDate,
     updatedDate: item.updatedAt || new Date().toISOString(),
@@ -969,9 +1028,13 @@ function devBoardApi(): PluginOption {
                 allSprints.push(...(backlog.sprints || []));
               }
 
+              const isMultiMode = process.env.DEVBOARD_MODE === 'multi';
+              const isSingleMode = process.env.DEVBOARD_MODE === 'single' || (!isMultiMode && resolvedProjects.length <= 1);
+
               return sendJson(200, {
                 projects: resolvedProjects,
                 activeProjectId: registry.activeProjectId,
+                singleProject: isSingleMode,
                 items: allItems,
                 releases: allReleases,
                 sprints: allSprints,
@@ -1806,10 +1869,76 @@ function devBoardApi(): PluginOption {
                 });
               }
 
+              // DEV-070: Guardar retro en backlog/retros/ si se incluyó en la llamada
+              if (body.retro) {
+                try {
+                  const retrosDir = path.join(project.repoPath || '', project.backlogDir || 'backlog', 'retros');
+                  if (!fs.existsSync(retrosDir)) {
+                    fs.mkdirSync(retrosDir, { recursive: true });
+                  }
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const sprintKey = String(updatedSprint.id || newName).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+                  const retroFile = path.join(retrosDir, `${sprintKey}-retro.md`);
+                  const r = body.retro;
+                  const md = `# Retrospectiva — ${newName}
+
+**Fecha:** ${todayStr}  
+**Sprint:** ${newName}  
+**Proyecto:** ${project.name}
+
+---
+
+## 🟢 Fortalezas (¿Qué funcionó bien y debe repetirse?)
+${r.whatWentWell ? r.whatWentWell.trim() : 'No se registraron comentarios específicos.'}
+
+## 🔴 Problemas (¿Qué falló, se rompió o tomó más tiempo del esperado?)
+${r.whatWentWrong ? r.whatWentWrong.trim() : 'No se registraron incidentes críticos.'}
+
+## 🟡 Eficiencia (¿Qué podría haberse hecho en menos pasos o con menos tokens?)
+${r.whatToImprove ? r.whatToImprove.trim() : 'Flujo eficiente y directo.'}
+
+## 📌 Acciones Concretas (Compromisos y Mejoras)
+${Array.isArray(r.actions) && r.actions.length > 0 
+  ? r.actions.map((act: string) => `- [ ] ${act}`).join('\n') 
+  : '- [ ] Continuar aplicando las buenas prácticas establecidas.'}
+`;
+                  fs.writeFileSync(retroFile, md, 'utf8');
+                } catch (e: any) {
+                  console.warn('[Retro Save Error]', e.message);
+                }
+              }
+
               writeProjectBacklog(project, backlog);
               broadcastSse('backlog_changed', { projectId: project.id, action: 'sprint_updated', sprintId: updatedSprint.id, timestamp: Date.now() });
 
               return sendJson(200, { ok: true, sprint: updatedSprint });
+            }
+
+            // GET /api/retros (DEV-070)
+            if (req.method === 'GET' && url.startsWith('/api/retros')) {
+              const urlObj = new URL(url, 'http://localhost');
+              const projectId = urlObj.searchParams.get('projectId');
+              const project = registry.projects.find(p => p.id === projectId) 
+                || registry.projects.find(p => p.id === registry.activeProjectId)
+                || registry.projects[0];
+              if (!project) return sendJson(400, { error: 'Project not found' });
+              const retrosDir = path.join(project.repoPath || '', project.backlogDir || 'backlog', 'retros');
+              if (!fs.existsSync(retrosDir)) return sendJson(200, { retros: [] });
+              const files = fs.readdirSync(retrosDir).filter(f => f.endsWith('.md'));
+              const retros = files.map(f => {
+                const full = path.join(retrosDir, f);
+                const raw = fs.readFileSync(full, 'utf8');
+                const titleMatch = raw.match(/^#\s+(.+)$/m);
+                const dateMatch = raw.match(/\*\*Fecha:\*\*\s*([^\n]+)/);
+                return {
+                  file: f,
+                  sprintId: f.replace(/-retro\.md$/, ''),
+                  title: titleMatch ? titleMatch[1].trim() : f,
+                  date: dateMatch ? dateMatch[1].trim() : '',
+                  content: raw
+                };
+              });
+              return sendJson(200, { retros });
             }
 
             // DELETE /api/sprints/:id

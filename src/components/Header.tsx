@@ -44,6 +44,7 @@ interface HeaderProps {
   onOpenImportWizard?: () => void;
   liveConnected?: boolean;
   config?: DevBoardConfig;
+  singleProject?: boolean;
 }
 
 export const Header: FC<HeaderProps> = ({
@@ -65,7 +66,8 @@ export const Header: FC<HeaderProps> = ({
   onConvertToJson,
   onOpenImportWizard,
   liveConnected = false,
-  config
+  config,
+  singleProject = false
 }) => {
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -132,7 +134,27 @@ export const Header: FC<HeaderProps> = ({
 
             <div className="h-4 w-px bg-slate-200 dark:bg-white/10 hidden sm:block" />
 
-            {/* Project Dropdown */}
+            {/* Project Indicator (Single-Project Mode) or Dropdown (Multi-Project) */}
+            {singleProject ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs font-medium text-slate-700 dark:text-slate-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <span className="font-semibold text-slate-800 dark:text-slate-100 max-w-[170px] truncate">
+                  {currentProject?.name || currentProjectName}
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                  Local
+                </span>
+                {currentProject && !currentProject.isDemo && (
+                  <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono uppercase font-semibold ${
+                    currentProject.storageType === 'markdown'
+                      ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {currentProject.storageType === 'markdown' ? 'Markdown' : 'JSON'}
+                  </span>
+                )}
+              </div>
+            ) : (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setProjectMenuOpen(!projectMenuOpen)}
@@ -297,6 +319,7 @@ export const Header: FC<HeaderProps> = ({
                 </div>
               )}
             </div>
+          )}
           </div>
 
           {/* Center: Navigation Tabs */}
@@ -501,16 +524,18 @@ export const Header: FC<HeaderProps> = ({
                   <span>Crear Nuevo Ítem</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onNewProject();
-                  }}
-                  className="w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
-                >
-                  <FolderPlus className="w-4 h-4 text-emerald-500" />
-                  <span>Nuevo Proyecto</span>
-                </button>
+                {!singleProject && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onNewProject();
+                    }}
+                    className="w-full min-h-[44px] flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+                  >
+                    <FolderPlus className="w-4 h-4 text-emerald-500" />
+                    <span>Nuevo Proyecto</span>
+                  </button>
+                )}
 
                 {currentProject?.hasDocs && (
                   <button
@@ -526,7 +551,7 @@ export const Header: FC<HeaderProps> = ({
                   </button>
                 )}
 
-                {onOpenImportWizard && (
+                {!singleProject && onOpenImportWizard && (
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);

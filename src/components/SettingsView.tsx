@@ -22,10 +22,15 @@ import {
   Code,
   Plus,
   X,
-  Layers
+  Layers,
+  Tag,
+  Trash2,
+  Edit2,
+  Check
 } from 'lucide-react';
-import type { DevBoardConfig, ColumnConfig, Project, ItemStatus, ProjectMethodology } from '../types';
+import type { DevBoardConfig, ColumnConfig, Project, ItemStatus, ProjectMethodology, CustomItemTypeConfig } from '../types';
 import { EXPANDED_COLUMNS, SIMPLIFIED_BASE_COLUMNS } from './KanbanBoard';
+import { getIconByName } from './ItemCard';
 
 export const ALL_ITEM_STATUSES: { id: ItemStatus; label: string; desc: string }[] = [
   { id: 'draft', label: 'Draft', desc: 'Backlog inicial' },
@@ -42,7 +47,79 @@ export const ALL_ITEM_STATUSES: { id: ItemStatus; label: string; desc: string }[
   { id: 'cancelled', label: 'Cancelado', desc: 'Cancelado' }
 ];
 
-export type SettingsTabId = 'views' | 'kanban' | 'visual' | 'tools' | 'advanced';
+export const ITEM_TYPE_COLOR_PRESETS = [
+  { 
+    id: 'violet', 
+    name: 'Violeta (Púrpura)', 
+    color: 'text-violet-500 dark:text-violet-400', 
+    badge: 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20 text-violet-600 dark:text-violet-300', 
+    dotColor: 'bg-violet-500' 
+  },
+  { 
+    id: 'rose', 
+    name: 'Rojo (Carmesí)', 
+    color: 'text-rose-500 dark:text-rose-400', 
+    badge: 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-300', 
+    dotColor: 'bg-rose-500' 
+  },
+  { 
+    id: 'amber', 
+    name: 'Ámbar (Naranja Cálido)', 
+    color: 'text-amber-500 dark:text-amber-400', 
+    badge: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300', 
+    dotColor: 'bg-amber-500' 
+  },
+  { 
+    id: 'emerald', 
+    name: 'Esmeralda (Verde)', 
+    color: 'text-emerald-500 dark:text-emerald-400', 
+    badge: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300', 
+    dotColor: 'bg-emerald-500' 
+  },
+  { 
+    id: 'indigo', 
+    name: 'Índigo (Azul Marino)', 
+    color: 'text-indigo-500 dark:text-indigo-400', 
+    badge: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-300', 
+    dotColor: 'bg-indigo-500' 
+  },
+  { 
+    id: 'cyan', 
+    name: 'Cian (Celeste Eléctrico)', 
+    color: 'text-cyan-500 dark:text-cyan-400', 
+    badge: 'bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/20 text-cyan-600 dark:text-cyan-300', 
+    dotColor: 'bg-cyan-500' 
+  },
+  { 
+    id: 'pink', 
+    name: 'Rosa (Fucsia)', 
+    color: 'text-pink-500 dark:text-pink-400', 
+    badge: 'bg-pink-50 dark:bg-pink-500/10 border-pink-200 dark:border-pink-500/20 text-pink-600 dark:text-pink-300', 
+    dotColor: 'bg-pink-500' 
+  },
+  { 
+    id: 'teal', 
+    name: 'Teal (Turquesa)', 
+    color: 'text-teal-500 dark:text-teal-400', 
+    badge: 'bg-teal-50 dark:bg-teal-500/10 border-teal-200 dark:border-teal-500/20 text-teal-600 dark:text-teal-300', 
+    dotColor: 'bg-teal-500' 
+  },
+  { 
+    id: 'orange', 
+    name: 'Naranja (Fuego)', 
+    color: 'text-orange-500 dark:text-orange-400', 
+    badge: 'bg-orange-50 dark:bg-orange-500/10 border-orange-200 dark:border-orange-500/20 text-orange-600 dark:text-orange-300', 
+    dotColor: 'bg-orange-500' 
+  },
+];
+
+export const AVAILABLE_CUSTOM_ICONS = [
+  'Sparkles', 'Flame', 'Zap', 'Search', 'Clock', 'Target', 
+  'FileCode', 'Shield', 'Activity', 'Award', 'Box', 'Cpu', 
+  'Feather', 'GitBranch', 'Terminal', 'Tag', 'Star', 'Bookmark', 'Layers'
+];
+
+export type SettingsTabId = 'views' | 'kanban' | 'taxonomy' | 'visual' | 'tools' | 'advanced';
 
 interface SettingsViewProps {
   config: DevBoardConfig;
@@ -96,6 +173,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   });
   const [wipLimits, setWipLimits] = useState<Record<string, number>>(config.kanban?.wipLimits || {});
 
+  // Custom Item Types state (DEV-059)
+  const [customItemTypes, setCustomItemTypes] = useState<CustomItemTypeConfig[]>(() => {
+    if (config.customItemTypes && config.customItemTypes.length > 0) {
+      return JSON.parse(JSON.stringify(config.customItemTypes));
+    }
+    return [];
+  });
+
+  // State for adding/editing a custom card type
+  const [editingTypeKey, setEditingTypeKey] = useState<string | null>(null);
+  const [typeFormKey, setTypeFormKey] = useState('');
+  const [typeFormLabel, setTypeFormLabel] = useState('');
+  const [typeFormColorPreset, setTypeFormColorPreset] = useState('indigo');
+  const [typeFormIcon, setTypeFormIcon] = useState('Sparkles');
+  const [typeFormDescription, setTypeFormDescription] = useState('');
+
   // Raw JSON state
   const [rawJson, setRawJson] = useState<string>('');
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -129,6 +222,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setCustomSimplifiedColumns(JSON.parse(JSON.stringify(SIMPLIFIED_BASE_COLUMNS)));
     }
     setWipLimits(config.kanban?.wipLimits || {});
+    if (config.customItemTypes && config.customItemTypes.length > 0) {
+      setCustomItemTypes(JSON.parse(JSON.stringify(config.customItemTypes)));
+    } else {
+      setCustomItemTypes([]);
+    }
     setRawJson(JSON.stringify(config, null, 2));
     setJsonError(null);
   }, [config]);
@@ -165,6 +263,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       },
       autoSave,
       rankingEnabled,
+      customItemTypes,
       kanban: {
         ...config.kanban,
         columns: customColumns,
@@ -174,7 +273,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         wipLimits
       }
     };
-  }, [config, theme, density, methodology, defaultView, enabledTabs, autoSave, rankingEnabled, customColumns, customSimplifiedColumns, showIdeasByDefault, showDoneHistoryByDefault, wipLimits]);
+  }, [config, theme, density, methodology, defaultView, enabledTabs, autoSave, rankingEnabled, customItemTypes, customColumns, customSimplifiedColumns, showIdeasByDefault, showDoneHistoryByDefault, wipLimits]);
 
   // Check if modified (dirty state)
   const isDirty = useMemo(() => {
@@ -184,6 +283,126 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       return false;
     }
   }, [builtConfig, config]);
+
+  // DEV-074: Reset local settings state to original config from disk
+  const handleResetChanges = () => {
+    const initialMethodology = config.methodology || 'scrumban';
+    setTheme(config.theme || 'system');
+    setDensity(config.density || 'comfortable');
+    setMethodology(initialMethodology);
+    setDefaultView(config.defaultView || (initialMethodology === 'scrum' ? 'sprint' : 'kanban'));
+    setEnabledTabs({
+      kanban: config.enabledTabs?.kanban !== undefined ? config.enabledTabs.kanban : initialMethodology !== 'scrum',
+      sprint: config.enabledTabs?.sprint !== undefined ? config.enabledTabs.sprint : initialMethodology !== 'kanban',
+      release: config.enabledTabs?.release !== false
+    });
+    setAutoSave(config.autoSave ?? true);
+    setRankingEnabled(config.rankingEnabled !== false);
+    setShowIdeasByDefault(config.kanban?.showIdeasByDefault ?? false);
+    setShowDoneHistoryByDefault(config.kanban?.showDoneHistoryByDefault ?? false);
+    if (config.kanban?.columns && config.kanban.columns.length > 0) {
+      setCustomColumns(JSON.parse(JSON.stringify(config.kanban.columns)));
+    } else {
+      setCustomColumns(JSON.parse(JSON.stringify(EXPANDED_COLUMNS)));
+    }
+    if (config.kanban?.simplifiedColumns && config.kanban.simplifiedColumns.length > 0) {
+      setCustomSimplifiedColumns(JSON.parse(JSON.stringify(config.kanban.simplifiedColumns)));
+    } else {
+      setCustomSimplifiedColumns(JSON.parse(JSON.stringify(SIMPLIFIED_BASE_COLUMNS)));
+    }
+    setWipLimits(config.kanban?.wipLimits || {});
+    if (config.customItemTypes && config.customItemTypes.length > 0) {
+      setCustomItemTypes(JSON.parse(JSON.stringify(config.customItemTypes)));
+    } else {
+      setCustomItemTypes([]);
+    }
+    setRawJson(JSON.stringify(config, null, 2));
+    setJsonError(null);
+    setEditingTypeKey(null);
+    setTypeFormKey('');
+    setTypeFormLabel('');
+    setTypeFormColorPreset('indigo');
+    setTypeFormIcon('Sparkles');
+    setTypeFormDescription('');
+    onShowToast?.('Cambios descartados. Se restableció la configuración guardada.', 'info');
+  };
+
+  // DEV-059: Taxonomy & Custom Card Types CRUD handlers
+  const handleAddOrUpdateType = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanKey = typeFormKey.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    if (!cleanKey) {
+      onShowToast?.('Por favor ingresa una clave identificadora válida para el tipo', 'error');
+      return;
+    }
+    if (!typeFormLabel.trim()) {
+      onShowToast?.('Por favor ingresa un nombre legible para el tipo', 'error');
+      return;
+    }
+    const systemKeys = ['bug', 'feature', 'tech_debt', 'ux', 'epic', 'initiative'];
+    if (systemKeys.includes(cleanKey)) {
+      onShowToast?.(`La clave '${cleanKey}' está reservada por el sistema. Usa otro identificador.`, 'error');
+      return;
+    }
+    if (editingTypeKey !== cleanKey && customItemTypes.some(t => t.key === cleanKey)) {
+      onShowToast?.(`Ya existe un tipo de tarjeta con la clave '${cleanKey}'.`, 'error');
+      return;
+    }
+
+    const preset = ITEM_TYPE_COLOR_PRESETS.find(p => p.id === typeFormColorPreset) || ITEM_TYPE_COLOR_PRESETS[0];
+
+    const typeConfigItem: CustomItemTypeConfig = {
+      key: cleanKey,
+      label: typeFormLabel.trim(),
+      color: preset.color,
+      badge: preset.badge,
+      dotColor: preset.dotColor,
+      iconName: typeFormIcon,
+      description: typeFormDescription.trim() || undefined
+    };
+
+    if (editingTypeKey) {
+      setCustomItemTypes(prev => prev.map(t => t.key === editingTypeKey ? typeConfigItem : t));
+      onShowToast?.(`Tipo de tarjeta '${typeConfigItem.label}' actualizado con éxito`, 'success');
+      setEditingTypeKey(null);
+    } else {
+      setCustomItemTypes(prev => [...prev, typeConfigItem]);
+      onShowToast?.(`Tipo de tarjeta '${typeConfigItem.label}' creado con éxito`, 'success');
+    }
+
+    setTypeFormKey('');
+    setTypeFormLabel('');
+    setTypeFormColorPreset('indigo');
+    setTypeFormIcon('Sparkles');
+    setTypeFormDescription('');
+  };
+
+  const handleStartEditType = (typeItem: CustomItemTypeConfig) => {
+    setEditingTypeKey(typeItem.key);
+    setTypeFormKey(typeItem.key);
+    setTypeFormLabel(typeItem.label);
+    const matchedPreset = ITEM_TYPE_COLOR_PRESETS.find(p => p.color === typeItem.color) || ITEM_TYPE_COLOR_PRESETS[0];
+    setTypeFormColorPreset(matchedPreset.id);
+    setTypeFormIcon(typeItem.iconName || 'Sparkles');
+    setTypeFormDescription(typeItem.description || '');
+  };
+
+  const handleCancelEditType = () => {
+    setEditingTypeKey(null);
+    setTypeFormKey('');
+    setTypeFormLabel('');
+    setTypeFormColorPreset('indigo');
+    setTypeFormIcon('Sparkles');
+    setTypeFormDescription('');
+  };
+
+  const handleDeleteType = (key: string) => {
+    setCustomItemTypes(prev => prev.filter(t => t.key !== key));
+    if (editingTypeKey === key) {
+      handleCancelEditType();
+    }
+    onShowToast?.('Tipo de tarjeta eliminado', 'info');
+  };
 
   // When switching to Advanced tab, refresh JSON
   const handleTabChange = (tab: SettingsTabId) => {
@@ -367,6 +586,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </span>
           )}
 
+          {/* DEV-074: Botón Deshacer Cambios */}
+          {isDirty && (
+            <button
+              type="button"
+              onClick={handleResetChanges}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 transition-all active:scale-[0.98] shadow-xs"
+              title="Descartar cambios no guardados y restablecer configuración original"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Deshacer Cambios</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleSave}
@@ -432,6 +665,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div>
               <div className="text-xs font-semibold">Tablero Kanban</div>
               <div className="text-[11px] text-slate-500">Columnas, orden y límites WIP</div>
+            </div>
+          </button>
+
+          {/* DEV-059: Tab Tipos de Tarjeta y Taxonomía */}
+          <button
+            type="button"
+            onClick={() => handleTabChange('taxonomy')}
+            className={`w-full flex items-start gap-3 p-3 rounded-xl text-left transition-all ${
+              activeTab === 'taxonomy'
+                ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shadow-xs font-medium'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white border border-transparent'
+            }`}
+          >
+            <Tag className={`w-4 h-4 mt-0.5 shrink-0 ${activeTab === 'taxonomy' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
+            <div>
+              <div className="text-xs font-semibold">Tipos de Tarjeta</div>
+              <div className="text-[11px] text-slate-500">Taxonomía y flujos personalizados</div>
             </div>
           </button>
 
@@ -1029,6 +1279,317 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: TIPOS DE TARJETA & TAXONOMÍA (DEV-059) */}
+          {activeTab === 'taxonomy' && (
+            <div className="space-y-8 animate-fade-in">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-indigo-500" />
+                  <span>Tipos de Tarjeta y Taxonomía del Proyecto</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Soberanía administrativa: personaliza la taxonomía de cards según las necesidades de tu equipo. Crea nuevos tipos (ej. Spike, Infraestructura, Research), configura paletas cromáticas e iconos semánticos.
+                </p>
+              </div>
+
+              {/* Sección 1: Tipos del Sistema (Nativos) */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Tipos Estándar del Sistema
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Taxonomía base predeterminada por DevBoard. Siempre disponibles en tus filtros y flujos.
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.08]">
+                    6 tipos base
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[
+                    { key: 'feature', label: 'Feature', desc: 'Nueva funcionalidad o entrega de valor', icon: '🚀', badge: 'bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20 text-violet-600 dark:text-violet-300' },
+                    { key: 'bug', label: 'Bug', desc: 'Defecto, error o comportamiento anómalo', icon: '🐛', badge: 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-300' },
+                    { key: 'tech_debt', label: 'Tech Debt', desc: 'Refactor, optimización o mantenimiento', icon: '🛠️', badge: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300' },
+                    { key: 'ux', label: 'UX/UI', desc: 'Diseño visual, prototipado y accesibilidad', icon: '🎨', badge: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300' },
+                    { key: 'epic', label: 'Epic', desc: 'Gran iniciativa que agrupa historias y tareas', icon: '📚', badge: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-300' },
+                    { key: 'initiative', label: 'Initiative', desc: 'Objetivo estratégico o hito de alto nivel', icon: '⚡', badge: 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-300' },
+                  ].map((sys) => (
+                    <div key={sys.key} className="p-3 rounded-xl border border-slate-200/80 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.01] flex items-start gap-3">
+                      <div className="text-xl shrink-0 mt-0.5">{sys.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${sys.badge}`}>
+                            {sys.label}
+                          </span>
+                          <span className="font-mono text-[10px] text-slate-400">({sys.key})</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 leading-tight">
+                          {sys.desc}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sección 2: Tipos Personalizados */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Tipos Personalizados de tu Proyecto ({customItemTypes.length})
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Tipos definidos a medida. Se integran automáticamente en selectores de creación, filtros y badges Kanban.
+                    </p>
+                  </div>
+                </div>
+
+                {customItemTypes.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-slate-200 dark:border-white/10 text-center space-y-1">
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      No hay tipos personalizados configurados aún.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Usa el formulario a continuación para crear tu primer tipo personalizado (ej. <code className="text-indigo-500">spike</code>, <code className="text-indigo-500">infra</code>, <code className="text-indigo-500">research</code>).
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {customItemTypes.map((itemType) => {
+                      const IconComp = getIconByName(itemType.iconName);
+                      const isEditingThis = editingTypeKey === itemType.key;
+                      return (
+                        <div
+                          key={itemType.key}
+                          className={`p-3.5 rounded-xl border transition-all ${
+                            isEditingThis
+                              ? 'border-indigo-500 bg-indigo-500/5 ring-2 ring-indigo-500/20'
+                              : 'border-slate-200 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.01] hover:border-slate-300 dark:hover:border-white/15'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="p-2 rounded-lg bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 shrink-0">
+                                <IconComp className={`w-4 h-4 ${itemType.color}`} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${itemType.badge}`}>
+                                    <IconComp className="w-3 h-3" />
+                                    <span>{itemType.label}</span>
+                                  </span>
+                                  <span className="font-mono text-[10px] text-slate-400">
+                                    clave: <span className="text-slate-600 dark:text-slate-300 font-semibold">{itemType.key}</span>
+                                  </span>
+                                </div>
+                                {itemType.description && (
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                                    {itemType.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditType(itemType)}
+                                title="Editar tipo"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-white/[0.08] transition-colors"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteType(itemType.key)}
+                                title="Eliminar tipo"
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Sección 3: Formulario Crear / Editar Tipo */}
+              <div className="p-5 rounded-2xl bg-white dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.08] shadow-xs space-y-5">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    {editingTypeKey ? <Edit2 className="w-4 h-4 text-indigo-500" /> : <Plus className="w-4 h-4 text-indigo-500" />}
+                    <span>{editingTypeKey ? `Editar Tipo '${typeFormLabel || editingTypeKey}'` : 'Crear Nuevo Tipo de Tarjeta'}</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Define la clave identificadora, nombre legible, paleta cromática semántica e icono visual.
+                  </p>
+                </div>
+
+                <form onSubmit={handleAddOrUpdateType} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Clave Identificadora */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Clave Identificadora (slug) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={typeFormKey}
+                        disabled={!!editingTypeKey}
+                        onChange={(e) => setTypeFormKey(e.target.value)}
+                        placeholder="ej. spike, infra, research"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 disabled:opacity-60 font-mono"
+                        required
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Identificador único en minúsculas (usado en metadatos y Markdown).
+                      </p>
+                    </div>
+
+                    {/* Nombre Legible */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Nombre Visible (Label) <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={typeFormLabel}
+                        onChange={(e) => setTypeFormLabel(e.target.value)}
+                        placeholder="ej. Spike Técnico, Infraestructura"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                        required
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Nombre mostrado en modales, badges y filtros.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Icono & Paleta de Color */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Selector de Icono */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Icono Semántico (Lucide)
+                      </label>
+                      <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5 p-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 max-h-32 overflow-y-auto">
+                        {AVAILABLE_CUSTOM_ICONS.map((iconName) => {
+                          const IconComp = getIconByName(iconName);
+                          const isSelected = typeFormIcon === iconName;
+                          return (
+                            <button
+                              key={iconName}
+                              type="button"
+                              onClick={() => setTypeFormIcon(iconName)}
+                              title={iconName}
+                              className={`p-2 rounded-lg flex items-center justify-center transition-all ${
+                                isSelected
+                                  ? 'bg-indigo-600 text-white shadow-xs scale-105'
+                                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10'
+                              }`}
+                            >
+                              <IconComp className="w-4 h-4" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Paleta de Color Preset */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Paleta Cromática Semántica
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {ITEM_TYPE_COLOR_PRESETS.map((preset) => {
+                          const isSelected = typeFormColorPreset === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => setTypeFormColorPreset(preset.id)}
+                              className={`px-2 py-1.5 rounded-lg border text-left text-[11px] font-medium transition-all flex items-center gap-1.5 ${
+                                isSelected
+                                  ? 'border-indigo-500 bg-indigo-500/10 font-bold ring-1 ring-indigo-500 text-indigo-900 dark:text-white shadow-2xs'
+                                  : 'border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/[0.04] text-slate-600 dark:text-slate-300'
+                              }`}
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full ${preset.dotColor}`} />
+                              <span className="truncate">{preset.name.split(' ')[0]}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Descripción Opcional */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Descripción o Propósito (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={typeFormDescription}
+                      onChange={(e) => setTypeFormDescription(e.target.value)}
+                      placeholder="Breve propósito de este tipo para guiar al equipo de desarrollo y a los agentes de IA..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  {/* Vista Previa en Vivo */}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/10 flex items-center justify-between gap-4">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      Vista previa del badge:
+                    </span>
+                    {(() => {
+                      const selPreset = ITEM_TYPE_COLOR_PRESETS.find(p => p.id === typeFormColorPreset) || ITEM_TYPE_COLOR_PRESETS[0];
+                      const PreviewIcon = getIconByName(typeFormIcon);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border ${selPreset.badge}`}>
+                            <PreviewIcon className="w-3.5 h-3.5" />
+                            <span>{typeFormLabel.trim() || 'Tipo de Muestra'}</span>
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            [{typeFormKey.trim() || 'slug'}]
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Botones de Acción */}
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    {editingTypeKey && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditType}
+                        className="px-4 py-2 rounded-xl text-xs font-medium border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all"
+                      >
+                        Cancelar Edición
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs transition-all active:scale-[0.98]"
+                    >
+                      {editingTypeKey ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                      <span>{editingTypeKey ? 'Actualizar Tipo' : 'Agregar Tipo al Proyecto'}</span>
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

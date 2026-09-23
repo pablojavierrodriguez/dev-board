@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { X, RotateCcw, Check, SlidersHorizontal } from 'lucide-react';
-import type { FilterState, ItemType, Priority, ItemStatus } from '../types';
+import type { FilterState, ItemType, Priority, ItemStatus, CustomItemTypeConfig } from '../types';
 
 interface AdvancedFiltersPopoverProps {
   filters: FilterState;
@@ -12,13 +12,16 @@ interface AdvancedFiltersPopoverProps {
   onClose: () => void;
   activeFiltersCount: number;
   onResetFilters: () => void;
+  customItemTypes?: CustomItemTypeConfig[];
 }
 
-const TYPE_OPTIONS: { id: ItemType; label: string; icon: string }[] = [
+const BASE_TYPE_OPTIONS: { id: ItemType; label: string; icon: string }[] = [
   { id: 'feature', label: 'Feature', icon: '🚀' },
   { id: 'bug', label: 'Bug', icon: '🐛' },
   { id: 'tech_debt', label: 'Tech Debt', icon: '🛠️' },
   { id: 'ux', label: 'UX', icon: '🎨' },
+  { id: 'epic', label: 'Epic', icon: '📚' },
+  { id: 'initiative', label: 'Initiative', icon: '⚡' },
 ];
 
 const PRIORITY_OPTIONS: { id: Priority; label: string; dot: string }[] = [
@@ -48,8 +51,18 @@ export const AdvancedFiltersPopover: React.FC<AdvancedFiltersPopoverProps> = ({
   onClose,
   activeFiltersCount,
   onResetFilters,
+  customItemTypes = [],
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
+
+  const typeOptions = [
+    ...BASE_TYPE_OPTIONS,
+    ...customItemTypes.map((c) => ({
+      id: c.key as ItemType,
+      label: c.label,
+      icon: '🏷️'
+    }))
+  ];
 
   // Close on Escape or click outside
   useEffect(() => {
@@ -239,7 +252,7 @@ export const AdvancedFiltersPopover: React.FC<AdvancedFiltersPopoverProps> = ({
           Tipo de Ítem
         </span>
         <div className="grid grid-cols-2 gap-1.5">
-          {TYPE_OPTIONS.map((t) => {
+          {typeOptions.map((t) => {
             const isSelected = selectedTypes.has(t.id);
             return (
               <button

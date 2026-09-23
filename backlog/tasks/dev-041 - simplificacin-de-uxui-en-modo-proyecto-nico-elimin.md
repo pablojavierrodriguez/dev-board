@@ -1,19 +1,18 @@
 ---
 id: DEV-041
 title: "Simplificación de UX/UI en Modo Proyecto Único (Eliminación de Ruido Multi-Proyecto)"
-status: Draft
+status: Ready
 created_date: '2026-09-18'
-updated_date: '2026-09-22 03:56'
+updated_date: '2026-09-23 17:14'
 labels: []
 dependencies: []
 priority: high
 type: ux
 milestone: "Sprint 4"
 sprint: "Sprint 4"
-order: 80
+order: "80"
 release: "Sprint 4"
 targetRelease: "Sprint 4"
-targetSprint: "Sprint 4"
 ---
 
 ## Description
@@ -25,11 +24,11 @@ Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Detectar modo monoproyecto (Single-Project Mode) cuando devboard se ejecuta apuntando a un único repositorio local
-- [ ] #2 Ocultar selector desplegable de proyectos en la cabecera cuando se ejecuta en modo monoproyecto
-- [ ] #3 Ocultar botones y modales de 'Añadir Proyecto' e 'Importar Proyecto' en la navegación principal en modo monoproyecto
-- [ ] #4 Mostrar en la cabecera el nombre del repositorio activo con un indicador sutil de estado local
-- [ ] #5 Reservar la interfaz multi-proyecto completa para cuando se invoque explícitamente con flag --hub o --multi
+- [x] #1 Detectar modo monoproyecto (Single-Project Mode) cuando devboard se ejecuta apuntando a un único repositorio local
+- [x] #2 Ocultar selector desplegable de proyectos en la cabecera cuando se ejecuta en modo monoproyecto
+- [x] #3 Ocultar botones y modales de 'Añadir Proyecto' e 'Importar Proyecto' en la navegación principal en modo monoproyecto
+- [x] #4 Mostrar en la cabecera el nombre del repositorio activo con un indicador sutil de estado local
+- [x] #5 Reservar la interfaz multi-proyecto completa para cuando se invoque explícitamente con flag --hub o --multi
 <!-- AC:END -->
 
 ## Implementation Plan

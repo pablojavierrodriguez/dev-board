@@ -13,9 +13,27 @@ import {
   Edit3,
   Bot,
   Layers,
-  Zap
+  Zap,
+  Flame,
+  Search,
+  CheckCircle2,
+  HelpCircle,
+  Clock,
+  Target,
+  FileCode,
+  Shield,
+  Activity,
+  Award,
+  Box,
+  Cpu,
+  Feather,
+  GitBranch,
+  Terminal,
+  Tag,
+  Star,
+  Bookmark
 } from 'lucide-react';
-import type { BacklogItem, ItemStatus, ItemType, Priority } from '../types';
+import type { BacklogItem, ItemStatus, Priority, CustomItemTypeConfig } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 interface ItemCardProps {
@@ -29,9 +47,42 @@ interface ItemCardProps {
   onShowToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
   // DEV-047: Progress rollup for epics/initiatives
   epicProgress?: { done: number; total: number };
+  customItemTypes?: CustomItemTypeConfig[];
 }
 
-export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ className?: string }>; color: string; badge: string }> = {
+export const LUCIDE_ICONS_MAP: Record<string, React.FC<{ className?: string }>> = {
+  Sparkles,
+  Bug,
+  Wrench,
+  Palette,
+  Layers,
+  Zap,
+  Flame,
+  Search,
+  CheckCircle2,
+  HelpCircle,
+  Clock,
+  Target,
+  FileCode,
+  Shield,
+  Activity,
+  Award,
+  Box,
+  Cpu,
+  Feather,
+  GitBranch,
+  Terminal,
+  Tag,
+  Star,
+  Bookmark
+};
+
+export const getIconByName = (name?: string): React.FC<{ className?: string }> => {
+  if (!name) return Sparkles;
+  return LUCIDE_ICONS_MAP[name] || Sparkles;
+};
+
+const BASE_TYPE_CONFIG: Record<string, { label: string; icon: React.FC<{ className?: string }>; color: string; badge: string }> = {
   bug: {
     label: 'Bug',
     icon: Bug,
@@ -56,7 +107,6 @@ export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ clas
     color: 'text-emerald-500 dark:text-emerald-400',
     badge: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-300'
   },
-  // DEV-047: Hierarchical types
   epic: {
     label: 'Epic',
     icon: Layers,
@@ -70,6 +120,47 @@ export const typeConfig: Record<ItemType, { label: string; icon: React.FC<{ clas
     badge: 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-700 dark:text-purple-300'
   }
 };
+
+export const getItemTypeInfo = (
+  type: string, 
+  customTypes?: CustomItemTypeConfig[]
+): { label: string; icon: React.FC<{ className?: string }>; color: string; badge: string } => {
+  if (customTypes && customTypes.length > 0) {
+    const found = customTypes.find(c => c.key === type);
+    if (found) {
+      return {
+        label: found.label || found.key,
+        icon: getIconByName(found.iconName),
+        color: found.color || 'text-indigo-500 dark:text-indigo-400',
+        badge: found.badge || 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-300'
+      };
+    }
+  }
+  if (type in BASE_TYPE_CONFIG) {
+    return BASE_TYPE_CONFIG[type];
+  }
+  return {
+    label: type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' '),
+    icon: Sparkles,
+    color: 'text-indigo-500 dark:text-indigo-400',
+    badge: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-300'
+  };
+};
+
+export const typeConfig: Record<string, { label: string; icon: React.FC<{ className?: string }>; color: string; badge: string }> = new Proxy(
+  BASE_TYPE_CONFIG,
+  {
+    get(target, prop: string) {
+      if (prop in target) return target[prop];
+      return {
+        label: String(prop).charAt(0).toUpperCase() + String(prop).slice(1).replace(/_/g, ' '),
+        icon: Sparkles,
+        color: 'text-indigo-500 dark:text-indigo-400',
+        badge: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-300'
+      };
+    }
+  }
+);
 
 export const priorityConfig: Record<Priority, { label: string; dot: string; text: string }> = {
   p0: { label: 'P0 Urgent', dot: 'bg-rose-500 animate-pulse', text: 'text-rose-600 dark:text-rose-400 font-semibold' },
@@ -103,7 +194,8 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
   onDragStart,
   onDragEnd,
   onShowToast,
-  epicProgress
+  epicProgress,
+  customItemTypes
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
@@ -122,7 +214,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const typeInfo = typeConfig[item.type] || typeConfig.feature;
+  const typeInfo = getItemTypeInfo(item.type, customItemTypes);
   const priorityInfo = priorityConfig[item.priority] || priorityConfig.p2;
   const TypeIcon = typeInfo.icon;
 
@@ -379,6 +471,24 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
         {item.targetRelease && (
           <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300/90 border border-emerald-200 dark:border-emerald-500/20 font-mono">
             v{item.targetRelease}
+          </span>
+        )}
+
+        {item.parentId && (
+          <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 font-mono text-[9px] flex items-center gap-1" title={`Tarea padre: ${item.parentId}`}>
+            ↳ {item.parentId}
+          </span>
+        )}
+
+        {item.blockedBy && item.blockedBy.length > 0 && (
+          <span className="px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 font-medium text-[9px] flex items-center gap-1" title={`Bloqueada por: ${item.blockedBy.join(', ')}`}>
+            ⛔ Bloqueada por {item.blockedBy.join(', ')}
+          </span>
+        )}
+
+        {item.blocks && item.blocks.length > 0 && (
+          <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 font-medium text-[9px] flex items-center gap-1" title={`Bloquea a: ${item.blocks.join(', ')}`}>
+            ⚠️ Bloquea {item.blocks.join(', ')}
           </span>
         )}
       </div>

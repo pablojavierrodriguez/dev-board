@@ -1,9 +1,9 @@
 ---
 id: DEV-070
 title: "Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado"
-status: Draft
+status: Ready
 created_date: '2026-09-19'
-updated_date: '2026-09-19 19:24'
+updated_date: '2026-09-23 16:44'
 labels: []
 dependencies: []
 priority: medium
@@ -28,12 +28,12 @@ Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Al completar un sprint, CompleteSprintModal incluye paso de retro opcional pero promovido
-- [ ] #2 Template de retro con secciones: ¿Qué salió bien?, ¿Qué mejorar?, ¿Qué cambiar?, Acciones concretas
-- [ ] #3 Las acciones se pueden convertir en tasks con un click (Create Task from Action)
-- [ ] #4 La retro se persiste en backlog/retros/ como archivo Markdown estándar
-- [ ] #5 devboard_list_retros MCP tool lista las retros guardadas con resumen
-- [ ] #6 La retro aparece en el timeline de la Release Notes si el sprint tiene release asociado
+- [x] #1 Al completar un sprint, CompleteSprintModal incluye paso de retro opcional pero promovido
+- [x] #2 Template de retro con secciones: ¿Qué salió bien?, ¿Qué mejorar?, ¿Qué cambiar?, Acciones concretas
+- [x] #3 Las acciones se pueden convertir en tasks con un click (Create Task from Action)
+- [x] #4 La retro se persiste en backlog/retros/ como archivo Markdown estándar
+- [x] #5 devboard_list_retros MCP tool lista las retros guardadas con resumen
+- [x] #6 La retro aparece en el timeline de la Release Notes si el sprint tiene release asociado
 <!-- AC:END -->
 
 ## Implementation Plan

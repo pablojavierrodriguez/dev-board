@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FC } from 'react';
 import { Search, X, SlidersHorizontal, RotateCcw } from 'lucide-react';
-import type { FilterState, ItemType, Priority } from '../types';
+import type { FilterState, ItemType, Priority, CustomItemTypeConfig } from '../types';
 import { AdvancedFiltersPopover } from './AdvancedFiltersPopover';
 
 interface FilterBarProps {
@@ -15,6 +15,7 @@ interface FilterBarProps {
     inProgress: number;
     completed: number;
   };
+  customItemTypes?: CustomItemTypeConfig[];
 }
 
 export const FilterBar: FC<FilterBarProps> = ({
@@ -24,6 +25,7 @@ export const FilterBar: FC<FilterBarProps> = ({
   availableSprints = [],
   availableReleases = [],
   stats,
+  customItemTypes = [],
 }) => {
   const [localSearch, setLocalSearch] = useState(filters.search);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -213,6 +215,7 @@ export const FilterBar: FC<FilterBarProps> = ({
                 onClose={() => setIsPopoverOpen(false)}
                 activeFiltersCount={activeFiltersCount}
                 onResetFilters={resetFilters}
+                customItemTypes={customItemTypes}
               />
             </div>
 
@@ -231,14 +234,16 @@ export const FilterBar: FC<FilterBarProps> = ({
               >
                 Todos
               </button>
-              {(
-                [
-                  { id: 'bug', label: '🐛 Bug' },
-                  { id: 'feature', label: '🚀 Feature' },
-                  { id: 'tech_debt', label: '🛠️ Tech' },
-                  { id: 'ux', label: '🎨 UX' },
-                ] as const
-              ).map((t) => {
+              {[
+                { id: 'bug' as ItemType, label: '🐛 Bug' },
+                { id: 'feature' as ItemType, label: '🚀 Feature' },
+                { id: 'tech_debt' as ItemType, label: '🛠️ Tech' },
+                { id: 'ux' as ItemType, label: '🎨 UX' },
+                ...customItemTypes.map((c) => ({
+                  id: c.key as ItemType,
+                  label: `🏷️ ${c.label}`
+                }))
+              ].map((t) => {
                 const isSelected = selectedTypes.has(t.id);
                 return (
                   <button

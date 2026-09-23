@@ -56,6 +56,74 @@ if (repoIdx !== -1 && args[repoIdx + 1]) {
 
 const shouldOpen = !args.includes('--no-open');
 
+// Set Single-Project or Multi-Project mode (DEV-041)
+const isHub = args.includes('--hub') || args.includes('--multi');
+process.env.DEVBOARD_MODE = isHub ? 'multi' : 'single';
+
+// DEV-042: Handle --init flag to bootstrap .devboard/ and backlog/
+if (args.includes('--init')) {
+  console.log(`\n  🚀 Inicializando DevBoard en: ${targetRepo}\n`);
+  
+  // 1. Create .devboard directory
+  const devboardDir = path.join(targetRepo, '.devboard');
+  if (!fs.existsSync(devboardDir)) {
+    fs.mkdirSync(devboardDir, { recursive: true });
+    console.log('  📁 Creado directorio .devboard/');
+  }
+
+  // 2. Create .devboard/config.json if not present
+  const configFile = path.join(devboardDir, 'config.json');
+  if (!fs.existsSync(configFile)) {
+    const defaultConfig = {
+      theme: 'dark',
+      density: 'comfortable',
+      autoSave: true,
+      kanban: {
+        showIdeasByDefault: false,
+        showDoneHistoryByDefault: false,
+        wipLimits: {
+          'col-doing': 0,
+          'col-review': 0,
+          'col-ready': 0
+        }
+      },
+      version: '1.0.0'
+    };
+    fs.writeFileSync(configFile, JSON.stringify(defaultConfig, null, 2), 'utf8');
+    console.log('  ⚙️  Creado archivo de configuración .devboard/config.json');
+  }
+
+  // 3. Create backlog/tasks directory if not present
+  const tasksDir = path.join(targetRepo, 'backlog/tasks');
+  if (!fs.existsSync(tasksDir)) {
+    fs.mkdirSync(tasksDir, { recursive: true });
+    console.log('  📋 Creado directorio backlog/tasks/ para tareas distribuidas en Markdown');
+  }
+
+  // 4. Update host package.json if present
+  const hostPkgJson = path.join(targetRepo, 'package.json');
+  if (fs.existsSync(hostPkgJson)) {
+    try {
+      const pkgRaw = fs.readFileSync(hostPkgJson, 'utf8');
+      const pkg = JSON.parse(pkgRaw);
+      pkg.scripts = pkg.scripts || {};
+      if (!pkg.scripts.board && !pkg.scripts.devboard) {
+        pkg.scripts.board = 'devboard';
+        fs.writeFileSync(hostPkgJson, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+        console.log('  ✨ Añadido script "board": "devboard" en package.json');
+      } else {
+        console.log('  ℹ️  Script de inicio ya configurado en package.json');
+      }
+    } catch (err) {
+      console.warn('  ⚠️  No se pudo actualizar package.json automáticamente:', err.message);
+    }
+  }
+
+  console.log(`\n  ✅ Inicialización completada con éxito.`);
+  console.log(`  💡 Para iniciar el cockpit, ejecuta: npm run board (o npx devboard)\n`);
+  process.exit(0);
+}
+
 // Detect project storage
 const tasksDir = path.join(targetRepo, 'backlog/tasks');
 const jsonBacklog = path.join(targetRepo, '.devboard/backlog.json');

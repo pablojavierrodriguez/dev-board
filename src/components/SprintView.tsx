@@ -65,7 +65,8 @@ interface SprintViewProps {
   onUpdateSprintMeta?: (id: string, sprintData: Partial<Sprint>) => Promise<void>;
   onDeleteSprint?: (id: string) => Promise<void>;
   onStartSprint?: (sprint: Sprint) => Promise<void>;
-  onCompleteSprint?: (sprint: Sprint, destinationSprintName: string) => Promise<void>;
+  onCompleteSprint?: (sprint: Sprint, destinationSprintName: string, retroData?: any) => Promise<void>;
+  onCreateTaskFromAction?: (title: string) => Promise<void>;
   onDeleteItem: (id: string) => void;
   availableSprints?: string[];
   rankingEnabled?: boolean;
@@ -102,6 +103,7 @@ export const SprintView: FC<SprintViewProps> = ({
   onDeleteSprint,
   onStartSprint,
   onCompleteSprint,
+  onCreateTaskFromAction,
   onDeleteItem,
   availableSprints = [],
   rankingEnabled = true
@@ -1023,9 +1025,10 @@ export const SprintView: FC<SprintViewProps> = ({
           availablePlannedSprints={sprints.filter(
             (s) => s.status === 'planned' && s.id !== completingSprint.id
           )}
-          onConfirm={async (destinationSprintName) => {
+          onCreateTaskFromAction={onCreateTaskFromAction}
+          onConfirm={async (destinationSprintName, retroData) => {
             if (onCompleteSprint) {
-              await onCompleteSprint(completingSprint, destinationSprintName);
+              await onCompleteSprint(completingSprint, destinationSprintName, retroData);
             }
             setCompletingSprint(null);
           }}

@@ -773,6 +773,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     onShowToast={onShowToast}
+                    customItemTypes={config?.customItemTypes}
                   />
                 </div>
 

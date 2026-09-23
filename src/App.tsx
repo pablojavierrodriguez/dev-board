@@ -650,12 +650,13 @@ export function App() {
     }
   }, [selectedProjectId, showToast]);
 
-  const handleCompleteSprint = useCallback(async (sprint: Sprint, destinationSprintName: string) => {
+  const handleCompleteSprint = useCallback(async (sprint: Sprint, destinationSprintName: string, retroData?: any) => {
     try {
       const updatedSprint = await updateSprint(sprint.id, {
         status: 'completed',
         projectId: sprint.projectId || (selectedProjectId !== 'all' ? selectedProjectId : undefined),
-      });
+        retro: retroData
+      } as any);
       
       const sprintPendingItems = (boardData?.items || []).filter(
         (i) => (i.sprint === sprint.name || i.targetSprint === sprint.name) &&
@@ -663,10 +664,27 @@ export function App() {
       );
 
       for (const item of sprintPendingItems) {
+        const existingSprints = item.sprints || [sprint.name];
+        const updatedSprints = Array.from(new Set([...existingSprints, sprint.name, ...(destinationSprintName ? [destinationSprintName] : [])]));
         await updateItem(item.id, {
           sprint: destinationSprintName || '',
           targetSprint: destinationSprintName || '',
+          sprints: updatedSprints
         });
+      }
+
+      // Preserve sprint history on completed tasks as well (DEV-056)
+      const sprintDoneItems = (boardData?.items || []).filter(
+        (i) => (i.sprint === sprint.name || i.targetSprint === sprint.name) &&
+               (i.status === 'done' || i.status === 'ready' || i.status === 'finish')
+      );
+      for (const item of sprintDoneItems) {
+        const existingSprints = item.sprints || [sprint.name];
+        if (!existingSprints.includes(sprint.name)) {
+          await updateItem(item.id, {
+            sprints: [...existingSprints, sprint.name]
+          });
+        }
       }
 
       setBoardData((prev) => {
@@ -678,7 +696,18 @@ export function App() {
             const isPendingInThisSprint = (i.sprint === sprint.name || i.targetSprint === sprint.name) &&
               !(i.status === 'done' || i.status === 'ready' || i.status === 'finish');
             if (isPendingInThisSprint) {
-              return { ...i, sprint: destinationSprintName || '', targetSprint: destinationSprintName || '' };
+              const prevSp = i.sprints || [sprint.name];
+              const nextSp = Array.from(new Set([...prevSp, sprint.name, ...(destinationSprintName ? [destinationSprintName] : [])]));
+              return { 
+                ...i, 
+                sprint: destinationSprintName || '', 
+                targetSprint: destinationSprintName || '',
+                sprints: nextSp 
+              };
+            }
+            if (i.sprint === sprint.name || i.targetSprint === sprint.name) {
+              const prevSp = i.sprints || [sprint.name];
+              return { ...i, sprints: Array.from(new Set([...prevSp, sprint.name])) };
             }
             return i;
           }),
@@ -739,6 +768,21 @@ export function App() {
       showToast(`Nuevo ítem ${created.code} creado con éxito`, 'success');
     }
   }, [boardData, selectedProjectId, showToast]);
+
+  const handleCreateTaskFromAction = useCallback(async (title: string) => {
+    try {
+      await handleSaveItem({
+        title,
+        description: 'Acción derivada de retrospectiva de sprint.',
+        type: 'feature',
+        priority: 'p2',
+        status: 'draft'
+      });
+      showToast('Tarea creada desde acción de retrospectiva', 'success');
+    } catch (err: any) {
+      showToast(`Error al crear tarea desde retro: ${err.message}`, 'error');
+    }
+  }, [handleSaveItem, showToast]);
 
   const handleCreateProject = useCallback(async (projectData: Partial<Project>) => {
     const created = await createProject(projectData);
@@ -1117,6 +1161,7 @@ export function App() {
         onOpenImportWizard={() => setImportWizardOpen(true)}
         liveConnected={liveConnected}
         config={config}
+        singleProject={boardData?.singleProject}
       />
 
       {/* Filter Bar (Active in Kanban, Sprint, and Archive tabs) */}
@@ -1128,6 +1173,7 @@ export function App() {
           availableSprints={availableSprints}
           availableReleases={availableReleases}
           stats={stats}
+          customItemTypes={config?.customItemTypes}
         />
       )}
 
@@ -1222,6 +1268,7 @@ export function App() {
             onUpdateSprintMeta={handleUpdateSprintMeta}
             onStartSprint={handleStartSprint}
             onCompleteSprint={handleCompleteSprint}
+            onCreateTaskFromAction={handleCreateTaskFromAction}
             onDeleteSprint={handleDeleteSprint}
             onDeleteItem={handleDeleteItem}
             availableSprints={availableSprints}
@@ -1337,6 +1384,7 @@ export function App() {
         onDelete={handleDeleteItem}
         activeProjectId={selectedProjectId !== 'all' ? selectedProjectId : projects[0]?.id}
         config={config}
+        allItems={boardData?.items || []}
       />
 
       {/* Project Modal */}

@@ -86,6 +86,8 @@ function loadTasks(project: any): any[] {
           priority: normalizePriority(task.priority),
           type: task.type,
           milestone: task.milestone,
+          sprint: task.sprint || task.targetSprint || task.rawExtraFrontmatter?.sprint,
+          targetSprint: task.targetSprint || task.sprint || task.rawExtraFrontmatter?.sprint || task.milestone,
           acceptanceCriteria: task.acceptanceCriteria || [],
           labels: task.labels || [],
           _file: file,
@@ -288,7 +290,12 @@ async function main() {
     tasks = tasks.filter(t => t.priority === pNorm);
   }
   if (sprint) {
-    tasks = tasks.filter(t => t.milestone === sprint || t.targetSprint === sprint);
+    const spLower = sprint.toLowerCase();
+    tasks = tasks.filter(t => 
+      (t.sprint && String(t.sprint).toLowerCase() === spLower) ||
+      (t.targetSprint && String(t.targetSprint).toLowerCase() === spLower) ||
+      (t.milestone && String(t.milestone).toLowerCase() === spLower)
+    );
   }
   if (search) {
     const q = search.toLowerCase();

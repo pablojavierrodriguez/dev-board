@@ -1,9 +1,9 @@
 ---
 id: DEV-048
 title: "Grafo de Relaciones entre Cards: Jerarquías Verticales (Padre/Hijo Estricto 1-a-N) y Enlaces Horizontales (Bloquea/Depende/Relacionado)"
-status: Draft
+status: Ready
 created_date: '2026-09-18'
-updated_date: '2026-09-22 03:56'
+updated_date: '2026-09-23 17:24'
 labels:
   - relations
   - dependencies
@@ -15,9 +15,8 @@ type: feature
 milestone: "0.4.0"
 release: "0.4.0"
 targetRelease: "0.4.0"
-order: 40
+order: "40"
 sprint: "Sprint 4"
-targetSprint: "Sprint 4"
 ---
 
 ## Description
@@ -36,11 +35,11 @@ Modelado completo de relaciones entre tarjetas tanto a nivel vertical como horiz
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Un ítem solo puede tener asignado un único padre (parentId), con selector modal interactivo
-- [ ] #2 Soporte de relaciones horizontales bidireccionales automáticas (blocks <-> blocked_by, related_to)
-- [ ] #3 Badge indicador en tarjetas Kanban que señala dependencias bloqueadas y advertencias de precedencia
-- [ ] #4 En ItemModal, sección interactiva 'Relaciones y Dependencias' para vincular y desvincular ítems
-- [ ] #5 Persistencia transparente en frontmatter Markdown sin pérdida de datos en hot-reload
+- [x] #1 Un ítem solo puede tener asignado un único padre (parentId), con selector modal interactivo
+- [x] #2 Soporte de relaciones horizontales bidireccionales automáticas (blocks <-> blocked_by, related_to)
+- [x] #3 Badge indicador en tarjetas Kanban que señala dependencias bloqueadas y advertencias de precedencia
+- [x] #4 En ItemModal, sección interactiva 'Relaciones y Dependencias' para vincular y desvincular ítems
+- [x] #5 Persistencia transparente en frontmatter Markdown sin pérdida de datos en hot-reload
 <!-- AC:END -->
 
 ## Implementation Plan

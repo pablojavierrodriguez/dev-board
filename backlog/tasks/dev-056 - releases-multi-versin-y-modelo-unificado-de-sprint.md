@@ -1,9 +1,9 @@
 ---
 id: DEV-056
 title: "Releases Multi-Versión y Modelo Unificado de Sprints Jira-Style"
-status: Draft
+status: Ready
 created_date: '2026-09-18'
-updated_date: '2026-09-22 03:56'
+updated_date: '2026-09-23 17:25'
 labels:
   - sprints
   - releases
@@ -16,9 +16,8 @@ type: feature
 milestone: "0.4.0"
 release: "0.4.0"
 targetRelease: "0.4.0"
-order: 50
+order: "50"
 sprint: "Sprint 4"
-targetSprint: "Sprint 4"
 ---
 
 ## Description
@@ -38,11 +37,11 @@ Evolución del modelo de datos para Sprints y Releases en las tarjetas, adoptand
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 BacklogItem unifica los sprints en un único campo array 'sprints?: string[]' sin campos paralelos de historial
-- [ ] #2 Regla de negocio que valida máximo 1 sprint en estado activo asociado a la tarjeta a la vez
-- [ ] #3 Al completar un sprint, las tarjetas asociadas conservan el sprint finalizado en su lista 'sprints'
-- [ ] #4 Soporte para asociar múltiples versiones/releases por tarjeta (releases?: string[])
-- [ ] #5 Sincronización y persistencia transparente en frontmatter Markdown sin pérdida de datos
+- [x] #1 BacklogItem unifica los sprints en un único campo array 'sprints?: string[]' sin campos paralelos de historial
+- [x] #2 Regla de negocio que valida máximo 1 sprint en estado activo asociado a la tarjeta a la vez
+- [x] #3 Al completar un sprint, las tarjetas asociadas conservan el sprint finalizado en su lista 'sprints'
+- [x] #4 Soporte para asociar múltiples versiones/releases por tarjeta (releases?: string[])
+- [x] #5 Sincronización y persistencia transparente en frontmatter Markdown sin pérdida de datos
 <!-- AC:END -->
 
 ## Implementation Plan

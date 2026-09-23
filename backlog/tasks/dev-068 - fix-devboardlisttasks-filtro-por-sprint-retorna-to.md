@@ -1,19 +1,18 @@
 ---
 id: DEV-068
 title: "Fix: devboard_list_tasks — Filtro por Sprint Retorna Todos los Tasks"
-status: Draft
+status: Ready
 created_date: '2026-09-19'
-updated_date: '2026-09-22 03:56'
+updated_date: '2026-09-23 16:14'
 labels: []
 dependencies: []
 priority: medium
 type: bug
 milestone: "Sprint 4"
 sprint: "Sprint 4"
-order: 20
+order: "20"
 release: "Sprint 4"
 targetRelease: "Sprint 4"
-targetSprint: "Sprint 4"
 ---
 
 ## Description
@@ -29,11 +28,11 @@ El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por spri
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 devboard_list_tasks con { sprint: 'Sprint 3' } retorna solo tasks cuyo frontmatter contiene sprint: Sprint 3
-- [ ] #2 El filtro también matchea el campo targetSprint cuando coincide con el valor buscado
-- [ ] #3 Test con proyecto dev-board: filtrar por Sprint 3 retorna exactamente DEV-047, DEV-049, DEV-051, DEV-052, DEV-053, DEV-055, DEV-067 y nada más
-- [ ] #4 Documentar el filtro corregido en el schema MCP
-- [ ] #5 La corrección es backwards-compatible con el CLI devboard list
+- [x] #1 devboard_list_tasks con { sprint: 'Sprint 3' } retorna solo tasks cuyo frontmatter contiene sprint: Sprint 3
+- [x] #2 El filtro también matchea el campo targetSprint cuando coincide con el valor buscado
+- [x] #3 Test con proyecto dev-board: filtrar por Sprint 3 retorna exactamente DEV-047, DEV-049, DEV-051, DEV-052, DEV-053, DEV-055, DEV-067 y nada más
+- [x] #4 Documentar el filtro corregido en el schema MCP
+- [x] #5 La corrección es backwards-compatible con el CLI devboard list
 <!-- AC:END -->
 
 ## Implementation Plan

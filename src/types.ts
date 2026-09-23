@@ -1,4 +1,15 @@
-export type ItemType = "bug" | "feature" | "tech_debt" | "ux" | "epic" | "initiative";
+export type StandardItemType = "bug" | "feature" | "tech_debt" | "ux" | "epic" | "initiative";
+export type ItemType = StandardItemType | (string & {});
+
+export interface CustomItemTypeConfig {
+  key: string;
+  label: string;
+  color: string;
+  badge?: string;
+  dotColor?: string;
+  iconName?: string;
+  description?: string;
+}
 export type Priority = "p0" | "p1" | "p2" | "p3";
 export type ItemStatus =
   | "draft"
@@ -60,6 +71,15 @@ export interface BacklogItem {
   targetSprint?: string; // Backward compatibility
   targetRelease?: string; // Backward compatibility
   milestone?: string;
+  // DEV-048: Hierarchical and horizontal relations
+  parentId?: string; // Strict 1-to-N parent (Epic, Story, Container)
+  blocks?: string[]; // IDs/codes of tasks blocked by this task
+  blockedBy?: string[]; // IDs/codes of tasks blocking this task
+  relatedTo?: string[]; // IDs/codes of related tasks
+  dependencies?: string[]; // Functional dependencies (alias or complement to blockedBy)
+  // DEV-056: Multi-version releases & Jira-style sprints model
+  sprints?: string[]; // All assigned sprints (active + historical closed sprints)
+  releases?: string[]; // Multi-version releases
   sourceDoc?: string;
   acceptanceCriteriaList?: AcceptanceCriterion[];
   implementationPlan?: string;
@@ -112,6 +132,7 @@ export interface Sprint {
 export interface BoardData {
   projects: Project[];
   activeProjectId?: string;
+  singleProject?: boolean;
   items: BacklogItem[];
   releases: Release[];
   sprints?: Sprint[];
@@ -154,6 +175,7 @@ export interface DevBoardConfig {
   kanban?: KanbanSettings;
   rankingEnabled?: boolean;
   autoSave?: boolean;
+  customItemTypes?: CustomItemTypeConfig[];
   version?: string;
 }
 

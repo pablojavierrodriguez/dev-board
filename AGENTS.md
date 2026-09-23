@@ -20,6 +20,11 @@ Usa el servidor MCP de DevBoard (`npm run mcp` o `bin/devboard-mcp.js`) para int
 - `devboard_export_backlog`: Genera el archivo consolidado `BACKLOG.md`.
 - `devboard_sync_backlog`: Reconcilia tareas desfasadas y sincroniza `BACKLOG.md` nativamente.
 
+### Herramientas de Análisis Semántico (`codegraph` MCP)
+- `analyze_references`: Encuentra todos los lugares donde se consume un símbolo (`symbolName`).
+- `find_definitions`: Ubica la declaración canónica de un símbolo en el workspace.
+- `find_type_definitions`, `find_declarations`, `find_implementations`: Navegación de interfaces y tipos.
+
 > [!CAUTION]
 > **Regla Anti-Scripts Sueltos:** NUNCA ejecutes scripts de terminal ad-hoc (`node -e ...`) ni comandos bash destructivos (`mv`, `rm` sobre tareas del backlog). Usa siempre las herramientas MCP provistas.
 
@@ -34,6 +39,7 @@ El repositorio utiliza `.githooks/pre-commit` para impedir commits con tareas de
 
 ## 5. Metodología de Referencia
 - **[Agentic Team Playbook](docs/AGENTIC_PLAYBOOK.md):** Guía metodológica para colaboración estructurada entre humanos y agentes de IA, definición de roles y guardrails anti-alucinación.
+- **[Arquitectura de DevBoard](docs/ARCHITECTURE.md):** Mapa canónico de capas, componentes y tabla de impacto rápido.
 
 ---
 
@@ -62,6 +68,27 @@ Estas reglas provienen de errores detectados en sesiones reales. Son **obligator
 > El filtro `{ "sprint": "Sprint 3" }` puede devolver todos los tasks, no solo los del sprint.
 > Para verificar estado de tasks de un sprint específico, usar `devboard_get_task` por ID
 > o filtrar manualmente el JSON resultante de `devboard_list_tasks`.
+
+> [!WARNING]
+> **`CodeGraph MCP` — Activación del Language Server y Protocolo de Fallback**
+>
+> `CodeGraph MCP` consulta `vscode.executeWorkspaceSymbolProvider` del TypeScript Language Server (`tsserver`).
+> Si en el editor no hay ningún archivo `.ts`/`.tsx` activo, o si el compilador aún no indexó el workspace, devolverá `"Symbol not found in workspace"`.
+> **Protocolo obligatorio:** Si `codegraph` no encuentra el símbolo, NO reintentes en bucle ni leas archivos gigantes a ciegas:
+> 1. Ubica el subsistema responsable en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+> 2. Ejecuta `grep_search` focalizado en el directorio específico (`SearchPath: ".../src"` o `SearchPath: ".../scripts"`).
+> 3. Realiza lecturas quirúrgicas con `view_file` (máx. 50-80 líneas) en el punto exacto.
+
+> [!TIP]
+> **Convención de Slugs de Tareas — Prohibido el doble guión (`--`)**
+>
+> Los nombres de archivo en `backlog/tasks/` deben seguir estrictamente el patrón `dev-XXX - slug-descriptivo.md`.
+> Nunca generar prefijos con doble guión como `dev--XXX`. Si se detecta un archivo malformado, renómbralo o re-créalo canónicamente.
+
+> [!NOTE]
+> **Soberanía y Tipos Dinámicos — Patrón Proxy Defensivo**
+>
+> Al renderizar tarjetas con tipos de datos definidos dinámicamente por el usuario (`CustomItemTypeConfig` en `config.customItemTypes`), utiliza siempre un Proxy defensivo o `getItemTypeInfo(item.type, customItemTypes)` para asegurar que cualquier clave arbitraria cuente con icono, badge y paleta semántica por defecto sin provocar fallas de renderizado.
 
 ---
 

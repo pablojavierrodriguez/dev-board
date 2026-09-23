@@ -1,9 +1,9 @@
 ---
 id: DEV-059
 title: "Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)"
-status: Draft
+status: Ready
 created_date: '2026-09-18'
-updated_date: '2026-09-22 03:56'
+updated_date: '2026-09-23 19:04'
 labels:
   - customization
   - settings
@@ -15,9 +15,8 @@ type: feature
 milestone: "0.5.0"
 release: "0.5.0"
 targetRelease: "0.5.0"
-order: 60
+order: "60"
 sprint: "Sprint 4"
-targetSprint: "Sprint 4"
 ---
 
 ## Description
@@ -33,11 +32,11 @@ Otorgar soberanía total y personalización al usuario/admin para definir y gest
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Sección 'Tipos de Tarjeta' en SettingsView con gestión CRUD completa (crear, editar, eliminar)
-- [ ] #2 Formulario de configuración de tipo: identificador clave, nombre legible, color semántico e icono
-- [ ] #3 Los tipos personalizados se reflejan automáticamente en los selectores de ItemModal y FilterBar
-- [ ] #4 Los badges de ItemCard renderizan adecuadamente el color e icono del tipo personalizado
-- [ ] #5 Persistencia automática y aislada en .devboard/config.json sin romper esquemas preexistentes
+- [x] #1 Sección 'Tipos de Tarjeta' en SettingsView con gestión CRUD completa (crear, editar, eliminar)
+- [x] #2 Formulario de configuración de tipo: identificador clave, nombre legible, color semántico e icono
+- [x] #3 Los tipos personalizados se reflejan automáticamente en los selectores de ItemModal y FilterBar
+- [x] #4 Los badges de ItemCard renderizan adecuadamente el color e icono del tipo personalizado
+- [x] #5 Persistencia automática y aislada en .devboard/config.json sin romper esquemas preexistentes
 <!-- AC:END -->
 
 ## Implementation Plan

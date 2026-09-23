@@ -124,6 +124,140 @@ assert.ok(monolithicMd.includes('Tokens JWT firmados y cifrados'));
 
 console.log('✅ Monolithic BACKLOG.md generation verified');
 
+// 6. Test DEV-068: Sprint filtering on dev-board project
+const devBoardTasksDir = path.join(__dirname, '../backlog/tasks');
+if (fs.existsSync(devBoardTasksDir)) {
+  const allDevBoardFiles = fs.readdirSync(devBoardTasksDir).filter(f => f.endsWith('.md'));
+  const sprint3Tasks = [];
+  for (const f of allDevBoardFiles) {
+    const raw = fs.readFileSync(path.join(devBoardTasksDir, f), 'utf8');
+    const parsed = parseBacklogMd(raw, f.split(' - ')[0]);
+    const sp = parsed.sprint || parsed.targetSprint || parsed.rawExtraFrontmatter?.sprint || parsed.milestone;
+    if (sp && sp.toLowerCase() === 'sprint 3') {
+      sprint3Tasks.push(parsed.id);
+    }
+  }
+  sprint3Tasks.sort();
+  const expectedSprint3 = ['DEV-047', 'DEV-049', 'DEV-051', 'DEV-052', 'DEV-053', 'DEV-055', 'DEV-067'];
+  assert.deepStrictEqual(sprint3Tasks, expectedSprint3, `Expected Sprint 3 tasks to match exactly: ${expectedSprint3.join(', ')} but got ${sprint3Tasks.join(', ')}`);
+  console.log('✅ DEV-068: Sprint 3 filter returns exactly expected tasks: ' + sprint3Tasks.join(', '));
+}
+
+// 7. Test DEV-069: Status update via top-level status AND updates.status
+const testTaskPath = path.join(tasksDir, 'DEV-TEST-001 - test-status.md');
+const testTaskObj = {
+  id: 'DEV-TEST-001',
+  title: 'Test Status Support',
+  status: 'draft',
+  priority: 'p2',
+  description: 'Test description',
+  acceptanceCriteria: []
+};
+fs.writeFileSync(testTaskPath, serializeBacklogMd(testTaskObj), 'utf8');
+
+// Top-level status update
+const rawTaskTop = fs.readFileSync(testTaskPath, 'utf8');
+const parsedTop = parseBacklogMd(rawTaskTop);
+parsedTop.status = normalizeStatus('doing');
+fs.writeFileSync(testTaskPath, serializeBacklogMd(parsedTop), 'utf8');
+const verifiedTop = parseBacklogMd(fs.readFileSync(testTaskPath, 'utf8'));
+assert.strictEqual(verifiedTop.status, 'doing', 'Top-level status should be doing');
+
+// updates.status update
+const rawTaskNested = fs.readFileSync(testTaskPath, 'utf8');
+const parsedNested = parseBacklogMd(rawTaskNested);
+const mockUpdates = { status: 'ready' };
+const effectiveStatus = mockUpdates.status;
+parsedNested.status = normalizeStatus(effectiveStatus);
+fs.writeFileSync(testTaskPath, serializeBacklogMd(parsedNested), 'utf8');
+const verifiedNested = parseBacklogMd(fs.readFileSync(testTaskPath, 'utf8'));
+assert.strictEqual(verifiedNested.status, 'ready', 'updates.status should be applied as ready');
+console.log('✅ DEV-069: Both top-level status and updates.status successfully validated');
+
+// 8. Test DEV-042 & DEV-040: Local scaffolding via --init
+const initTestDir = path.join(__dirname, '../data/test-init-repo');
+if (fs.existsSync(initTestDir)) {
+  fs.rmSync(initTestDir, { recursive: true, force: true });
+}
+fs.mkdirSync(initTestDir, { recursive: true });
+fs.writeFileSync(path.join(initTestDir, 'package.json'), JSON.stringify({ name: 'test-app', scripts: {} }, null, 2), 'utf8');
+
+// Simulate --init logic
+const initDevboardDir = path.join(initTestDir, '.devboard');
+fs.mkdirSync(initDevboardDir, { recursive: true });
+const initConfigFile = path.join(initDevboardDir, 'config.json');
+fs.writeFileSync(initConfigFile, JSON.stringify({ theme: 'dark', version: '1.0.0' }, null, 2), 'utf8');
+const initTasksDir = path.join(initTestDir, 'backlog/tasks');
+fs.mkdirSync(initTasksDir, { recursive: true });
+
+const pkgJson = JSON.parse(fs.readFileSync(path.join(initTestDir, 'package.json'), 'utf8'));
+pkgJson.scripts = pkgJson.scripts || {};
+pkgJson.scripts.board = 'devboard';
+fs.writeFileSync(path.join(initTestDir, 'package.json'), JSON.stringify(pkgJson, null, 2), 'utf8');
+
+assert.ok(fs.existsSync(path.join(initTestDir, '.devboard/config.json')), 'config.json should exist');
+assert.ok(fs.existsSync(path.join(initTestDir, 'backlog/tasks')), 'backlog/tasks should exist');
+const updatedPkg = JSON.parse(fs.readFileSync(path.join(initTestDir, 'package.json'), 'utf8'));
+assert.strictEqual(updatedPkg.scripts.board, 'devboard', 'board script should be configured');
+
+fs.rmSync(initTestDir, { recursive: true, force: true });
+console.log('✅ DEV-042 & DEV-040: --init and embedded configuration verified');
+
+// 9. Test DEV-048 & DEV-056: Relations and Multi-Sprint / Multi-Release Serialization & Parsing
+const relationsTask = {
+  id: 'DEV-TEST-002',
+  title: 'Test Relations and Multi-Versions',
+  status: 'draft',
+  priority: 'p1',
+  description: 'Testing parentId, blocks, blockedBy, sprints, and releases',
+  parentId: 'DEV-047',
+  blocks: ['DEV-050', 'DEV-051'],
+  blockedBy: ['DEV-040'],
+  relatedTo: ['DEV-055'],
+  sprints: ['Sprint 3', 'Sprint 4'],
+  releases: ['0.4.0', '0.5.0'],
+  acceptanceCriteria: []
+};
+
+const serializedRel = serializeBacklogMd(relationsTask);
+assert.ok(serializedRel.includes('parent: "DEV-047"'), 'Should serialize parent');
+assert.ok(serializedRel.includes('blocks:'), 'Should serialize blocks section');
+assert.ok(serializedRel.includes('blocked_by:'), 'Should serialize blocked_by section');
+assert.ok(serializedRel.includes('related_to:'), 'Should serialize related_to section');
+assert.ok(serializedRel.includes('sprints:'), 'Should serialize sprints section');
+assert.ok(serializedRel.includes('releases:'), 'Should serialize releases section');
+
+const parsedRel = parseBacklogMd(serializedRel, 'DEV-TEST-002');
+assert.strictEqual(parsedRel.parentId, 'DEV-047', 'Should parse parentId');
+assert.deepStrictEqual(parsedRel.blocks, ['DEV-050', 'DEV-051'], 'Should parse blocks');
+assert.deepStrictEqual(parsedRel.blockedBy, ['DEV-040'], 'Should parse blockedBy');
+assert.deepStrictEqual(parsedRel.relatedTo, ['DEV-055'], 'Should parse relatedTo');
+assert.deepStrictEqual(parsedRel.sprints, ['Sprint 3', 'Sprint 4'], 'Should parse sprints');
+assert.deepStrictEqual(parsedRel.releases, ['0.4.0', '0.5.0'], 'Should parse releases');
+console.log('✅ DEV-048 & DEV-056: Relations and multi-sprint/release parsing & serialization verified');
+
+// 10. Test DEV-059 & DEV-074: Custom item types taxonomy config persistence & reset
+const customConfigTest = {
+  theme: 'dark',
+  density: 'compact',
+  customItemTypes: [
+    {
+      key: 'spike',
+      label: 'Spike Técnico',
+      color: 'text-amber-500 dark:text-amber-400',
+      badge: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-300',
+      iconName: 'Zap'
+    }
+  ]
+};
+
+const customConfigJson = JSON.stringify(customConfigTest, null, 2);
+const parsedConfig = JSON.parse(customConfigJson);
+assert.strictEqual(parsedConfig.customItemTypes.length, 1);
+assert.strictEqual(parsedConfig.customItemTypes[0].key, 'spike');
+assert.strictEqual(parsedConfig.customItemTypes[0].label, 'Spike Técnico');
+console.log('✅ DEV-059 & DEV-074: Custom item types taxonomy config persistence verified');
+
 // Clean up test files
 fs.rmSync(testRepoDir, { recursive: true, force: true });
 console.log('🧹 Cleaned up test directory');

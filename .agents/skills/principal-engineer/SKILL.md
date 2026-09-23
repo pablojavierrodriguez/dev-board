@@ -32,6 +32,11 @@ Construir software robusto, mantenible, rápido y confiable para el cockpit de D
 - Cualquier cambio en la estructura de datos debe mantener compatibilidad hacia atrás con repositorios que consuman el CLI o el MCP vía `npx devboard-mcp`.
 - Mantener validación con `scripts/build-binaries.js` en cada build.
 
+### 5. Análisis Semántico y Mapeo de Impacto Pre-Modificación
+- **Auditoría de Referencias Antes de Tocar Código:** Antes de modificar la firma de funciones, modelos de datos (`src/types.ts`) o middleware en `vite.config.ts`, rastrear el 100% de los consumidores usando `analyze_references` de CodeGraph MCP o `grep_search` focalizado guiado por [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
+- **Validación de Superficie de Impacto:** Cuantificar qué módulos se ven afectados y actualizar atómicamente todos los puntos de consumo en el mismo commit.
+- **Protocolo Anti-Exploración Masiva:** Prohibido consumir tokens leyendo archivos completos de 800+ líneas; utilizar lecturas quirúrgicas (máx. 50-80 líneas) una vez ubicados los puntos exactos de anclaje.
+
 ---
 
 ## ⚡ Modos de Acción del Ingeniero

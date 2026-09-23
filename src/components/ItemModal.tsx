@@ -11,8 +11,13 @@ import {
   AlertTriangle,
   RefreshCw,
   ChevronDown,
+  ChevronUp,
   Sliders,
-  Code
+  Code,
+  Layers,
+  Link,
+  ShieldAlert,
+  History
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus, ItemType, Priority, Project, AcceptanceCriterion, DevBoardConfig } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -31,6 +36,7 @@ interface ItemModalProps {
   onDelete?: (id: string) => Promise<void>;
   activeProjectId?: string;
   config?: DevBoardConfig;
+  allItems?: BacklogItem[];
 }
 
 export const ItemModal: FC<ItemModalProps> = ({
@@ -46,7 +52,8 @@ export const ItemModal: FC<ItemModalProps> = ({
   onSave,
   onDelete,
   activeProjectId,
-  config
+  config,
+  allItems = []
 }) => {
   const isEditing = !!item;
 
@@ -60,6 +67,11 @@ export const ItemModal: FC<ItemModalProps> = ({
   const [impactedFile, setImpactedFile] = useState('');
   const [sprint, setSprint] = useState('');
   const [release, setRelease] = useState('');
+  const [selectedReleases, setSelectedReleases] = useState<string[]>([]);
+  const [parentId, setParentId] = useState('');
+  const [blocks, setBlocks] = useState<string[]>([]);
+  const [blockedBy, setBlockedBy] = useState<string[]>([]);
+  const [relatedTo, setRelatedTo] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [risk, setRisk] = useState('');
   const [fix, setFix] = useState('');
@@ -74,6 +86,12 @@ export const ItemModal: FC<ItemModalProps> = ({
   const [acExpanded, setAcExpanded] = useState(true);
   const [planExpanded, setPlanExpanded] = useState(false);
   const [riskFixExpanded, setRiskFixExpanded] = useState(false);
+  const [relationsExpanded, setRelationsExpanded] = useState(false);
+
+  const currentId = item?.id || '';
+  const currentCode = item?.code || '';
+  const otherItems = (allItems || []).filter(it => it.id !== currentId && it.code !== currentCode);
+  const candidateParents = otherItems.filter(it => it.type === 'epic' || it.type === 'initiative' || it.type === 'feature');
 
   const populateFromItem = (source: BacklogItem) => {
     setTitle(source.title || '');
@@ -88,6 +106,12 @@ export const ItemModal: FC<ItemModalProps> = ({
     const rVal = source.release || source.targetRelease || '';
     setSprint(sVal);
     setRelease(rVal);
+    const rels = source.releases && source.releases.length > 0 ? source.releases : (rVal ? [rVal] : []);
+    setSelectedReleases(rels);
+    setParentId(source.parentId || '');
+    setBlocks(source.blocks || []);
+    setBlockedBy(source.blockedBy || []);
+    setRelatedTo(source.relatedTo || []);
     setDescription(source.description || '');
     setRisk(source.risk || '');
     setFix(source.fix || '');
@@ -96,6 +120,7 @@ export const ItemModal: FC<ItemModalProps> = ({
     setAcExpanded(true);
     setPlanExpanded(Boolean(source.implementationPlan?.trim()));
     setRiskFixExpanded(Boolean(source.risk?.trim() || source.fix?.trim()));
+    setRelationsExpanded(Boolean(source.parentId || (source.blocks && source.blocks.length > 0) || (source.blockedBy && source.blockedBy.length > 0) || (source.relatedTo && source.relatedTo.length > 0)));
   };
 
   const prevIsOpenRef = useRef(false);
@@ -134,6 +159,11 @@ export const ItemModal: FC<ItemModalProps> = ({
         setImpactedFile('');
         setSprint(defaultSprint || '');
         setRelease('');
+        setSelectedReleases([]);
+        setParentId('');
+        setBlocks([]);
+        setBlockedBy([]);
+        setRelatedTo([]);
         setDescription('');
         setRisk('');
         setFix('');
@@ -142,6 +172,7 @@ export const ItemModal: FC<ItemModalProps> = ({
         setAcExpanded(true);
         setPlanExpanded(false);
         setRiskFixExpanded(false);
+        setRelationsExpanded(false);
       }
     }
   }, [isOpen, item, defaultStatus, defaultSprint, activeProjectId]);
@@ -182,9 +213,15 @@ export const ItemModal: FC<ItemModalProps> = ({
         module: module.trim() || undefined,
         impactedFile: impactedFile.trim() || undefined,
         sprint: sprint.trim() || undefined,
-        release: release.trim() || undefined,
+        release: selectedReleases[0] || release.trim() || undefined,
         targetSprint: sprint.trim() || undefined,
-        targetRelease: release.trim() || undefined,
+        targetRelease: selectedReleases[0] || release.trim() || undefined,
+        releases: selectedReleases.length > 0 ? selectedReleases : (release.trim() ? [release.trim()] : undefined),
+        sprints: item?.sprints ? Array.from(new Set([...item.sprints, ...(sprint.trim() ? [sprint.trim()] : [])])) : (sprint.trim() ? [sprint.trim()] : undefined),
+        parentId: parentId.trim() || undefined,
+        blocks: blocks.length > 0 ? blocks : undefined,
+        blockedBy: blockedBy.length > 0 ? blockedBy : undefined,
+        relatedTo: relatedTo.length > 0 ? relatedTo : undefined,
         description: description.trim(),
         risk: risk.trim() || undefined,
         fix: fix.trim() || undefined,
@@ -482,6 +519,207 @@ export const ItemModal: FC<ItemModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* DEV-048: Relaciones y Dependencias (Jerarquías y Bloqueos) */}
+              <div className="rounded-xl bg-white/[0.02] border border-white/[0.08] overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setRelationsExpanded(!relationsExpanded)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/[0.02] transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <Link className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-semibold text-slate-200">
+                      Relaciones y Dependencias (Padre, Bloqueos y Vínculos)
+                    </span>
+                    {(parentId || blocks.length > 0 || blockedBy.length > 0 || relatedTo.length > 0) && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/20 text-indigo-300 font-mono">
+                        {[
+                          parentId ? '1 padre' : null,
+                          blocks.length > 0 ? `${blocks.length} bloquea` : null,
+                          blockedBy.length > 0 ? `${blockedBy.length} bloqueado` : null,
+                          relatedTo.length > 0 ? `${relatedTo.length} enlaces` : null
+                        ].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </div>
+                  {relationsExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
+                </button>
+
+                {relationsExpanded && (
+                  <div className="p-4 border-t border-white/[0.06] space-y-4 bg-black/10 text-xs">
+                    {/* 1. Jerarquía Vertical (Padre Único) */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Ítem Padre (Épica o Historia Contenedora)</span>
+                      </label>
+                      <p className="text-[10px] text-slate-400 mb-1.5">
+                        Un ítem solo puede tener un único padre asignado (relación jerárquica estricta 1-a-N).
+                      </p>
+                      <select
+                        value={parentId}
+                        onChange={(e) => setParentId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                      >
+                        <option value="" className="bg-[#0e1626]">(Sin padre - Tarea raíz independiente)</option>
+                        {candidateParents.map((cand) => (
+                          <option key={cand.id} value={cand.code || cand.id} className="bg-[#0e1626]">
+                            [{cand.type.toUpperCase()}] {cand.code || cand.id}: {cand.title.slice(0, 50)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 2. Bloqueado Por (Blocked By) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-semibold text-rose-300 flex items-center gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Bloqueado Por (Dependencias Duras)</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400">Impide avanzar esta tarea</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <select
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-rose-500/50"
+                          defaultValue=""
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val && !blockedBy.includes(val)) {
+                              setBlockedBy([...blockedBy, val]);
+                            }
+                            e.target.value = '';
+                          }}
+                        >
+                          <option value="" className="bg-[#0e1626]">+ Agregar tarea que bloquea a esta...</option>
+                          {otherItems.filter(it => !blockedBy.includes(it.code || it.id)).map(it => (
+                            <option key={it.id} value={it.code || it.id} className="bg-[#0e1626]">
+                              {it.code || it.id} - {it.title.slice(0, 45)} ({it.status})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {blockedBy.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {blockedBy.map(bCode => (
+                            <span key={bCode} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px]">
+                              <span>⛔ {bCode}</span>
+                              <button
+                                type="button"
+                                onClick={() => setBlockedBy(blockedBy.filter(c => c !== bCode))}
+                                className="text-rose-400 hover:text-white ml-0.5"
+                                title="Quitar bloqueo"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. Bloquea A (Blocks) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-semibold text-amber-300 flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Bloquea A (Otras tareas que dependen de esta)</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400">Esta tarea es requisito previo</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <select
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-amber-500/50"
+                          defaultValue=""
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val && !blocks.includes(val)) {
+                              setBlocks([...blocks, val]);
+                            }
+                            e.target.value = '';
+                          }}
+                        >
+                          <option value="" className="bg-[#0e1626]">+ Agregar tarea que depende de esta...</option>
+                          {otherItems.filter(it => !blocks.includes(it.code || it.id)).map(it => (
+                            <option key={it.id} value={it.code || it.id} className="bg-[#0e1626]">
+                              {it.code || it.id} - {it.title.slice(0, 45)} ({it.status})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {blocks.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {blocks.map(bCode => (
+                            <span key={bCode} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px]">
+                              <span>⚠️ {bCode}</span>
+                              <button
+                                type="button"
+                                onClick={() => setBlocks(blocks.filter(c => c !== bCode))}
+                                className="text-amber-400 hover:text-white ml-0.5"
+                                title="Quitar relación"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. Relacionado Con (Related To) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
+                          <Link className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Relacionado Con (Vínculos Conceptuales)</span>
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <select
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                          defaultValue=""
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val && !relatedTo.includes(val)) {
+                              setRelatedTo([...relatedTo, val]);
+                            }
+                            e.target.value = '';
+                          }}
+                        >
+                          <option value="" className="bg-[#0e1626]">+ Vincular tarea conceptualmente...</option>
+                          {otherItems.filter(it => !relatedTo.includes(it.code || it.id)).map(it => (
+                            <option key={it.id} value={it.code || it.id} className="bg-[#0e1626]">
+                              {it.code || it.id} - {it.title.slice(0, 45)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {relatedTo.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {relatedTo.map(rCode => (
+                            <span key={rCode} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px]">
+                              <span>🔗 {rCode}</span>
+                              <button
+                                type="button"
+                                onClick={() => setRelatedTo(relatedTo.filter(c => c !== rCode))}
+                                className="text-indigo-400 hover:text-white ml-0.5"
+                                title="Quitar relación"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Column (33%): Sidebar "Atributos del Ítem" */}
@@ -545,37 +783,31 @@ export const ItemModal: FC<ItemModalProps> = ({
                       <option value="feature" className="bg-[#0e1626]">🚀 Feature</option>
                       <option value="tech_debt" className="bg-[#0e1626]">🛠️ Deuda Técnica</option>
                       <option value="ux" className="bg-[#0e1626]">🎨 UX</option>
+                      <option value="epic" className="bg-[#0e1626]">📚 Epic</option>
+                      <option value="initiative" className="bg-[#0e1626]">⚡ Initiative</option>
+                      {config?.customItemTypes && config.customItemTypes.length > 0 && (
+                        <optgroup label="Tipos Personalizados">
+                          {config.customItemTypes.map((ct) => (
+                            <option key={ct.key} value={ct.key} className="bg-[#0e1626]">
+                              🏷️ {ct.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
                 </div>
 
-                {/* Sprint & Release (Sprint is hidden if methodology is pure Kanban) */}
-                {config?.methodology === 'kanban' ? (
-                  <div>
-                    <label className="block text-[11px] font-medium text-emerald-400 mb-1">Release / Versión</label>
-                    <input
-                      type="text"
-                      value={release}
-                      onChange={(e) => setRelease(e.target.value)}
-                      placeholder="Ej: 0.3.0"
-                      list="releases-list"
-                      className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                    />
-                    <datalist id="releases-list">
-                      {availableReleases.map((r) => (
-                        <option key={r} value={r} />
-                      ))}
-                    </datalist>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2.5">
+                {/* Sprint & Multi-Release (DEV-056) */}
+                <div className="space-y-2.5">
+                  {config?.methodology !== 'kanban' && (
                     <div>
-                      <label className="block text-[11px] font-medium text-indigo-400 mb-1">Sprint</label>
+                      <label className="block text-[11px] font-medium text-indigo-400 mb-1">Sprint Activo</label>
                       <input
                         type="text"
                         value={sprint}
                         onChange={(e) => setSprint(e.target.value)}
-                        placeholder="Ej: Sprint 1"
+                        placeholder="Ej: Sprint 4"
                         list="sprints-list"
                         className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
                       />
@@ -584,15 +816,44 @@ export const ItemModal: FC<ItemModalProps> = ({
                           <option key={s} value={s} />
                         ))}
                       </datalist>
-                    </div>
 
-                    <div>
-                      <label className="block text-[11px] font-medium text-emerald-400 mb-1">Release / Versión</label>
+                      {/* Historial de Sprints Cerrados (DEV-056 AC #1 & #3) */}
+                      {item?.sprints && item.sprints.filter(s => s !== sprint).length > 0 && (
+                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                            <History className="w-3 h-3 text-slate-500" />
+                            Historial:
+                          </span>
+                          {item.sprints.filter(s => s !== sprint).map(histSp => (
+                            <span key={histSp} className="px-1.5 py-0.2 rounded text-[9px] bg-white/[0.05] border border-white/[0.08] text-slate-300 font-mono">
+                              {histSp}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Multi-version Releases (DEV-056) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-medium text-emerald-400">Releases / Versiones</label>
+                      {selectedReleases.length > 1 && (
+                        <span className="text-[10px] text-emerald-400/80 font-mono">Multi-versión</span>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
                       <input
                         type="text"
                         value={release}
-                        onChange={(e) => setRelease(e.target.value)}
-                        placeholder="Ej: 0.3.0"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setRelease(val);
+                          if (val && !selectedReleases.includes(val)) {
+                            setSelectedReleases([...selectedReleases, val]);
+                          }
+                        }}
+                        placeholder="Ej: 0.4.0 (escribe o selecciona abajo)"
                         list="releases-list"
                         className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500/50"
                       />
@@ -601,9 +862,41 @@ export const ItemModal: FC<ItemModalProps> = ({
                           <option key={r} value={r} />
                         ))}
                       </datalist>
+
+                      {availableReleases.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {availableReleases.map(rel => {
+                            const isSelected = selectedReleases.includes(rel);
+                            return (
+                              <button
+                                type="button"
+                                key={rel}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    const next = selectedReleases.filter(r => r !== rel);
+                                    setSelectedReleases(next);
+                                    if (release === rel) setRelease(next[0] || '');
+                                  } else {
+                                    const next = [...selectedReleases, rel];
+                                    setSelectedReleases(next);
+                                    setRelease(rel);
+                                  }
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                                  isSelected
+                                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-semibold'
+                                    : 'bg-white/[0.03] text-slate-400 hover:bg-white/[0.07] border border-white/[0.06]'
+                                }`}
+                              >
+                                {isSelected ? '✓ ' : '+ '}v{rel}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Module & Code */}
                 <div className="grid grid-cols-2 gap-2.5">

@@ -23,6 +23,14 @@ export interface BacklogMdTask {
   labels?: string[];
   dependencies?: string[];
   milestone?: string;
+  sprint?: string;
+  targetSprint?: string;
+  parentId?: string;
+  blocks?: string[];
+  blockedBy?: string[];
+  relatedTo?: string[];
+  sprints?: string[];
+  releases?: string[];
   createdDate?: string;
   updatedDate?: string;
   description?: string;
@@ -171,6 +179,11 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
         if (currentKey === 'labels') result.labels = currentList;
         else if (currentKey === 'assignee' || currentKey === 'assignees') result.assignees = currentList;
         else if (currentKey === 'dependencies') result.dependencies = currentList;
+        else if (currentKey === 'blocks') result.blocks = currentList;
+        else if (currentKey === 'blocked_by' || currentKey === 'blockedby') result.blockedBy = currentList;
+        else if (currentKey === 'related_to' || currentKey === 'relatedto') result.relatedTo = currentList;
+        else if (currentKey === 'sprints') result.sprints = currentList;
+        else if (currentKey === 'releases') result.releases = currentList;
       }
       inList = false;
       currentList = [];
@@ -213,6 +226,11 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
           if (key === 'labels') result.labels = items;
           else if (key === 'assignee' || key === 'assignees') result.assignees = items;
           else if (key === 'dependencies') result.dependencies = items;
+          else if (key === 'blocks') result.blocks = items;
+          else if (key === 'blocked_by' || key === 'blockedby') result.blockedBy = items;
+          else if (key === 'related_to' || key === 'relatedto') result.relatedTo = items;
+          else if (key === 'sprints') result.sprints = items;
+          else if (key === 'releases') result.releases = items;
           continue;
         }
 
@@ -236,10 +254,34 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
           case 'milestone':
             result.milestone = cleanVal;
             break;
+          case 'parent':
+          case 'parentid':
+            result.parentId = cleanVal;
+            break;
+          case 'blocks':
+            result.blocks = [cleanVal];
+            break;
+          case 'blocked_by':
+          case 'blockedby':
+            result.blockedBy = [cleanVal];
+            break;
+          case 'related_to':
+          case 'relatedto':
+            result.relatedTo = [cleanVal];
+            break;
+          case 'sprints':
+            result.sprints = [cleanVal];
+            break;
+          case 'releases':
+            result.releases = [cleanVal];
+            break;
           case 'sprint':
           case 'targetsprint':
+            result.sprint = cleanVal;
+            result.targetSprint = cleanVal;
             if (result.rawExtraFrontmatter) {
               result.rawExtraFrontmatter.sprint = cleanVal;
+              result.rawExtraFrontmatter.targetSprint = cleanVal;
             }
             break;
           case 'release':
@@ -373,9 +415,38 @@ export function serializeBacklogMd(task: BacklogMdTask): string {
     frontmatterLines.push(`milestone: ${JSON.stringify(task.milestone)}`);
   }
 
+  if (task.parentId) {
+    frontmatterLines.push(`parent: ${JSON.stringify(task.parentId)}`);
+  }
+
+  if (task.blocks && task.blocks.length > 0) {
+    frontmatterLines.push('blocks:');
+    task.blocks.forEach(b => frontmatterLines.push(`  - ${JSON.stringify(b)}`));
+  }
+
+  if (task.blockedBy && task.blockedBy.length > 0) {
+    frontmatterLines.push('blocked_by:');
+    task.blockedBy.forEach(b => frontmatterLines.push(`  - ${JSON.stringify(b)}`));
+  }
+
+  if (task.relatedTo && task.relatedTo.length > 0) {
+    frontmatterLines.push('related_to:');
+    task.relatedTo.forEach(r => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
+  }
+
+  if (task.sprints && task.sprints.length > 0) {
+    frontmatterLines.push('sprints:');
+    task.sprints.forEach(s => frontmatterLines.push(`  - ${JSON.stringify(s)}`));
+  }
+
+  if (task.releases && task.releases.length > 0) {
+    frontmatterLines.push('releases:');
+    task.releases.forEach(r => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
+  }
+
   if (task.rawExtraFrontmatter) {
     for (const [k, v] of Object.entries(task.rawExtraFrontmatter)) {
-      if (!['id', 'title', 'status', 'assignee', 'created_date', 'updated_date', 'labels', 'dependencies', 'priority', 'type', 'milestone'].includes(k.toLowerCase())) {
+      if (!['id', 'title', 'status', 'assignee', 'created_date', 'updated_date', 'labels', 'dependencies', 'priority', 'type', 'milestone', 'parent', 'parentid', 'blocks', 'blocked_by', 'blockedby', 'related_to', 'relatedto', 'sprints', 'releases'].includes(k.toLowerCase())) {
         frontmatterLines.push(`${k}: ${JSON.stringify(v)}`);
       }
     }
