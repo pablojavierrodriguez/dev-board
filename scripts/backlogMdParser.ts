@@ -38,6 +38,9 @@ export interface BacklogMdTask {
   implementationPlan?: string;
   implementationNotes?: string;
   finalSummary?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  previousStatus?: string;
   rawExtraFrontmatter?: Record<string, string>;
 }
 
@@ -144,6 +147,17 @@ export function formatPriorityForMd(p: 'p0' | 'p1' | 'p2' | 'p3' | string): stri
   if (p === 'p2') return 'medium';
   if (p === 'p3') return 'low';
   return p || 'medium';
+}
+
+/**
+ * Normaliza el tipo de tarea al vocabulario estándar de DevBoard
+ * (bug, feature, tech_debt, ux, epic, initiative)
+ */
+export function normalizeType(raw: string | undefined | null): string {
+  if (!raw) return 'feature';
+  const clean = raw.trim().toLowerCase();
+  if (clean === 'bugfix' || clean === 'defect' || clean === 'fix') return 'bug';
+  return clean;
 }
 
 /**
@@ -262,7 +276,7 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
             result.status = normalizeStatus(cleanVal);
             break;
           case 'type':
-            result.type = cleanVal;
+            result.type = normalizeType(cleanVal);
             break;
           case 'priority':
             result.priority = cleanVal;
@@ -320,6 +334,24 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
             break;
           case 'assignee':
             result.assignees = [cleanVal];
+            break;
+          case 'isdeleted':
+            result.isDeleted = cleanVal.toLowerCase() === 'true';
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter[key] = cleanVal;
+            }
+            break;
+          case 'deletedat':
+            result.deletedAt = cleanVal;
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter[key] = cleanVal;
+            }
+            break;
+          case 'previousstatus':
+            result.previousStatus = cleanVal;
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter[key] = cleanVal;
+            }
             break;
           default:
             if (result.rawExtraFrontmatter) {
@@ -475,9 +507,19 @@ export function serializeBacklogMd(task: BacklogMdTask): string {
     frontmatterLines.push(`targetSprint: ${JSON.stringify(task.targetSprint)}`);
   }
 
+  if (task.isDeleted) {
+    frontmatterLines.push('isDeleted: true');
+    if (task.deletedAt) {
+      frontmatterLines.push(`deletedAt: ${JSON.stringify(task.deletedAt)}`);
+    }
+    if (task.previousStatus) {
+      frontmatterLines.push(`previousStatus: ${JSON.stringify(task.previousStatus)}`);
+    }
+  }
+
   if (task.rawExtraFrontmatter) {
     for (const [k, v] of Object.entries(task.rawExtraFrontmatter)) {
-      if (!['id', 'title', 'status', 'assignee', 'created_date', 'updated_date', 'labels', 'dependencies', 'priority', 'type', 'milestone', 'parent', 'parentid', 'blocks', 'blocked_by', 'blockedby', 'related_to', 'relatedto', 'sprints', 'releases', 'sprint', 'targetsprint'].includes(k.toLowerCase())) {
+      if (!['id', 'title', 'status', 'assignee', 'created_date', 'updated_date', 'labels', 'dependencies', 'priority', 'type', 'milestone', 'parent', 'parentid', 'blocks', 'blocked_by', 'blockedby', 'related_to', 'relatedto', 'sprints', 'releases', 'sprint', 'targetsprint', 'isdeleted', 'deletedat', 'previousstatus'].includes(k.toLowerCase())) {
         frontmatterLines.push(`${k}: ${JSON.stringify(v)}`);
       }
     }

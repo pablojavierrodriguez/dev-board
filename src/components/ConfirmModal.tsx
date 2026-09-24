@@ -1,5 +1,5 @@
 import { useEffect, useState, type FC } from 'react';
-import { AlertTriangle, Info, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Info, Trash2, X, Rocket } from 'lucide-react';
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -8,7 +8,7 @@ export interface ConfirmModalProps {
   detail?: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'danger' | 'warning' | 'info';
+  variant?: 'danger' | 'warning' | 'info' | 'success';
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }
@@ -70,6 +70,12 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
           iconBg: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20',
           confirmBtn: 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20 focus:ring-amber-500'
         };
+      case 'success':
+        return {
+          icon: <Rocket className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />,
+          iconBg: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20',
+          confirmBtn: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 focus:ring-emerald-500'
+        };
       case 'info':
       default:
         return {
@@ -117,7 +123,7 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
               </p>
 
               {detail && (
-                <div className="mt-3 px-3 py-2 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.06] text-xs font-mono text-slate-700 dark:text-slate-300 truncate">
+                <div className="mt-3 px-3 py-2 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.06] text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 break-words">
                   {detail}
                 </div>
               )}

@@ -115,6 +115,23 @@ Estas reglas provienen de errores detectados en sesiones reales. Son **obligator
 > 3. **Filtros Independientes**: Cada filtro opera exclusivamente sobre su campo sin efectos colaterales en otras dimensiones.
 > 4. **UI, Tablas y Formularios**: Cada columna o campo de entrada es independiente. Ocultar o alterar una columna en una tabla (ej. en `SprintView` o `KanbanBoard`) jamás debe ocultar, desplazar ni mutar la visualización de otra columna.
 
+> [!CAUTION]
+> **Soberanía Estricta de Releases y Versiones — Cero Releases Falsos o Deducidos**
+>
+> Pertenecer a un Sprint NO implica tener una versión asignada.
+> - **Prohibido asociar nombres de Sprint a Release o Milestone**: El agente NUNCA debe escribir `milestone: "Sprint X"` ni inventar versiones artificiales (`vSprint 5`).
+> - **Valor por Defecto**: Si una tarea no fue formalmente agregada a una versión en `backlog/releases.json` o asignada explícitamente por el usuario, sus campos de release (`release`, `targetRelease`, `releases`, `milestone`) DEBEN permanecer estrictamente vacíos / `undefined`, mostrándose como `—` en la interfaz.
+> - La asignación de versión es soberanía y decisión exclusiva del usuario.
+
+> [!CAUTION]
+> **Regla Anti-Suppression — Cero Silenciamiento de Linters o Tipos para Tapar Síntomas**
+>
+> El agente NUNCA debe apagar o silenciar linters (`"ignore"`, `@ts-ignore`, `eslint-disable`, etc.) para hacer desaparecer advertencias del editor.
+> - **Causa Raíz Obligatoria**: Toda advertencia de sintaxis o tipo debe entenderse en su origen.
+> - **Configuración de Dialecto**: Si el proyecto utiliza una herramienta (como Tailwind CSS), se configura el dialecto real del entorno (`files.associations` con `tailwindcss`) en lugar de mutilar las alertas de CSS.
+
+
+
 > [!WARNING]
 > **Protocolo de Inspección Previa — Prohibido Formular Preguntas Especulativas**
 >

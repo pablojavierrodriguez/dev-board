@@ -43,7 +43,6 @@ import { FilterBar } from './components/FilterBar';
 import { KanbanBoard, SIMPLIFIED_COLUMNS, EXPANDED_COLUMNS } from './components/KanbanBoard';
 import { SprintView } from './components/SprintView';
 import { ReleaseAssembler } from './components/ReleaseAssembler';
-import { ArchiveView } from './components/ArchiveView';
 import { ItemModal } from './components/ItemModal';
 import { ProjectModal } from './components/ProjectModal';
 import { PlanGuardModal } from './components/PlanGuardModal';
@@ -51,7 +50,7 @@ import { ImportWizardModal } from './components/ImportWizardModal';
 import { SettingsView } from './components/SettingsView';
 import { TrashView } from './components/TrashView';
 import { ToastContainer, type ToastMessage } from './components/Toast';
-import { AlertTriangle, LayoutGrid, Target, Rocket, Archive, Trash2 } from 'lucide-react';
+import { AlertTriangle, LayoutGrid, Target, Rocket, Trash2 } from 'lucide-react';
 
 export function App() {
   const [boardData, setBoardData] = useState<BoardData | null>(null);
@@ -74,8 +73,9 @@ export function App() {
   }, [selectedProjectId]);
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     try {
-      const saved = localStorage.getItem('devboard_active_tab');
-      if (saved === 'kanban' || saved === 'sprint' || saved === 'release' || saved === 'archive' || saved === 'settings') return saved;
+      const saved = localStorage.getItem('devboard_active_tab') as ActiveTab | null;
+      if (saved === 'archive') return 'trash';
+      if (saved === 'kanban' || saved === 'sprint' || saved === 'release' || saved === 'trash' || saved === 'settings') return saved;
     } catch {}
     return 'kanban';
   });
@@ -330,7 +330,7 @@ export function App() {
       } else if (e.key === '3') {
         setActiveTab('release');
       } else if (e.key === '4') {
-        setActiveTab('archive');
+        setActiveTab('trash');
       }
     };
 
@@ -572,17 +572,30 @@ export function App() {
     }
   }, [boardData, showToast]);
 
+  // DEV-049/DEV-096: Soft delete (send to trash)
   const handleDeleteItem = useCallback(async (id: string) => {
     if (!boardData) return;
     try {
       await deleteItem(id);
-      setBoardData({
-        ...boardData,
-        items: boardData.items.filter((it) => it.id !== id)
+      setBoardData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          items: prev.items.map((it) =>
+            it.id === id
+              ? {
+                  ...it,
+                  isDeleted: true,
+                  deletedAt: new Date().toISOString(),
+                  previousStatus: it.previousStatus || it.status,
+                }
+              : it
+          ),
+        };
       });
-      showToast('Ítem eliminado correctamente', 'success');
+      showToast('Ítem enviado a la papelera', 'success');
     } catch (err: any) {
-      showToast(`Error al eliminar ítem: ${err.message}`, 'error');
+      showToast(`Error al enviar a la papelera: ${err.message}`, 'error');
     }
   }, [boardData, showToast]);
 
@@ -894,41 +907,16 @@ export function App() {
     }
   }, [loadData, showToast]);
 
-  const handleRestoreItem = useCallback(async (id: string, targetStatus: ItemStatus) => {
-    await handleUpdateStatus(id, targetStatus, true);
-    showToast(`Ítem restaurado al estado '${targetStatus}'`, 'success');
-  }, [handleUpdateStatus, showToast]);
 
-  // DEV-049: Soft delete (send to trash)
-  const handleSoftDeleteItem = useCallback(async (id: string) => {
-    if (!boardData) return;
-    try {
-      await deleteItem(id); // now does soft-delete by default
-      setBoardData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          items: prev.items.map((it) =>
-            it.id === id
-              ? { ...it, status: 'dismissed' as ItemStatus, isDeleted: true, deletedAt: new Date().toISOString(), previousStatus: it.status }
-              : it
-          ),
-        };
-      });
-      showToast('Ítem enviado a la papelera', 'success');
-    } catch (err: any) {
-      showToast(`Error: ${err.message}`, 'error');
-    }
-  }, [boardData, showToast]);
 
-  // DEV-049: Restore from trash via the new /restore endpoint
+  // DEV-049/DEV-096: Restore from trash via the new /restore endpoint
   const handleRestoreFromTrash = useCallback(async (id: string) => {
     if (!boardData) return;
     try {
       await restoreItem(id);
       // Optimistically: find previousStatus from item data
       const item = boardData.items.find((it) => it.id === id);
-      const prevStatus = item?.previousStatus || ('draft' as ItemStatus);
+      const prevStatus = item?.previousStatus || item?.status || ('draft' as ItemStatus);
       setBoardData((prev) => {
         if (!prev) return prev;
         return {
@@ -1019,7 +1007,7 @@ export function App() {
 
   // Metrics
   const stats = useMemo(() => {
-    const active = allProjectItems.filter((i) => i.status !== 'dismissed' && i.status !== 'cancelled');
+    const active = allProjectItems.filter((i) => !i.isDeleted && i.status !== 'dismissed' && i.status !== 'cancelled');
     const pending = active.filter((i) => i.status === 'draft' || i.status === 'ideas' || i.status === 'backlog').length;
     const inProgress = active.filter((i) => i.status === 'doing' || i.status === 'in_progress' || i.status === 'review' || i.status === 'testing_qa').length;
     const completed = active.filter((i) => i.status === 'ready' || i.status === 'done' || i.status === 'finish').length;
@@ -1038,22 +1026,16 @@ export function App() {
     ).length;
   }, [allProjectItems]);
 
-  // DEV-049: Trashed items (soft-deleted)
+  // DEV-049/DEV-096: Trashed items (soft-deleted)
   const trashedItems = useMemo(() => {
-    return allProjectItems.filter((i) => i.isDeleted === true);
+    return allProjectItems.filter((i) => Boolean(i.isDeleted));
   }, [allProjectItems]);
-
-  // DEV-049: Sub-tab for archive section
-  const [archiveSubTab, setArchiveSubTab] = useState<'archive' | 'trash'>('archive');
 
   // Visible items after search/type/priority/module/status filters
   const visibleItems = useMemo(() => {
     return allProjectItems.filter((item) => {
+      if (item.isDeleted) return false;
       const isDismissedOrCancelled = item.status === 'dismissed' || item.status === 'cancelled';
-
-      if (activeTab === 'archive') {
-        return isDismissedOrCancelled;
-      }
 
       // Canonical status normalization
       const canonicalStatus: ItemStatus =
@@ -1161,6 +1143,7 @@ export function App() {
         onNewProject={() => setProjectModalOpen(true)}
         onResyncDocs={handleResyncDocs}
         isResyncing={isResyncing}
+        trashedCount={trashedItems.length}
         archivedCount={archivedCount}
         isDarkMode={isDarkMode}
         onToggleTheme={handleToggleTheme}
@@ -1174,8 +1157,8 @@ export function App() {
         singleProject={boardData?.singleProject}
       />
 
-      {/* Filter Bar (Active in Kanban, Sprint, and Archive tabs) */}
-      {activeTab !== 'release' && activeTab !== 'settings' && (
+      {/* Filter Bar (Active in Kanban and Sprint tabs) */}
+      {activeTab !== 'release' && activeTab !== 'settings' && activeTab !== 'trash' && (
         <FilterBar
           filters={filters}
           onChangeFilters={setFilters}
@@ -1309,67 +1292,13 @@ export function App() {
           />
         )}
 
-        {activeTab === 'archive' && (
-          <div className="flex flex-col h-full">
-            {/* Sub-tab switcher: Archive vs Trash */}
-            <div className="flex items-center gap-1 px-6 pt-4 pb-0 shrink-0">
-              <button
-                type="button"
-                onClick={() => setArchiveSubTab('archive')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  archiveSubTab === 'archive'
-                    ? 'bg-slate-900 dark:bg-white/10 text-white dark:text-white'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
-                }`}
-              >
-                <Archive className="w-3.5 h-3.5" />
-                Archivo
-                {archivedCount > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-400">
-                    {archivedCount}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setArchiveSubTab('trash')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  archiveSubTab === 'trash'
-                    ? 'bg-rose-600 text-white'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
-                }`}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Papelera
-                {trashedItems.length > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                    archiveSubTab === 'trash'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400'
-                  }`}>
-                    {trashedItems.length}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {archiveSubTab === 'archive' ? (
-              <ArchiveView
-                items={allProjectItems.filter((i) => !i.isDeleted)}
-                onRestoreItem={handleRestoreItem}
-                onDeleteItem={handleSoftDeleteItem}
-                onClickItem={(item) => {
-                  setEditingItem(item);
-                  setItemModalOpen(true);
-                }}
-              />
-            ) : (
-              <TrashView
-                trashedItems={trashedItems}
-                onRestore={handleRestoreFromTrash}
-                onPurge={handlePurgeItem}
-              />
-            )}
+        {activeTab === 'trash' && (
+          <div className="flex-1 flex flex-col min-h-0">
+            <TrashView
+              trashedItems={trashedItems}
+              onRestore={handleRestoreFromTrash}
+              onPurge={handlePurgeItem}
+            />
           </div>
         )}
 
@@ -1490,22 +1419,22 @@ export function App() {
         )}
 
         <button
-          onClick={() => setActiveTab('archive')}
+          onClick={() => setActiveTab('trash')}
           className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-2 rounded-xl transition-all min-h-[48px] active:scale-95 ${
-            activeTab === 'archive'
-              ? 'text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-500/10'
+            activeTab === 'trash'
+              ? 'text-rose-600 dark:text-rose-400 font-semibold bg-rose-500/10'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           <div className="relative">
-            <Archive className="w-5 h-5 mb-0.5" />
-            {archivedCount > 0 && (
-              <span className="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center text-[9px] font-bold rounded-full bg-indigo-600 text-white">
-                {archivedCount}
+            <Trash2 className="w-5 h-5 mb-0.5" />
+            {trashedItems.length > 0 && (
+              <span className="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center text-[9px] font-bold rounded-full bg-rose-600 text-white">
+                {trashedItems.length}
               </span>
             )}
           </div>
-          <span className="text-[10px] tracking-tight">Archivo</span>
+          <span className="text-[10px] tracking-tight">Papelera</span>
         </button>
       </nav>
 

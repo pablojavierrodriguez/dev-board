@@ -843,7 +843,8 @@ export const SprintView: FC<SprintViewProps> = ({
                           const TypeIcon = typeInfo.icon;
                           const pInfo = priorityConfig[item.priority] || priorityConfig.p2;
                           const sInfo = statusLabels[item.status] || statusLabels.backlog;
-                          const releaseVal = item.release || item.targetRelease;
+                          const rawRelease = item.release || item.targetRelease;
+                          const releaseVal = rawRelease && !rawRelease.toLowerCase().includes('sprint') ? rawRelease : undefined;
                           const isBeingDragged = draggedItemId === item.id;
                           const isDropTargetRow = dropTargetRow?.itemId === item.id;
 
@@ -1161,10 +1162,10 @@ export const SprintView: FC<SprintViewProps> = ({
 
       <ConfirmModal
         isOpen={!!itemToDelete}
-        title="Eliminar Tarea"
-        message={`¿Estás seguro de que deseas eliminar permanentemente la tarea ${itemToDelete?.code}?`}
+        title="Mover a la Papelera"
+        message={`¿Estás seguro de que deseas mover la tarea ${itemToDelete?.code} a la papelera? Podrás restaurarla desde allí en cualquier momento.`}
         detail={itemToDelete?.title}
-        confirmText="Eliminar Tarea"
+        confirmText="Mover a la Papelera"
         variant="danger"
         onConfirm={() => {
           if (itemToDelete) onDeleteItem(itemToDelete.id);

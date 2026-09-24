@@ -27,7 +27,7 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### 🚀 Ready for Deploy (18)
+### 🚀 Ready for Deploy (23)
 
 #### [DEV-077] Mejora selectores sprints y releases en modal de card
 - **Prioridad**: `low` | **Tipo**: `ux`
@@ -275,6 +275,96 @@ Eliminación integral de desplazamientos de controles en FilterBar al activar cu
 - [x] #2 Estabilidad métrica en píldoras de tipo y prioridad: mantener font-medium tanto en estado activo como inactivo, diferenciando la selección mediante fondo, borde y sombra sin alterar el ancho del texto ni desfasar botones adyacentes.
 - [x] #3 Prevención de wrap vertical en FilterBar: contenedor de barra configurado para prevenir que la aparición de Limpiar fuerce salto a una segunda línea o altere la altura del toolbar.
 - [x] #4 Botón Limpiar desacoplado: asegurar que el botón Limpiar no altere el alineamiento de los filtros rápidos a su izquierda al montarse o desmontarse.
+
+---
+
+#### [DEV-096] Unificación conceptual de borrado: separación ortogonal de Descartar vs Papelera y persistencia de soft-delete
+- **Prioridad**: `high` | **Tipo**: `ux`
+
+Resolver la inconsistencia conceptual y de UX en la eliminación de tareas (Opción A):
+1. Separación ortogonal estricta entre la dimensión de Estado de Producto ('dismissed' / Descartada) y el Ciclo de Vida Físico ('isDeleted' / Papelera).
+2. Eliminar el laberinto de 3 instancias (Backlog -> Archivo -> Papelera -> Purgar): el botón de eliminar envía directo a la Papelera sin pasar por Descartada.
+3. Reparar el bug en readProjectBacklog (vite.config.ts) que omitía isDeleted/deletedAt/previousStatus provocando el rebote de tareas a 'Descartada'.
+4. En la Papelera, permitir Restaurar al estado original o Purgar definitivamente de forma directa con 1 confirmación.
+
+**Criterios de Aceptación:**
+- [x] #1 1. Backend readProjectBacklog mapea de forma determinista isDeleted, deletedAt y previousStatus desde el frontmatter Markdown.
+- [x] #2 2. La acción de descartar (status: dismissed) es exclusivamente un cambio de estado de producto sin modales de advertencia destructiva.
+- [x] #3 3. El botón de eliminar (tachito) envía directamente a la Papelera (isDeleted: true) con mensaje claro y sin mutar el status a dismissed ni pasar por la vista de Descartados.
+- [x] #4 4. En la vista de Archivo y Papelera se resuelven los bucles: la Papelera permite Restaurar al estado anterior o Purgar definitivamente con 1 confirmación.
+- [x] #5 5. Limpieza de datos en dev-060 y compatibilidad case-insensitive con claves de frontmatter isdeleted / isDeleted.
+
+---
+
+#### [DEV-097] Simplificación de vistas: Papelera como vista directa y gestión de descartadas desde Backlog y Filtros
+- **Prioridad**: `high` | **Tipo**: `ux`
+
+Simplificar la arquitectura de vistas eliminando la duplicidad entre Archivo y Backlog:
+1. Las tareas descartadas/canceladas (status: dismissed/cancelled) viven naturalmente en el Backlog y Tablero Kanban, ocultas por defecto y visibles activando el filtro de estados.
+2. La vista dedicada en la cabecera pasa a ser exclusivamente la 'Papelera' (TrashView), con acceso directo sin subpestañas artificiales.
+3. Se remueve la vista redundante ArchiveView.tsx.
+
+**Criterios de Aceptación:**
+- [x] #1 1. En Header.tsx, reemplazar el botón de 'Archivo' por acceso directo a 'Papelera' (ícono Trash2 y badge con conteo de elementos en papelera).
+- [x] #2 2. En App.tsx, transformar la vista 'archive' en 'trash' dedicada, renderizando directamente TrashView sin subpestañas redundantes.
+- [x] #3 3. Garantizar que las tareas 'dismissed' / 'cancelled' se gestionen y visualicen exclusivamente desde Backlog (SprintView) y Kanban (KanbanBoard) gobernadas por filtros de estado (ocultas por defecto).
+- [x] #4 4. Limpieza y remoción de ArchiveView.tsx y del estado archiveSubTab.
+- [x] #5 5. Validación con npx tsc --noEmit, npm test y npm run backlog:check con 0 errores.
+
+---
+
+#### [DEV-098] Estabilización de layout de scrollbar: eliminación de layout shift en Header entre vistas Home y Papelera
+- **Prioridad**: `high` | **Tipo**: `bug`
+
+Al alternar entre vistas que tienen scroll vertical (como Home/Tablero o Configuración) y vistas cuyo contenido entra completamente en el viewport sin desbordar (como Papelera cuando tiene pocos o ningún elemento), la aparición y desaparición de la barra de desplazamiento vertical de la ventana altera el ancho disponible del viewport (`window.innerWidth - scrollbarWidth`). Esto provocaba un desplazamiento ("layout shift" horizontal) hacia la derecha del encabezado superior (`Header`), el cual está centrado con `max-w-[1680px] mx-auto`.
+
+Causa raíz:
+1. `html` contaba con `scrollbar-gutter: stable`, pero sin `overflow-y: scroll`, los navegadores en macOS/Windows con mouse clásico o scrollbars persistentes liberan el espacio del gutter cuando el contenedor no tiene overflow activo.
+2. `TrashView` no contaba con el contenedor canónico `max-w-[1680px] mx-auto w-full px-4 sm:px-6` presente en el Header y el Tablero.
+
+**Criterios de Aceptación:**
+- [x] #1 Configurar `overflow-y: scroll` en `html` (combinado con `scrollbar-gutter: stable`) en `src/index.css` para garantizar que el ancho del layout viewport permanezca 100% invariable entre todas las vistas.
+- [x] #2 Alinear el contenedor de `TrashView` en `App.tsx` y `TrashView.tsx` con el estándar `max-w-[1680px] mx-auto w-full px-4 sm:px-6`.
+- [x] #3 Resolver advertencias y variables sin usar en `src/App.tsx` y `src/components/Header.tsx` asegurando compilación TypeScript estricta con 0 errores (`npx tsc --noEmit`).
+- [x] #4 Verificar ausencia total de layout shift horizontal del `Header` y validar integridad del backlog con `npm run backlog:check` y `npm test`.
+
+---
+
+#### [DEV-099] Desacople estricto de Sprint vs Release: eliminación de versión falsa vSprint5 y prevención de label smuggling
+- **Prioridad**: `high` | **Tipo**: `bug`
+
+Al crear o leer tareas pertenecientes a un sprint (como Sprint 5), se producía una sobrecarga semántica ("label smuggling") donde el valor del sprint se propagaba indebidamente a las propiedades `milestone` y `release`. Esto provocaba que en la UI (tablas de `SprintView`, badges de `ItemCard` y selectores de `ItemModal`) apareciera una versión falsa `vSprint 5` / `vSprint5` como si fuera un release oficial, en lugar de dejar la versión vacía (`—`) hasta que el usuario decida formalmente en qué versión se liberará la tarea.
+
+Causa raíz:
+1. En `backlog/tasks/dev-096*.md` y `dev-097*.md`, el agente escribió `milestone: "Sprint 5"` en el frontmatter, violando la ortogonalidad entre Sprint y Release.
+2. En `vite.config.ts` (`readProjectBacklog`), existía un fallback `milestone: task.milestone || releaseVal || sprintVal`, asignando el `sprintVal` como `milestone` por defecto. A su vez, `releaseVal` leía `task.milestone`, contaminando `release`, `targetRelease` y `releases` con nombres de sprint.
+3. El formateo de releases en la interfaz anteponía prefijos `v` indiscriminadamente sobre cualquier texto (`vSprint 5`).
+
+**Criterios de Aceptación:**
+- [x] #1 Corregir `vite.config.ts` eliminando cualquier fallback de `sprintVal` a `milestone` o `releaseVal`, y garantizando que valores que contengan "sprint" nunca sean interpretados ni guardados como versiones de release.
+- [x] #2 Limpiar `milestone: "Sprint 5"` de los archivos de tareas en `backlog/tasks/` (`DEV-096`, `DEV-097`, etc.) dejando sus campos de release vacíos.
+- [x] #3 Asegurar que las tarjetas en `ItemCard`, la columna Release en `SprintView` y el selector de `ItemModal` muestren `—` (sin versión asignada) cuando un ítem no tenga release formal.
+- [x] #4 Validar compilación (`npx tsc --noEmit`), suite de pruebas (`npm test`) y sincronización (`npm run backlog:check`).
+
+---
+
+#### [DEV-100] Eliminación de confirmación nativa del navegador en vista de Releases y UX de Promoción a Producción
+- **Prioridad**: `medium` | **Tipo**: `ux`
+
+Al presionar "Liberar" o "Eliminar borrador" en el Centro de Releases (`ReleaseAssembler.tsx`), se invocaba la función nativa del navegador `window.confirm()`. Este diálogo gris del sistema operativo rompía por completo la coherencia estética, diseño y accesibilidad de la aplicación.
+
+Solución:
+1. Se clarificó la función del botón "Liberar": promueve una versión en estado 'unreleased' (en preparación) a 'released' (inmutable y desplegada en producción), sella la fecha de publicación oficial y promueve las tareas en 'ready' al estado final 'done'.
+2. Se incorporó la variante 'success' en `ConfirmModal` (con icono `Rocket` y paleta esmeralda) para confirmaciones de publicación formal.
+3. Se reemplazaron todos los llamados a `window.confirm()` en `ReleaseAssembler.tsx` por instancias de `ConfirmModal` con títulos, mensajes explicativos y detalles precisos del impacto.
+4. Se corrigió el contenedor de detalle en `ConfirmModal` removiendo `truncate` y permitiendo multilínea fluida (`break-words text-[11px]`), sintetizando el copy para que sea conciso y armonioso con el espacio.
+
+**Criterios de Aceptación:**
+- [x] #1 Extender `ConfirmModal` con la variante 'success' (icono Rocket, acento esmeralda) manteniendo soporte accesible de teclado (Escape/Enter).
+- [x] #2 Reemplazar el `window.confirm` de "Liberar" en `ReleaseAssembler.tsx` por `ConfirmModal` descriptivo que aclare que la versión pasará a ser inmutable y promoverá las tareas en 'ready' a 'done'.
+- [x] #3 Reemplazar el `window.confirm` de "Eliminar borrador" en `ReleaseAssembler.tsx` por `ConfirmModal` (variante 'danger').
+- [x] #4 Ajustar `ConfirmModal` para permitir multilínea sin recorte por `truncate` y sintetizar los textos para óptima proporción visual.
+- [x] #5 Validar compilación TypeScript (`npx tsc --noEmit`), suite de pruebas (`npm test`) y sincronización viva (`npm run backlog:check`).
 
 ---
 
@@ -967,7 +1057,7 @@ Diferenciación conceptual y visual estricta entre metodologías de proyecto (Ka
 
 #### [DEV-040] Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/
 - **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 Desacoplar la configuración de DevBoard del registro central global (data/projects-registry.json), permitiendo que toda la configuración de columnas, metodología, vistas y preferencias viva autocontenida en .devboard/config.json dentro del repositorio del proyecto.
 
@@ -981,7 +1071,7 @@ Desacoplar la configuración de DevBoard del registro central global (data/proje
 
 #### [DEV-041] Simplificación de UX/UI en Modo Proyecto Único (Eliminación de Ruido Multi-Proyecto)
 - **Prioridad**: `high` | **Tipo**: `ux`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta en un repositorio único, eliminando el ruido de selectores de proyectos globales, modales de importación y cambio de repositorios, ofreciendo una experiencia enfocada y limpia similar a Storybook o Prisma Studio.
 
@@ -996,7 +1086,7 @@ Simplificar radicalmente la navegación y la cabecera cuando DevBoard se ejecuta
 
 #### [DEV-042] Empaquetado y DX como devDependency (Cero Fricción con npm i -D y npx)
 - **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 Optimizar la experiencia de desarrollador (DX) y empaquetado para que DevBoard pueda ser consumido limpiamente como devDependency en cualquier proyecto Node/TypeScript, levantando el cockpit local y el servidor MCP con cero fricción.
 
@@ -1419,7 +1509,7 @@ Evolución integral del sistema de filtrado de DevBoard hacia un modelo limpio, 
 
 #### [DEV-068] Fix: devboard_list_tasks — Filtro por Sprint Retorna Todos los Tasks
 - **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por sprint: retorna todos los tasks del proyecto. Esto genera confusión en auditorías de sprint y obliga al agente a filtrar manualmente el JSON.
 
@@ -1438,7 +1528,7 @@ El filtro `{ "sprint": "Sprint 3" }` en `devboard_list_tasks` no filtra por spri
 
 #### [DEV-069] Fix: devboard_update_task — Ignorar status dentro del objeto updates silenciosamente
 - **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 Cuando se pasa `{ "taskId": "DEV-001", "updates": { "status": "ready" } }`, el servidor MCP ignora el campo `status` dentro de `updates` sin retornar error. El task mantiene su estado anterior.
 

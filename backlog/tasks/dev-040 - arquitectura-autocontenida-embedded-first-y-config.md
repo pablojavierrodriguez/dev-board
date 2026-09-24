@@ -8,16 +8,16 @@ labels: []
 dependencies: []
 priority: high
 type: feature
-milestone: "Sprint 4"
+milestone: "0.4.0"
 sprints:
   - "Sprint 4"
 releases:
-  - "Sprint 4"
+  - "0.4.0"
 sprint: "Sprint 4"
 targetSprint: "Sprint 4"
 order: 160
-release: "Sprint 4"
-targetRelease: "Sprint 4"
+release: "0.4.0"
+targetRelease: "0.4.0"
 ---
 
 ## Description

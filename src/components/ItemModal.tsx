@@ -110,10 +110,11 @@ export const ItemModal: FC<ItemModalProps> = ({
     setModule(source.module || '');
     setImpactedFile(source.impactedFile || '');
     const sVal = source.sprint || source.targetSprint || (source.sprints && source.sprints.length > 0 ? source.sprints[source.sprints.length - 1] : '') || '';
-    const rVal = source.release || source.targetRelease || '';
+    const rawRVal = source.release || source.targetRelease || '';
+    const rVal = rawRVal.toLowerCase().includes('sprint') ? '' : rawRVal;
     setSprint(sVal);
     setRelease(rVal);
-    const rels = source.releases && source.releases.length > 0 ? source.releases : (rVal ? [rVal] : []);
+    const rels = (source.releases && source.releases.length > 0 ? source.releases : (rVal ? [rVal] : [])).filter(r => !r.toLowerCase().includes('sprint'));
     setSelectedReleases(rels);
     setCustomReleaseMode(false);
     setCustomReleaseInput('');
@@ -1319,10 +1320,10 @@ export const ItemModal: FC<ItemModalProps> = ({
       {item && (
         <ConfirmModal
           isOpen={showDeleteConfirm}
-          title="Eliminar Ítem"
-          message={`¿Deseas eliminar definitivamente el ítem ${item.code}? Esta acción no se puede deshacer.`}
+          title="Mover a la Papelera"
+          message={`¿Deseas mover el ítem ${item.code} a la papelera? Podrás restaurarlo desde allí en cualquier momento.`}
           detail={item.title}
-          confirmText="Eliminar Definitivamente"
+          confirmText="Mover a la Papelera"
           variant="danger"
           onConfirm={async () => {
             if (onDelete) {

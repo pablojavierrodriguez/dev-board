@@ -10,6 +10,7 @@ import {
   serializeBacklogMd,
   normalizeStatus,
   normalizePriority,
+  normalizeType,
   generateTaskFilename,
   generateMonolithicBacklogMd,
   type BacklogMdTask
@@ -392,8 +393,14 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
           const fallbackId = filename.split(' - ')[0] || filename.replace(/\.md$/, '');
           const task = parseBacklogMd(raw, fallbackId);
           const rawFm = task.rawExtraFrontmatter || {};
-          const sprintVal = task.sprint || task.targetSprint || rawFm.sprint || rawFm.targetSprint || (task.sprints && task.sprints.length > 0 ? task.sprints[task.sprints.length - 1] : undefined) || (task.milestone && task.milestone.toLowerCase().includes('sprint') ? task.milestone : undefined);
-          const releaseVal = task.milestone || rawFm.release || rawFm.targetRelease || (task.releases && task.releases.length > 0 ? task.releases[task.releases.length - 1] : undefined);
+          // Resolve sprint & release strictly orthogonally
+          const sprintVal = task.sprint || task.targetSprint || rawFm.sprint || rawFm.targetSprint || (task.sprints && task.sprints.length > 0 ? task.sprints[task.sprints.length - 1] : undefined);
+          const rawReleaseCandidate = rawFm.release || rawFm.targetRelease || (task.releases && task.releases.length > 0 ? task.releases[task.releases.length - 1] : undefined) || (task.milestone && !task.milestone.toLowerCase().includes('sprint') ? task.milestone : undefined);
+          const releaseVal = rawReleaseCandidate && !rawReleaseCandidate.toLowerCase().includes('sprint') ? rawReleaseCandidate : undefined;
+          const isDeletedRaw = task.isDeleted !== undefined ? task.isDeleted : (rawFm.isdeleted !== undefined ? rawFm.isdeleted : rawFm.isDeleted);
+          const isDeletedVal = isDeletedRaw === true || isDeletedRaw === 'true';
+          const deletedAtVal = task.deletedAt || rawFm.deletedat || rawFm.deletedAt || undefined;
+          const previousStatusVal = task.previousStatus || rawFm.previousstatus || rawFm.previousStatus || undefined;
 
           items.push({
             id: task.id || fallbackId,
@@ -401,21 +408,21 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
             projectId: project.id,
             title: task.title,
             description: task.description || '',
-            type: task.type || 'feature',
+            type: normalizeType(task.type) || 'feature',
             priority: normalizePriority(task.priority),
             status: task.status, // normalized: draft, doing, review, ready, done, dismissed
             sprint: sprintVal,
             release: releaseVal,
             targetSprint: sprintVal,
             targetRelease: releaseVal,
-            milestone: task.milestone || releaseVal || sprintVal,
+            milestone: releaseVal,
             parentId: task.parentId || rawFm.parent || rawFm.parentId || undefined,
             blocks: task.blocks || (rawFm.blocks ? (Array.isArray(rawFm.blocks) ? rawFm.blocks : [rawFm.blocks]) : []),
             blockedBy: task.blockedBy || (rawFm.blocked_by ? (Array.isArray(rawFm.blocked_by) ? rawFm.blocked_by : [rawFm.blocked_by]) : []),
             relatedTo: task.relatedTo || (rawFm.related_to ? (Array.isArray(rawFm.related_to) ? rawFm.related_to : [rawFm.related_to]) : []),
             dependencies: task.dependencies || [],
             sprints: task.sprints && task.sprints.length > 0 ? task.sprints : (sprintVal ? [sprintVal] : []),
-            releases: task.releases && task.releases.length > 0 ? task.releases : (releaseVal ? [releaseVal] : []),
+            releases: task.releases && task.releases.length > 0 ? task.releases.filter((r: string) => !r.toLowerCase().includes('sprint')) : (releaseVal ? [releaseVal] : []),
             impactedFile: rawFm.impactedFile || undefined,
             risk: rawFm.risk || undefined,
             fix: rawFm.fix || undefined,
@@ -424,6 +431,9 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
             assignees: task.assignees || [],
             labels: task.labels || [],
             order: rawFm.order !== undefined ? Number(rawFm.order) : order++,
+            isDeleted: isDeletedVal ? true : undefined,
+            deletedAt: deletedAtVal,
+            previousStatus: previousStatusVal,
             createdAt: task.createdDate || new Date().toISOString(),
             updatedAt: task.updatedDate || new Date().toISOString(),
             mtime: Math.round(fileStat.mtimeMs)
@@ -660,7 +670,7 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
     id: item.code || item.id,
     title: item.title || existingTask.title || 'Sin título',
     status: normalizeStatus(item.status),
-    type: item.type || existingTask.type || 'feature',
+    type: normalizeType(item.type || existingTask.type) || 'feature',
     priority: item.priority || existingTask.priority || 'p2',
     assignees: item.assignees || existingTask.assignees || [],
     labels: item.labels || existingTask.labels || [],
@@ -671,11 +681,11 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
     relatedTo: item.relatedTo !== undefined ? item.relatedTo : existingTask.relatedTo,
     sprints: item.sprints !== undefined ? item.sprints : existingTask.sprints,
     releases: (item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined || item.releases !== undefined)
-      ? (Array.isArray(item.releases) ? item.releases.filter(Boolean) : (item.release ? [item.release] : []))
-      : existingTask.releases,
+      ? (Array.isArray(item.releases) ? item.releases.filter(Boolean) : (item.release ? [item.release] : [])).filter((r: string) => !r.toLowerCase().includes('sprint'))
+      : (existingTask.releases || []).filter((r: string) => !r.toLowerCase().includes('sprint')),
     milestone: (item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined)
-      ? (item.release || item.targetRelease || item.milestone || undefined)
-      : existingTask.milestone,
+      ? ((item.release || item.targetRelease || item.milestone || '').toLowerCase().includes('sprint') ? undefined : (item.release || item.targetRelease || item.milestone || undefined))
+      : (existingTask.milestone && !existingTask.milestone.toLowerCase().includes('sprint') ? existingTask.milestone : undefined),
     createdDate: item.createdAt || existingTask.createdDate,
     updatedDate: item.updatedAt || new Date().toISOString(),
     description: item.description !== undefined ? item.description : (existingTask.description || ''),
@@ -687,6 +697,32 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
       ...(existingTask.rawExtraFrontmatter || {})
     }
   };
+
+  if (item.isDeleted) {
+    taskData.isDeleted = true;
+    taskData.deletedAt = item.deletedAt || new Date().toISOString();
+    taskData.previousStatus = item.previousStatus || existingTask.previousStatus || existingTask.status || 'draft';
+    if (taskData.rawExtraFrontmatter) {
+      taskData.rawExtraFrontmatter.isDeleted = 'true';
+      if (taskData.deletedAt) taskData.rawExtraFrontmatter.deletedAt = taskData.deletedAt;
+      if (taskData.previousStatus) taskData.rawExtraFrontmatter.previousStatus = taskData.previousStatus;
+      delete taskData.rawExtraFrontmatter.isdeleted;
+      delete taskData.rawExtraFrontmatter.deletedat;
+      delete taskData.rawExtraFrontmatter.previousstatus;
+    }
+  } else {
+    taskData.isDeleted = undefined;
+    taskData.deletedAt = undefined;
+    taskData.previousStatus = undefined;
+    if (taskData.rawExtraFrontmatter) {
+      delete taskData.rawExtraFrontmatter.isdeleted;
+      delete taskData.rawExtraFrontmatter.isDeleted;
+      delete taskData.rawExtraFrontmatter.deletedat;
+      delete taskData.rawExtraFrontmatter.deletedAt;
+      delete taskData.rawExtraFrontmatter.previousstatus;
+      delete taskData.rawExtraFrontmatter.previousStatus;
+    }
+  }
 
   if (item.impactedFile) taskData.rawExtraFrontmatter!.impactedFile = item.impactedFile;
   if (item.risk) taskData.rawExtraFrontmatter!.risk = item.risk;
@@ -747,8 +783,9 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
   }
   const isReleaseProvided = item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined || item.releases !== undefined;
   if (isReleaseProvided) {
-    const rVal = (item.release || item.targetRelease || item.milestone || (item.releases && item.releases.length > 0 ? item.releases[0] : '') || '').trim();
-    const relArray = Array.isArray(item.releases) ? item.releases.filter(Boolean) : (rVal ? [rVal] : []);
+    const rawRVal = (item.release || item.targetRelease || item.milestone || (item.releases && item.releases.length > 0 ? item.releases[0] : '') || '').trim();
+    const rVal = rawRVal.toLowerCase().includes('sprint') ? '' : rawRVal;
+    const relArray = (Array.isArray(item.releases) ? item.releases.filter(Boolean) : (rVal ? [rVal] : [])).filter((r: string) => !r.toLowerCase().includes('sprint'));
 
     if (rVal || relArray.length > 0) {
       taskData.rawExtraFrontmatter!.release = rVal || relArray[0];
@@ -876,7 +913,7 @@ function findBacklogMdFile(project: ProjectMeta, id: string): { filePath: string
   }
 }
 
-// DEV-049: Soft delete — marks isDeleted=true, status=dismissed, saves deletedAt and previousStatus
+// DEV-049/DEV-096: Soft delete — marks isDeleted=true, preserves original status and saves previousStatus
 function softDeleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
   const found = findBacklogMdFile(project, id);
   if (!found) return false;
@@ -888,39 +925,42 @@ function softDeleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
 
   const previousStatus = task.status || 'draft';
   const raw = fs.readFileSync(filePath, 'utf8');
-  // Inject soft-delete fields into frontmatter
   let updated = raw;
-  // Replace or add status
-  if (/^status:/m.test(updated)) {
-    updated = updated.replace(/^status:.*$/m, `status: dismissed`);
-  }
-  // Add isDeleted, deletedAt, previousStatus after status line
-  if (!/^isDeleted:/m.test(updated)) {
-    updated = updated.replace(/^(status:.*$)/m, `$1\nisDeleted: true\ndeletedAt: "${new Date().toISOString()}"\npreviousStatus: "${previousStatus}"`);
+
+  // Remove existing soft delete fields case-insensitively
+  updated = updated.replace(/^[iI]s[dD]eleted:.*\r?\n?/gm, '');
+  updated = updated.replace(/^[dD]eleted[aA]t:.*\r?\n?/gm, '');
+  updated = updated.replace(/^[pP]revious[sS]tatus:.*\r?\n?/gm, '');
+
+  const nowIso = new Date().toISOString();
+  // Insert clean soft delete fields after status line or first frontmatter delimiter
+  if (/^status:.*$/m.test(updated)) {
+    updated = updated.replace(/^(status:.*$)/m, `$1\nisDeleted: true\ndeletedAt: "${nowIso}"\npreviousStatus: "${previousStatus}"`);
   } else {
-    updated = updated.replace(/^isDeleted:.*$/m, `isDeleted: true`);
-    updated = updated.replace(/^deletedAt:.*$/m, `deletedAt: "${new Date().toISOString()}"`);
-    updated = updated.replace(/^previousStatus:.*$/m, `previousStatus: "${previousStatus}"`);
+    updated = updated.replace(/^---\r?\n/, `---\nisDeleted: true\ndeletedAt: "${nowIso}"\npreviousStatus: "${previousStatus}"\n`);
   }
+
   fs.writeFileSync(filePath, updated, 'utf8');
   return true;
 }
 
-// DEV-049: Restore — reverts status to previousStatus and clears soft-delete fields
+// DEV-049/DEV-096: Restore — reverts status to previousStatus and clears soft-delete fields
 function restoreBacklogMdItem(project: ProjectMeta, id: string): boolean {
   const found = findBacklogMdFile(project, id);
   if (!found) return false;
   const { filePath } = found;
 
   let raw = fs.readFileSync(filePath, 'utf8');
-  // Extract previousStatus
-  const prevMatch = raw.match(/^previousStatus:\s*"?([^"\n]+)"?/m);
+  // Extract previousStatus case-insensitively
+  const prevMatch = raw.match(/^[pP]revious[sS]tatus:\s*"?([^"\r\n]+)"?/m);
   const restoreStatus = prevMatch ? prevMatch[1].trim() : 'draft';
 
-  raw = raw.replace(/^status:.*$/m, `status: ${restoreStatus}`);
-  raw = raw.replace(/^isDeleted:.*\n?/m, '');
-  raw = raw.replace(/^deletedAt:.*\n?/m, '');
-  raw = raw.replace(/^previousStatus:.*\n?/m, '');
+  if (/^status:.*$/m.test(raw)) {
+    raw = raw.replace(/^status:.*$/m, `status: ${restoreStatus}`);
+  }
+  raw = raw.replace(/^[iI]s[dD]eleted:.*\r?\n?/gm, '');
+  raw = raw.replace(/^[dD]eleted[aA]t:.*\r?\n?/gm, '');
+  raw = raw.replace(/^[pP]revious[sS]tatus:.*\r?\n?/gm, '');
   fs.writeFileSync(filePath, raw, 'utf8');
   return true;
 }
@@ -1391,7 +1431,6 @@ function devBoardApi(): PluginOption {
                         return sendJson(403, { error: 'Cannot soft-delete a done item.' });
                       }
                       item.previousStatus = item.status;
-                      item.status = 'dismissed';
                       item.isDeleted = true;
                       item.deletedAt = new Date().toISOString();
                     } else {

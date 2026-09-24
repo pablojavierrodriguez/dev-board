@@ -3,7 +3,6 @@ import {
   Kanban, 
   Target, 
   Rocket, 
-  Archive, 
   Plus, 
   RefreshCw, 
   ChevronDown, 
@@ -36,7 +35,8 @@ interface HeaderProps {
   onRestoreDemo?: () => void;
   onResyncDocs: () => void;
   isResyncing: boolean;
-  archivedCount: number;
+  trashedCount?: number;
+  archivedCount?: number;
   isDarkMode: boolean;
   onToggleTheme: () => void;
   onConvertToMd?: (projectId: string) => void;
@@ -57,7 +57,8 @@ export const Header: FC<HeaderProps> = ({
   onNewProject,
   onResyncDocs,
   isResyncing,
-  archivedCount,
+  trashedCount,
+  archivedCount = 0,
   isDarkMode,
   onToggleTheme,
   onDeleteProject,
@@ -417,21 +418,21 @@ export const Header: FC<HeaderProps> = ({
               <Settings className="w-3.5 h-3.5" />
             </button>
 
-            {/* Archivo discrete icon button (DEV-033) */}
+            {/* Papelera discrete icon button (DEV-097) */}
             <button
-              onClick={() => onSelectTab(activeTab === 'archive' ? (config?.defaultView || 'kanban') : 'archive')}
-              title={activeTab === 'archive' ? 'Volver al tablero' : `Ver tareas archivadas (${archivedCount})`}
-              aria-label="Ver tareas archivadas"
+              onClick={() => onSelectTab(activeTab === 'trash' ? (config?.defaultView || 'kanban') : 'trash')}
+              title={activeTab === 'trash' ? 'Volver al tablero' : `Ver papelera (${trashedCount ?? archivedCount})`}
+              aria-label="Ver papelera"
               className={`hidden sm:flex relative p-1.5 rounded-lg border text-xs font-medium transition-all duration-200 transform active:scale-90 ${
-                activeTab === 'archive'
-                  ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
+                activeTab === 'trash'
+                  ? 'bg-rose-50 dark:bg-rose-600/20 text-rose-600 dark:text-rose-400 border-rose-500/30'
                   : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.09] border-slate-200 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <Archive className="w-3.5 h-3.5" />
-              {archivedCount > 0 && (
-                <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 text-[9px] font-mono font-bold rounded-full bg-slate-500 dark:bg-slate-600 text-white flex items-center justify-center shadow-xs">
-                  {archivedCount}
+              <Trash2 className="w-3.5 h-3.5" />
+              {(trashedCount ?? archivedCount) > 0 && (
+                <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 text-[9px] font-mono font-bold rounded-full bg-rose-500 text-white flex items-center justify-center shadow-xs">
+                  {trashedCount ?? archivedCount}
                 </span>
               )}
             </button>

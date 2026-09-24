@@ -21,6 +21,7 @@ import {
 import type { BacklogItem, Release } from '../types';
 import { syncLegacyReleases } from '../api';
 import { typeConfig, priorityConfig } from './ItemCard';
+import { ConfirmModal } from './ConfirmModal';
 
 interface ReleaseAssemblerProps {
   items: BacklogItem[];
@@ -70,6 +71,10 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newTargetDate, setNewTargetDate] = useState(todayStr);
   const [newSummary, setNewSummary] = useState('');
+
+  // Confirmation Modals state (replaces native window.confirm)
+  const [promoteReleaseTarget, setPromoteReleaseTarget] = useState<Release | null>(null);
+  const [deleteReleaseTarget, setDeleteReleaseTarget] = useState<Release | null>(null);
 
   // Drawer Edit state (for active release)
   const activeRelease = useMemo(() => {
@@ -300,11 +305,11 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
     }
   };
 
-  const handlePromoteToProduction = async (rel: Release) => {
-    if (!window.confirm(`¿Confirmas la liberación formal de la versión v${rel.version} a Producción? Esta versión pasará a ser inmutable y se sellará con fecha ${todayStr}.`)) {
-      return;
-    }
+  const handlePromoteToProduction = (rel: Release) => {
+    setPromoteReleaseTarget(rel);
+  };
 
+  const executePromoteToProduction = async (rel: Release) => {
     try {
       await onArchiveRelease(
         {
@@ -320,7 +325,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
         },
         rel.itemCodes || []
       );
-      onShowToast(`🚀 ¡Versión v${rel.version} liberada a Producción!`, 'success');
+      onShowToast(`🚀 ¡Versión v${rel.version} liberada formalmente a Producción!`, 'success');
       setActiveReleaseId(null);
     } catch (err: any) {
       onShowToast(err.message || 'Error al liberar a producción', 'error');
@@ -610,11 +615,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
 
                     {isUnrel && onDeleteRelease && (
                       <button
-                        onClick={() => {
-                          if (window.confirm(`¿Eliminar la versión en preparación v${rel.version}?`)) {
-                            onDeleteRelease(rel.id);
-                          }
-                        }}
+                        onClick={() => setDeleteReleaseTarget(rel)}
                         className="p-2 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-all"
                         title="Eliminar borrador"
                       >
@@ -1160,6 +1161,40 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
         </div>,
         document.body
       )}
+
+      {/* Confirm Modal for Release Promotion to Production */}
+      <ConfirmModal
+        isOpen={Boolean(promoteReleaseTarget)}
+        title={`Liberar v${promoteReleaseTarget?.version} a Producción`}
+        message="¿Confirmas la liberación formal de esta versión?"
+        detail="Sellará la versión como inmutable y promoverá las tareas en 'ready' a 'done'."
+        confirmText="Liberar a Producción"
+        cancelText="Volver"
+        variant="success"
+        onConfirm={async () => {
+          if (promoteReleaseTarget) {
+            await executePromoteToProduction(promoteReleaseTarget);
+          }
+        }}
+        onClose={() => setPromoteReleaseTarget(null)}
+      />
+
+      {/* Confirm Modal for Draft Release Deletion */}
+      <ConfirmModal
+        isOpen={Boolean(deleteReleaseTarget)}
+        title={`Eliminar versión borrador v${deleteReleaseTarget?.version}`}
+        message="¿Confirmas la eliminación de este borrador?"
+        detail="Las tareas vinculadas permanecerán en el backlog."
+        confirmText="Eliminar borrador"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={async () => {
+          if (deleteReleaseTarget && onDeleteRelease) {
+            await onDeleteRelease(deleteReleaseTarget.id);
+          }
+        }}
+        onClose={() => setDeleteReleaseTarget(null)}
+      />
     </div>
   );
 };

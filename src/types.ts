@@ -28,7 +28,7 @@ export type ItemStatus =
 
 export type ViewMode = "simplificada" | "ampliada";
 
-export type ActiveTab = 'kanban' | 'sprint' | 'release' | 'archive' | 'settings';
+export type ActiveTab = 'kanban' | 'sprint' | 'release' | 'trash' | 'archive' | 'settings';
 
 export type StorageType = "json" | "markdown";
 

@@ -468,11 +468,15 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
           </span>
         )}
 
-        {(item.release || item.targetRelease) && (
-          <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300/90 border border-emerald-200 dark:border-emerald-500/20 font-mono">
-            {(item.release || item.targetRelease)?.startsWith('v') ? (item.release || item.targetRelease) : `v${item.release || item.targetRelease}`}
-          </span>
-        )}
+        {(() => {
+          const rel = item.release || item.targetRelease;
+          if (!rel || rel.toLowerCase().includes('sprint')) return null;
+          return (
+            <span className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300/90 border border-emerald-200 dark:border-emerald-500/20 font-mono">
+              {rel.startsWith('v') ? rel : `v${rel}`}
+            </span>
+          );
+        })()}
 
         {item.parentId && (
           <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 font-mono text-[9px] flex items-center gap-1" title={`Tarea padre: ${item.parentId}`}>
@@ -495,10 +499,10 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
 
       <ConfirmModal
         isOpen={showDeleteConfirm}
-        title="Eliminar Tarea"
-        message={`¿Estás seguro de que deseas eliminar permanentemente la tarea ${item.code}?`}
+        title="Mover a la Papelera"
+        message={`¿Estás seguro de que deseas mover la tarea ${item.code} a la papelera? Podrás restaurarla desde allí en cualquier momento.`}
         detail={item.title}
-        confirmText="Eliminar Tarea"
+        confirmText="Mover a la Papelera"
         variant="danger"
         onConfirm={() => onDelete(item.id)}
         onClose={() => setShowDeleteConfirm(false)}

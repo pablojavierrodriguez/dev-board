@@ -1,13 +1,13 @@
 ---
 id: DEV-060
 title: "Internacionalización Total (i18n): Cobertura 100% en Inglés y Español sin Textos Hardcodeados y Selector en Settings"
-status: Draft
+status: draft
 created_date: '2026-09-18'
-updated_date: '2026-09-19 04:25'
+updated_date: '2026-09-24 19:05'
 labels:
-  - i18n
-  - localization
-  - settings
+  - "i18n"
+  - "localization"
+  - "settings"
 dependencies: []
 priority: high
 type: feature
