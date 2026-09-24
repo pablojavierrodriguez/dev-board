@@ -115,7 +115,7 @@ function readTasksForProject(project: ProjectMeta): any[] {
           notes: task.implementationNotes,
           acceptanceCriteriaList: task.acceptanceCriteria,
           sprint: task.sprint || task.targetSprint || task.rawExtraFrontmatter?.sprint,
-          targetSprint: task.targetSprint || task.sprint || task.rawExtraFrontmatter?.sprint || task.milestone,
+          targetSprint: task.targetSprint || task.sprint || task.rawExtraFrontmatter?.sprint,
           milestone: task.milestone,
           createdAt: task.createdDate ? `${task.createdDate}T00:00:00.000Z` : undefined,
           updatedAt: task.updatedDate ? `${task.updatedDate}T00:00:00.000Z` : undefined
@@ -223,6 +223,7 @@ const TOOLS = [
             status: { type: 'string', enum: ['draft', 'doing', 'review', 'ready', 'done', 'dismissed', 'cancelled'] },
             priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
             milestone: { type: 'string' },
+            sprint: { type: 'string', description: 'Sprint a asignar a las tareas coincidentes.' },
             implementationNotes: { type: 'string' },
             labels: { type: 'array', items: { type: 'string' } }
           }
@@ -288,14 +289,18 @@ const TOOLS = [
             description: { type: 'string' },
             priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
             implementationPlan: { type: 'string' },
-            milestone: { type: 'string' }
+            milestone: { type: 'string' },
+            sprint: { type: 'string' },
+            checkAllAcs: { type: 'boolean' }
           }
         },
         title: { type: 'string' },
         description: { type: 'string' },
         priority: { type: 'string', enum: ['urgent', 'high', 'medium', 'low'] },
         implementationPlan: { type: 'string', description: 'Actualización del plan técnico.' },
+        sprint: { type: 'string', description: 'Nombre del sprint a asignar a la tarea (ej: "Sprint 5").' },
         toggleAcIndex: { type: 'number', description: 'Índice de AC (1-indexed) a alternar como completado/pendiente.' },
+        checkAllAcs: { type: 'boolean', description: 'Si es true, marca todos los ACs como completados. Si es false, los desmarca todos en una sola operación.' },
         milestone: { type: 'string' }
       },
       required: ['taskId']
@@ -410,7 +415,7 @@ async function handleToolCall(name: string, args: any): Promise<any> {
       tasks = tasks.filter(t => 
         (t.sprint && String(t.sprint).toLowerCase() === sp) ||
         (t.targetSprint && String(t.targetSprint).toLowerCase() === sp) ||
-        (t.milestone && String(t.milestone).toLowerCase() === sp)
+        (Array.isArray(t.sprints) && t.sprints.some((s: string) => String(s).toLowerCase() === sp))
       );
     }
     if (args.milestone) {
@@ -589,6 +594,16 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             if (updates.status) current.status = normalizeStatus(updates.status);
             if (updates.priority) current.priority = normalizePriority(updates.priority);
             if (updates.milestone !== undefined) current.milestone = updates.milestone;
+            if (updates.sprint !== undefined) {
+              current.sprint = updates.sprint;
+              current.targetSprint = updates.sprint;
+              if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+              current.rawExtraFrontmatter.sprint = updates.sprint;
+              current.rawExtraFrontmatter.targetSprint = updates.sprint;
+              if (updates.sprint) {
+                current.sprints = Array.from(new Set([...(current.sprints || []), updates.sprint]));
+              }
+            }
             if (updates.implementationNotes !== undefined) current.implementationNotes = updates.implementationNotes;
             if (Array.isArray(updates.labels)) current.labels = updates.labels;
             current.updatedDate = today;
@@ -648,6 +663,13 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           if (updates.milestone !== undefined) {
             current.milestone = updates.milestone;
             current.targetSprint = updates.milestone;
+          }
+          if (updates.sprint !== undefined) {
+            current.sprint = updates.sprint;
+            current.targetSprint = updates.sprint;
+            if (updates.sprint) {
+              current.sprints = Array.from(new Set([...(current.sprints || []), updates.sprint]));
+            }
           }
           if (updates.implementationNotes !== undefined) {
             current.implementationNotes = updates.implementationNotes;
@@ -818,6 +840,8 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           const effectivePriority = args.priority || args.updates?.priority;
           const effectivePlan = args.implementationPlan !== undefined ? args.implementationPlan : args.updates?.implementationPlan;
           const effectiveMilestone = args.milestone !== undefined ? args.milestone : args.updates?.milestone;
+          const effectiveSprint = args.sprint !== undefined ? args.sprint : args.updates?.sprint;
+          const effectiveCheckAllAcs = args.checkAllAcs !== undefined ? args.checkAllAcs : args.updates?.checkAllAcs;
           const usedUpdatesObject = Boolean(args.updates && !args.status && args.updates.status);
 
           if (effectiveStatus) current.status = normalizeStatus(effectiveStatus);
@@ -826,9 +850,24 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           if (effectivePriority) current.priority = normalizePriority(effectivePriority);
           if (effectivePlan !== undefined) current.implementationPlan = effectivePlan;
           if (effectiveMilestone !== undefined) current.milestone = effectiveMilestone;
+          if (effectiveSprint !== undefined) {
+            current.sprint = effectiveSprint;
+            current.targetSprint = effectiveSprint;
+            if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+            current.rawExtraFrontmatter.sprint = effectiveSprint;
+            current.rawExtraFrontmatter.targetSprint = effectiveSprint;
+            if (effectiveSprint) {
+              current.sprints = Array.from(new Set([...(current.sprints || []), effectiveSprint]));
+            }
+          }
           current.updatedDate = today;
 
-          if (args.toggleAcIndex !== undefined && current.acceptanceCriteria) {
+          if (effectiveCheckAllAcs !== undefined && current.acceptanceCriteria) {
+            current.acceptanceCriteria = current.acceptanceCriteria.map(ac => ({
+              ...ac,
+              checked: Boolean(effectiveCheckAllAcs)
+            }));
+          } else if (args.toggleAcIndex !== undefined && current.acceptanceCriteria) {
             current.acceptanceCriteria = current.acceptanceCriteria.map(ac => 
               ac.index === args.toggleAcIndex ? { ...ac, checked: !ac.checked } : ac
             );
@@ -873,6 +912,8 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             const effectivePriority = args.priority || args.updates?.priority;
             const effectivePlan = args.implementationPlan !== undefined ? args.implementationPlan : args.updates?.implementationPlan;
             const effectiveMilestone = args.milestone !== undefined ? args.milestone : args.updates?.milestone;
+            const effectiveSprint = args.sprint !== undefined ? args.sprint : args.updates?.sprint;
+            const effectiveCheckAllAcs = args.checkAllAcs !== undefined ? args.checkAllAcs : args.updates?.checkAllAcs;
             const usedUpdatesObject = Boolean(args.updates && !args.status && args.updates.status);
 
             if (effectiveStatus) current.status = normalizeStatus(effectiveStatus);
@@ -881,9 +922,21 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             if (effectivePriority) current.priority = normalizePriority(effectivePriority);
             if (effectivePlan !== undefined) current.implementationPlan = effectivePlan;
             if (effectiveMilestone !== undefined) current.milestone = effectiveMilestone;
+            if (effectiveSprint !== undefined) {
+              current.sprint = effectiveSprint;
+              current.targetSprint = effectiveSprint;
+              if (effectiveSprint) {
+                current.sprints = Array.from(new Set([...(current.sprints || []), effectiveSprint]));
+              }
+            }
             current.updatedAt = now;
 
-            if (args.toggleAcIndex !== undefined && current.acceptanceCriteriaList) {
+            if (effectiveCheckAllAcs !== undefined && current.acceptanceCriteriaList) {
+              current.acceptanceCriteriaList = current.acceptanceCriteriaList.map((ac: any) => ({
+                ...ac,
+                checked: Boolean(effectiveCheckAllAcs)
+              }));
+            } else if (args.toggleAcIndex !== undefined && current.acceptanceCriteriaList) {
               current.acceptanceCriteriaList = current.acceptanceCriteriaList.map((ac: any) =>
                 ac.index === args.toggleAcIndex ? { ...ac, checked: !ac.checked } : ac
               );

@@ -16,7 +16,13 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  Columns3
+  Columns3,
+  CheckSquare,
+  User,
+  Bookmark,
+  RotateCcw,
+  ScrollText,
+  X
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus, Priority, Sprint } from '../types';
 import { typeConfig, priorityConfig } from './ItemCard';
@@ -70,6 +76,7 @@ interface SprintViewProps {
   onDeleteItem: (id: string) => void;
   availableSprints?: string[];
   rankingEnabled?: boolean;
+  projectId?: string;
 }
 
 type GroupBy = 'sprint' | 'priority' | 'module' | 'none' | 'epic';
@@ -106,13 +113,40 @@ export const SprintView: FC<SprintViewProps> = ({
   onCreateTaskFromAction,
   onDeleteItem,
   availableSprints = [],
-  rankingEnabled = true
+  rankingEnabled = true,
+  projectId
 }) => {
   const [groupBy, setGroupBy] = useState<GroupBy>('sprint');
   const [sortBy, setSortBy] = useState<'order' | 'priority' | 'code' | 'status'>('order');
   const [sortAsc, setSortAsc] = useState(true);
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
   const [itemToDelete, setItemToDelete] = useState<BacklogItem | null>(null);
+
+  // Retrospectivas vinculadas a sprints (DEV-080)
+  const [retros, setRetros] = useState<any[]>([]);
+  const [selectedRetro, setSelectedRetro] = useState<{ title: string; date: string; content: string; sprintName: string } | null>(null);
+
+  useEffect(() => {
+    const query = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
+    fetch(`/api/retros${query}`)
+      .then(res => res.json())
+      .then(d => {
+        if (d?.retros) setRetros(d.retros);
+      })
+      .catch(() => {});
+  }, [projectId]);
+
+  // Lista unificada de sprints disponibles (provistos o derivados de sprints oficiales)
+  const allAvailableSprints = useMemo(() => {
+    const set = new Set<string>();
+    if (availableSprints && availableSprints.length > 0) {
+      availableSprints.forEach((s) => set.add(s));
+    }
+    sprints.forEach((s) => {
+      if (s.name) set.add(s.name);
+    });
+    return Array.from(set).filter(Boolean).sort();
+  }, [availableSprints, sprints]);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dropTargetRow, setDropTargetRow] = useState<{ itemId: string; position: 'before' | 'after' } | null>(null);
   const [activeDropGroup, setActiveDropGroup] = useState<string | null>(null);
@@ -123,22 +157,25 @@ export const SprintView: FC<SprintViewProps> = ({
   const [completingSprint, setCompletingSprint] = useState<Sprint | null>(null);
   const [sprintToDelete, setSprintToDelete] = useState<Sprint | null>(null);
 
-  // DEV-051 & DEV-078: Column visibility popover
-  const ALL_OPTIONAL_COLS = ['tipo', 'estado', 'modulo', 'release', 'sprint'] as const;
+  // DEV-051, DEV-078 & DEV-079: Column visibility popover
+  const ALL_OPTIONAL_COLS = ['tipo', 'estado', 'modulo', 'release', 'sprint', 'acProgress', 'assignees', 'labels', 'epic'] as const;
   type OptionalCol = typeof ALL_OPTIONAL_COLS[number];
+  const DEFAULT_COLS: OptionalCol[] = ['tipo', 'estado', 'modulo', 'release', 'sprint'];
+
   const [visibleCols, setVisibleCols] = useState<Set<OptionalCol>>(() => {
     try {
       const saved = localStorage.getItem('devboard_backlog_visible_cols');
       if (saved) {
         const parsed = JSON.parse(saved) as OptionalCol[];
         const set = new Set<OptionalCol>(parsed);
-        if (!parsed.includes('estado')) {
-          set.add('estado');
-        }
+        // Migración defensiva: asegurar que las columnas núcleo estén presentes si el guardado era antiguo (DEV-085)
+        if (!parsed.includes('tipo')) set.add('tipo');
+        if (!parsed.includes('estado')) set.add('estado');
+        if (!parsed.includes('release')) set.add('release');
         return set;
       }
     } catch {}
-    return new Set<OptionalCol>(['tipo', 'estado', 'modulo', 'release', 'sprint']);
+    return new Set<OptionalCol>(DEFAULT_COLS);
   });
   const [colsPopoverOpen, setColsPopoverOpen] = useState(false);
   const colsPopoverRef = useRef<HTMLDivElement>(null);
@@ -180,8 +217,7 @@ export const SprintView: FC<SprintViewProps> = ({
   // Suggested Sprint Name (Sprint N+1)
   const suggestedSprintName = useMemo(() => {
     const allNames = Array.from(new Set([
-      ...(availableSprints || []),
-      ...(sprints.map((s) => s.name) || []),
+      ...allAvailableSprints,
       ...items.map((i) => i.sprint || i.targetSprint || '')
     ]));
     let maxNum = 0;
@@ -193,7 +229,7 @@ export const SprintView: FC<SprintViewProps> = ({
       }
     }
     return `Sprint ${maxNum + 1}`;
-  }, [availableSprints, sprints, items]);
+  }, [allAvailableSprints, items]);
 
   const completedSprintsCount = useMemo(() => {
     return sprints.filter((s) => s.status === 'completed').length;
@@ -270,9 +306,6 @@ export const SprintView: FC<SprintViewProps> = ({
 
         // Excluir sprints completados si showCompletedSprints es false
         if (!showCompletedSprints && spObj?.status === 'completed') return false;
-
-        // Excluir sprints planned vacíos (sin tareas) — son ruido visual
-        if (spObj?.status === 'planned' && g.items.length === 0) return false;
 
         return true;
       });
@@ -488,6 +521,10 @@ export const SprintView: FC<SprintViewProps> = ({
                   { id: 'modulo', label: 'Módulo' },
                   { id: 'release', label: 'Release / Versión' },
                   { id: 'sprint', label: 'Sprint' },
+                  { id: 'acProgress', label: 'Criterios (ACs)' },
+                  { id: 'assignees', label: 'Asignados' },
+                  { id: 'labels', label: 'Etiquetas' },
+                  { id: 'epic', label: 'Épica' }
                 ] as { id: OptionalCol; label: string }[]).map(col => (
                   <label key={col.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
                     <input
@@ -499,7 +536,7 @@ export const SprintView: FC<SprintViewProps> = ({
                     <span className="text-xs text-slate-700 dark:text-slate-300">{col.label}</span>
                   </label>
                 ))}
-                <div className="border-t border-slate-100 dark:border-white/[0.05] pt-1 mt-1">
+                <div className="border-t border-slate-100 dark:border-white/[0.05] pt-1 mt-1 space-y-0.5">
                   <button
                     onClick={() => {
                       const allCols = new Set<OptionalCol>(ALL_OPTIONAL_COLS);
@@ -509,6 +546,17 @@ export const SprintView: FC<SprintViewProps> = ({
                     className="w-full text-left px-2 py-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-md transition-colors"
                   >
                     Mostrar todas
+                  </button>
+                  <button
+                    onClick={() => {
+                      const defCols = new Set<OptionalCol>(DEFAULT_COLS);
+                      setVisibleCols(defCols);
+                      try { localStorage.setItem('devboard_backlog_visible_cols', JSON.stringify(Array.from(defCols))); } catch {}
+                    }}
+                    className="w-full text-left px-2 py-1 text-[11px] text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.05] rounded-md transition-colors flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3 h-3 text-slate-400" />
+                    <span>Restablecer por defecto</span>
                   </button>
                 </div>
               </div>
@@ -658,6 +706,36 @@ export const SprintView: FC<SprintViewProps> = ({
                         </button>
                       )}
 
+                      {/* DEV-080: Ver Retrospectiva en Sprints Completados */}
+                      {sprintObj.status === 'completed' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const match = retros.find(r => 
+                              r.sprintId === sprintObj.id || 
+                              r.sprintId.includes(sprintObj.name.toLowerCase().replace(/[^a-z0-9]/g, '-')) || 
+                              (r.title && r.title.toLowerCase().includes(sprintObj.name.toLowerCase())) ||
+                              (r.content && r.content.toLowerCase().includes(sprintObj.name.toLowerCase()))
+                            );
+                            if (match) {
+                              setSelectedRetro({ ...match, sprintName: sprintObj.name });
+                            } else {
+                              setSelectedRetro({
+                                title: `Retrospectiva — ${sprintObj.name}`,
+                                date: sprintObj.completedAt || '',
+                                content: `# Retrospectiva — ${sprintObj.name}\n\nNo se registró un acta Markdown detallada para este sprint completado.`,
+                                sprintName: sprintObj.name
+                              });
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors shadow-xs"
+                          title="Ver acta de retrospectiva del sprint completado"
+                        >
+                          <ScrollText className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Ver Retrospectiva</span>
+                        </button>
+                      )}
+
                       {onUpdateSprintMeta && (
                         <button
                           type="button"
@@ -685,18 +763,22 @@ export const SprintView: FC<SprintViewProps> = ({
                     </div>
                   )}
 
-                  <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-mono">
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{doneCount}</span>
-                    <span>/</span>
-                    <span>{group.items.length}</span>
-                    <span className="text-slate-400">({progressPercent}%)</span>
-                  </div>
-                  <div className="w-20 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden hidden sm:block">
-                    <div
-                      className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
+                  {!isBacklogGroup && (
+                    <>
+                      <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-mono">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{doneCount}</span>
+                        <span>/</span>
+                        <span>{group.items.length}</span>
+                        <span className="text-slate-400">({progressPercent}%)</span>
+                      </div>
+                      <div className="w-20 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden hidden sm:block">
+                        <div
+                          className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -748,6 +830,10 @@ export const SprintView: FC<SprintViewProps> = ({
                           {visibleCols.has('modulo') && <th className="py-2.5 px-4">Módulo</th>}
                           {visibleCols.has('release') && <th className="py-2.5 px-4">Release / Versión</th>}
                           {visibleCols.has('sprint') && <th className="py-2.5 px-4">Sprint</th>}
+                          {visibleCols.has('acProgress') && <th className="py-2.5 px-4">Criterios</th>}
+                          {visibleCols.has('assignees') && <th className="py-2.5 px-4">Asignado</th>}
+                          {visibleCols.has('labels') && <th className="py-2.5 px-4">Etiquetas</th>}
+                          {visibleCols.has('epic') && <th className="py-2.5 px-4">Épica</th>}
                           <th className="py-2.5 px-4 text-right">Acciones</th>
                         </tr>
                       </thead>
@@ -930,7 +1016,7 @@ export const SprintView: FC<SprintViewProps> = ({
                               {/* Sprint (visible when sprint col enabled in columns popover) */}
                               {visibleCols.has('sprint') && (
                                 <td className="py-2.5 px-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                  {onUpdateSprint && availableSprints.length > 0 ? (
+                                  {onUpdateSprint && allAvailableSprints.length > 0 ? (
                                     <select
                                       value={item.sprint || item.targetSprint || ''}
                                       onChange={(e) => {
@@ -943,7 +1029,7 @@ export const SprintView: FC<SprintViewProps> = ({
                                       className="px-2 py-0.5 rounded text-[10px] font-mono border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 focus:outline-none cursor-pointer"
                                     >
                                       <option value="" className="bg-white dark:bg-[#0e1626] text-slate-500">Sin Sprint</option>
-                                      {availableSprints.map((sp) => (
+                                      {allAvailableSprints.map((sp) => (
                                         <option key={sp} value={sp} className="bg-white dark:bg-[#0e1626] text-slate-800 dark:text-slate-200">
                                           {sp}
                                         </option>
@@ -957,6 +1043,87 @@ export const SprintView: FC<SprintViewProps> = ({
                                     ) : (
                                       <span className="text-slate-400 dark:text-slate-600 font-mono text-[10px]">Sin Sprint</span>
                                     )
+                                  )}
+                                </td>
+                              )}
+
+                              {/* Criterios de Aceptación (DEV-079) */}
+                              {visibleCols.has('acProgress') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap">
+                                  {item.acceptanceCriteriaList && item.acceptanceCriteriaList.length > 0 ? (
+                                    (() => {
+                                      const checked = item.acceptanceCriteriaList.filter((a) => a.checked).length;
+                                      const total = item.acceptanceCriteriaList.length;
+                                      const allDone = checked === total;
+                                      return (
+                                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                                          allDone
+                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                            : 'bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/[0.08]'
+                                        }`}>
+                                          <CheckSquare className="w-2.5 h-2.5" />
+                                          {checked}/{total} AC
+                                        </span>
+                                      );
+                                    })()
+                                  ) : item.acProgress ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-white/[0.05] text-slate-500 border border-slate-200 dark:border-white/[0.08]">
+                                      {item.acProgress}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 dark:text-slate-600 text-xs">—</span>
+                                  )}
+                                </td>
+                              )}
+
+                              {/* Asignados (DEV-079) */}
+                              {visibleCols.has('assignees') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap">
+                                  {item.assignees && item.assignees.length > 0 ? (
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      {item.assignees.map(a => (
+                                        <span key={a} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08]">
+                                          <User className="w-2.5 h-2.5 text-slate-400" />
+                                          {a}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 dark:text-slate-600 text-xs">—</span>
+                                  )}
+                                </td>
+                              )}
+
+                              {/* Etiquetas (DEV-079) */}
+                              {visibleCols.has('labels') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap">
+                                  {item.labels && item.labels.length > 0 ? (
+                                    <div className="flex items-center gap-1 flex-wrap max-w-xs">
+                                      {item.labels.slice(0, 3).map(l => (
+                                        <span key={l} className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-mono">
+                                          #{l}
+                                        </span>
+                                      ))}
+                                      {item.labels.length > 3 && (
+                                        <span className="text-[10px] text-slate-400">+{item.labels.length - 3}</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400 dark:text-slate-600 text-xs">—</span>
+                                  )}
+                                </td>
+                              )}
+
+                              {/* Épica (DEV-079) */}
+                              {visibleCols.has('epic') && (
+                                <td className="py-2.5 px-4 whitespace-nowrap">
+                                  {item.epic ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[10px] font-medium">
+                                      <Bookmark className="w-2.5 h-2.5" />
+                                      {item.epic}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 dark:text-slate-600 text-xs">—</span>
                                   )}
                                 </td>
                               )}
@@ -1064,6 +1231,53 @@ export const SprintView: FC<SprintViewProps> = ({
           }}
           onClose={() => setSprintToDelete(null)}
         />
+      )}
+
+      {/* Retrospective View Modal (DEV-080) */}
+      {selectedRetro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#131c2f] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-white/[0.08] flex items-center justify-between bg-slate-50/50 dark:bg-white/[0.02]">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                  <ScrollText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    {selectedRetro.title}
+                  </h3>
+                  {selectedRetro.date && (
+                    <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                      Fecha de registro: {selectedRetro.date}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedRetro(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs text-slate-700 dark:text-slate-300">
+              <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed bg-slate-50 dark:bg-black/30 p-4 rounded-xl border border-slate-200 dark:border-white/5 max-h-[60vh] overflow-y-auto">
+                {selectedRetro.content}
+              </pre>
+            </div>
+
+            <div className="px-6 py-3.5 border-t border-slate-100 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedRetro(null)}
+                className="px-4 py-2 text-xs font-medium rounded-xl bg-slate-200 dark:bg-white/[0.08] text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-white/[0.12] transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

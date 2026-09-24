@@ -19,7 +19,7 @@ import {
   ShieldAlert,
   History
 } from 'lucide-react';
-import type { BacklogItem, ItemStatus, ItemType, Priority, Project, AcceptanceCriterion, DevBoardConfig } from '../types';
+import type { BacklogItem, ItemStatus, ItemType, Priority, Project, AcceptanceCriterion, DevBoardConfig, Sprint, Release } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 interface ItemModalProps {
@@ -32,6 +32,8 @@ interface ItemModalProps {
   availableModules: string[];
   availableSprints?: string[];
   availableReleases?: string[];
+  sprints?: Sprint[];
+  releases?: Release[];
   onSave: (itemData: Partial<BacklogItem> & { expectedMtime?: number; force?: boolean }) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   activeProjectId?: string;
@@ -49,6 +51,8 @@ export const ItemModal: FC<ItemModalProps> = ({
   availableModules,
   availableSprints = [],
   availableReleases = [],
+  sprints = [],
+  releases = [],
   onSave,
   onDelete,
   activeProjectId,
@@ -87,6 +91,8 @@ export const ItemModal: FC<ItemModalProps> = ({
   const [planExpanded, setPlanExpanded] = useState(false);
   const [riskFixExpanded, setRiskFixExpanded] = useState(false);
   const [relationsExpanded, setRelationsExpanded] = useState(false);
+  const [customSprintMode, setCustomSprintMode] = useState(false);
+  const [showHistoricalReleases, setShowHistoricalReleases] = useState(false);
 
   const currentId = item?.id || '';
   const currentCode = item?.code || '';
@@ -102,7 +108,7 @@ export const ItemModal: FC<ItemModalProps> = ({
     setStatus(source.status || 'draft');
     setModule(source.module || '');
     setImpactedFile(source.impactedFile || '');
-    const sVal = source.sprint || source.targetSprint || '';
+    const sVal = source.sprint || source.targetSprint || (source.sprints && source.sprints.length > 0 ? source.sprints[source.sprints.length - 1] : '') || '';
     const rVal = source.release || source.targetRelease || '';
     setSprint(sVal);
     setRelease(rVal);
@@ -212,12 +218,12 @@ export const ItemModal: FC<ItemModalProps> = ({
         status,
         module: module.trim() || undefined,
         impactedFile: impactedFile.trim() || undefined,
-        sprint: sprint.trim() || undefined,
+        sprint: sprint.trim(),
         release: selectedReleases[0] || release.trim() || undefined,
-        targetSprint: sprint.trim() || undefined,
+        targetSprint: sprint.trim(),
         targetRelease: selectedReleases[0] || release.trim() || undefined,
         releases: selectedReleases.length > 0 ? selectedReleases : (release.trim() ? [release.trim()] : undefined),
-        sprints: item?.sprints ? Array.from(new Set([...item.sprints, ...(sprint.trim() ? [sprint.trim()] : [])])) : (sprint.trim() ? [sprint.trim()] : undefined),
+        sprints: sprint.trim() ? [sprint.trim()] : [],
         parentId: parentId.trim() || undefined,
         blocks: blocks.length > 0 ? blocks : undefined,
         blockedBy: blockedBy.length > 0 ? blockedBy : undefined,
@@ -378,9 +384,23 @@ export const ItemModal: FC<ItemModalProps> = ({
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Descripción & Requerimiento
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Descripción & Requerimiento
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const bddTemplate = `\n\n**COMO** [rol del usuario]\n**QUIERO** [capacidad o acción]\n**PARA** [beneficio o valor de negocio]\n`;
+                      setDescription(prev => prev.trim() ? `${prev}\n${bddTemplate}` : bddTemplate.trimStart());
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition-colors"
+                    title="Insertar plantilla de Historia de Usuario BDD (COMO / QUIERO / PARA)"
+                  >
+                    <Sparkles className="w-3 h-3 text-indigo-400" />
+                    <span>+ Historia BDD</span>
+                  </button>
+                </div>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -415,7 +435,7 @@ export const ItemModal: FC<ItemModalProps> = ({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -426,7 +446,30 @@ export const ItemModal: FC<ItemModalProps> = ({
                       className="flex items-center gap-1 px-2 py-1 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-medium transition-colors"
                     >
                       <Plus className="w-3 h-3" />
-                      <span>Agregar Criterio</span>
+                      <span>+ Criterio</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextIndex = acceptanceCriteriaList.length > 0 
+                          ? Math.max(...acceptanceCriteriaList.map(a => a.index)) + 1 
+                          : 1;
+                        setAcceptanceCriteriaList([
+                          ...acceptanceCriteriaList,
+                          {
+                            index: nextIndex,
+                            text: 'DADO [contexto inicial], CUANDO [evento o acción], ENTONCES [resultado esperado]',
+                            checked: false
+                          }
+                        ]);
+                        if (!acExpanded) setAcExpanded(true);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 rounded bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-[10px] font-medium transition-colors"
+                      title="Agregar criterio con formato BDD Scenario (DADO / CUANDO / ENTONCES)"
+                    >
+                      <Sparkles className="w-3 h-3 text-purple-400" />
+                      <span>+ BDD Scenario</span>
                     </button>
                     <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${acExpanded ? 'rotate-0' : '-rotate-90'}`} />
                   </div>
@@ -798,24 +841,115 @@ export const ItemModal: FC<ItemModalProps> = ({
                   </div>
                 </div>
 
-                {/* Sprint & Multi-Release (DEV-056) */}
-                <div className="space-y-2.5">
+                {/* Sprint & Multi-Release (DEV-056, DEV-077, DEV-087) */}
+                <div className="space-y-3">
                   {config?.methodology !== 'kanban' && (
                     <div>
-                      <label className="block text-[11px] font-medium text-indigo-400 mb-1">Sprint Activo</label>
-                      <input
-                        type="text"
-                        value={sprint}
-                        onChange={(e) => setSprint(e.target.value)}
-                        placeholder="Ej: Sprint 4"
-                        list="sprints-list"
-                        className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
-                      />
-                      <datalist id="sprints-list">
-                        {availableSprints.map((s) => (
-                          <option key={s} value={s} />
-                        ))}
-                      </datalist>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-medium text-indigo-400">Sprint Asignado</label>
+                        <button
+                          type="button"
+                          onClick={() => setCustomSprintMode(prev => !prev)}
+                          className="text-[10px] text-slate-400 hover:text-indigo-300 transition-colors"
+                        >
+                          {customSprintMode ? '← Usar lista' : '✏️ Escribir manual'}
+                        </button>
+                      </div>
+
+                      {customSprintMode ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={sprint}
+                            onChange={(e) => setSprint(e.target.value)}
+                            placeholder="Ej: Sprint 5"
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 font-mono"
+                          />
+                          {sprint && (
+                            <button
+                              type="button"
+                              onClick={() => setSprint('')}
+                              className="px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-400 hover:text-rose-400"
+                              title="Quitar sprint"
+                            >
+                              &times;
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <select
+                            value={sprint}
+                            onChange={(e) => {
+                              if (e.target.value === '__custom__') {
+                                setCustomSprintMode(true);
+                              } else {
+                                setSprint(e.target.value);
+                              }
+                            }}
+                            className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50 cursor-pointer font-medium"
+                          >
+                            <option value="" className="bg-[#0e1626] text-slate-400">Sin Sprint (Backlog)</option>
+                            {sprints.length > 0 ? (
+                              <>
+                                {sprints.map((s) => (
+                                  <option key={s.id} value={s.name} className="bg-[#0e1626]">
+                                    {s.name} {s.status === 'active' ? '🟢 (Activo)' : s.status === 'planned' ? '🟡 (Planificado)' : '⚪ (Completado)'}
+                                  </option>
+                                ))}
+                              </>
+                            ) : (
+                              availableSprints.map((s) => (
+                                <option key={s} value={s} className="bg-[#0e1626]">
+                                  {s}
+                                </option>
+                              ))
+                            )}
+                            <option value="__custom__" className="bg-[#0e1626] text-indigo-400">
+                              + Otro sprint manual...
+                            </option>
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      )}
+
+                      {/* Quick assignment chips */}
+                      {(() => {
+                        const activeSp = sprints.find(s => s.status === 'active');
+                        const plannedSps = sprints.filter(s => s.status === 'planned');
+                        return (
+                          <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                            {activeSp && sprint !== activeSp.name && (
+                              <button
+                                type="button"
+                                onClick={() => { setSprint(activeSp.name); setCustomSprintMode(false); }}
+                                className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                              >
+                                🟢 {activeSp.name}
+                              </button>
+                            )}
+                            {plannedSps.filter(ps => ps.name !== sprint).slice(0, 2).map(ps => (
+                              <button
+                                key={ps.id}
+                                type="button"
+                                onClick={() => { setSprint(ps.name); setCustomSprintMode(false); }}
+                                className="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+                              >
+                                🟡 {ps.name}
+                              </button>
+                            ))}
+                            {sprint && (
+                              <button
+                                type="button"
+                                onClick={() => { setSprint(''); setCustomSprintMode(false); }}
+                                className="px-1.5 py-0.5 rounded text-[10px] text-slate-400 hover:text-slate-200 border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
+                              >
+                                Sin Sprint
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Historial de Sprints Cerrados (DEV-056 AC #1 & #3) */}
                       {item?.sprints && item.sprints.filter(s => s !== sprint).length > 0 && (
@@ -834,7 +968,7 @@ export const ItemModal: FC<ItemModalProps> = ({
                     </div>
                   )}
 
-                  {/* Multi-version Releases (DEV-056) */}
+                  {/* Multi-version Releases (DEV-056, DEV-077, DEV-087) */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-[11px] font-medium text-emerald-400">Releases / Versiones</label>
@@ -853,47 +987,121 @@ export const ItemModal: FC<ItemModalProps> = ({
                             setSelectedReleases([...selectedReleases, val]);
                           }
                         }}
-                        placeholder="Ej: 0.4.0 (escribe o selecciona abajo)"
-                        list="releases-list"
+                        placeholder="Ej: 0.5.0 (escribe o selecciona sugerencias abajo)"
                         className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500/50"
                       />
-                      <datalist id="releases-list">
-                        {availableReleases.map((r) => (
-                          <option key={r} value={r} />
-                        ))}
-                      </datalist>
 
-                      {availableReleases.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {availableReleases.map(rel => {
-                            const isSelected = selectedReleases.includes(rel);
-                            return (
-                              <button
-                                type="button"
-                                key={rel}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    const next = selectedReleases.filter(r => r !== rel);
-                                    setSelectedReleases(next);
-                                    if (release === rel) setRelease(next[0] || '');
-                                  } else {
-                                    const next = [...selectedReleases, rel];
-                                    setSelectedReleases(next);
-                                    setRelease(rel);
-                                  }
-                                }}
-                                className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                                  isSelected
-                                    ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-semibold'
-                                    : 'bg-white/[0.03] text-slate-400 hover:bg-white/[0.07] border border-white/[0.06]'
-                                }`}
-                              >
-                                {isSelected ? '✓ ' : '+ '}v{rel}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                      {/* Sugerencias de Releases: Solo oficiales, priorizando Unreleased (DEV-077 AC #2 & DEV-087) */}
+                      {(() => {
+                        const officialUnreleased = releases.filter(r => r.status === 'unreleased').map(r => r.version);
+                        const officialReleased = releases.filter(r => r.status === 'released').map(r => r.version);
+                        
+                        const defaultChips = officialUnreleased.length > 0 
+                          ? officialUnreleased 
+                          : (availableReleases.length > 0 ? [availableReleases[0]] : []);
+                        
+                        const visibleVersions = Array.from(new Set([
+                          ...defaultChips,
+                          ...selectedReleases
+                        ])).filter(Boolean);
+
+                        const hiddenReleased = officialReleased.filter(r => !visibleVersions.includes(r));
+
+                        return (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex flex-wrap gap-1">
+                              {visibleVersions.map(rel => {
+                                const isSelected = selectedReleases.includes(rel);
+                                const isUnrel = officialUnreleased.includes(rel);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={rel}
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        const next = selectedReleases.filter(r => r !== rel);
+                                        setSelectedReleases(next);
+                                        if (release === rel) setRelease(next[0] || '');
+                                      } else {
+                                        const next = [...selectedReleases, rel];
+                                        setSelectedReleases(next);
+                                        setRelease(rel);
+                                      }
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                                      isSelected
+                                        ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-semibold'
+                                        : isUnrel
+                                        ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20'
+                                        : 'bg-white/[0.03] text-slate-400 hover:bg-white/[0.07] border border-white/[0.06]'
+                                    }`}
+                                  >
+                                    {isSelected ? '✓ ' : '+ '}v{rel}
+                                    {isUnrel && <span className="ml-1 text-[9px] text-emerald-500/80">●</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* DEV-077 AC #3: Acceso a versiones históricas (released) bajo demanda */}
+                            {hiddenReleased.length > 0 && (
+                              <div className="pt-0.5">
+                                {!showHistoricalReleases ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowHistoricalReleases(true)}
+                                    className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+                                  >
+                                    <span>+ Ver versiones anteriores ({hiddenReleased.length})</span>
+                                  </button>
+                                ) : (
+                                  <div className="space-y-1 p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                      <span>Versiones anteriores (released):</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowHistoricalReleases(false)}
+                                        className="text-slate-500 hover:text-slate-300"
+                                      >
+                                        Ocultar
+                                      </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {hiddenReleased.map(rel => {
+                                        const isSelected = selectedReleases.includes(rel);
+                                        return (
+                                          <button
+                                            type="button"
+                                            key={rel}
+                                            onClick={() => {
+                                              if (isSelected) {
+                                                const next = selectedReleases.filter(r => r !== rel);
+                                                setSelectedReleases(next);
+                                                if (release === rel) setRelease(next[0] || '');
+                                              } else {
+                                                const next = [...selectedReleases, rel];
+                                                setSelectedReleases(next);
+                                                setRelease(rel);
+                                              }
+                                            }}
+                                            className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                                              isSelected
+                                                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-semibold'
+                                                : 'bg-white/[0.03] text-slate-400 hover:bg-white/[0.07] border border-white/[0.06]'
+                                            }`}
+                                          >
+                                            {isSelected ? '✓ ' : '+ '}v{rel}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

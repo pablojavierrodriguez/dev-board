@@ -31,7 +31,7 @@ interface ReleaseAssemblerProps {
 }
 
 type TabFilter = 'all' | 'unreleased' | 'released';
-type DrawerTab = 'details' | 'tasks' | 'changelog' | 'retro';
+type DrawerTab = 'details' | 'tasks' | 'changelog';
 
 export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   items,
@@ -62,16 +62,6 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   // Progressive Disclosure Drawer state
   const [activeReleaseId, setActiveReleaseId] = useState<string | null>(null);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('details');
-  const [retros, setRetros] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch(`/api/retros?projectId=${encodeURIComponent(projectId)}`)
-      .then(res => res.json())
-      .then(d => {
-        if (d.retros) setRetros(d.retros);
-      })
-      .catch(() => {});
-  }, [projectId]);
 
   // New Release Modal state
   const [newReleaseModalOpen, setNewReleaseModalOpen] = useState(false);
@@ -712,21 +702,6 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                 <FileText className="w-3.5 h-3.5" />
                 <span>Notas de Cambio (Changelog)</span>
               </button>
-
-              <button
-                onClick={() => setDrawerTab('retro')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all ${
-                  drawerTab === 'retro'
-                    ? 'border-indigo-500 text-white bg-white/[0.04]'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Retrospectiva</span>
-                {retros.length > 0 && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                )}
-              </button>
             </div>
 
             {/* Drawer Content */}
@@ -958,54 +933,6 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                     className="w-full p-4 rounded-xl bg-black/40 border border-white/[0.08] font-mono text-xs text-slate-200 leading-relaxed focus:outline-none focus:border-indigo-500 disabled:opacity-75 resize-y"
                     placeholder="El contenido Markdown de las notas de release aparecerá aquí..."
                   />
-                </div>
-              )}
-
-              {/* TAB 4: RETRO (DEV-070) */}
-              {drawerTab === 'retro' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-200">
-                        Acta de Retrospectiva Vinculada
-                      </h4>
-                      <p className="text-[11px] text-slate-400">
-                        Balance ágil y lecciones aprendidas registradas en este hito
-                      </p>
-                    </div>
-
-                    {retros.length > 0 && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {retros.length} retrospectiva(s) disponible(s)
-                      </span>
-                    )}
-                  </div>
-
-                  {retros.length === 0 ? (
-                    <div className="p-8 rounded-xl bg-black/20 border border-white/[0.06] text-center space-y-2">
-                      <Sparkles className="w-8 h-8 text-indigo-400/50 mx-auto" />
-                      <p className="text-xs text-slate-300 font-medium">
-                        No hay retrospectivas registradas para este release.
-                      </p>
-                      <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-                        Al completar un sprint desde la vista de Sprints o vía MCP (<code className="text-indigo-400">devboard_create_retro</code>), el acta de retrospectiva quedará indexada automáticamente aquí.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {retros.map((r, idx) => (
-                        <div key={idx} className="p-4 rounded-xl bg-black/30 border border-white/[0.08] space-y-2">
-                          <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
-                            <span className="font-semibold text-xs text-indigo-300">{r.title}</span>
-                            <span className="text-[10px] font-mono text-slate-400">{r.date || r.file}</span>
-                          </div>
-                          <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto p-2 bg-black/40 rounded-lg">
-                            {r.content}
-                          </pre>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

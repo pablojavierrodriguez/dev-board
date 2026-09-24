@@ -1,5 +1,19 @@
 [
   {
+    "id": "rel-0-5-0",
+    "projectId": "dev-board",
+    "version": "0.5.0",
+    "date": "2026-09-24",
+    "targetDate": "2026-09-30",
+    "status": "unreleased",
+    "title": "v0.5.0 - UX Polishing, Backlog Coherence, BDD Support & MCP Hardening",
+    "summary": "Resolución de errores de UX/UI, coherencia de backlog, selectores enriquecidos de sprints y releases, soporte para BDD y optimizaciones en el servidor MCP.",
+    "scopeNotes": "Estabilización de sprint 5, corrección de selectores y robustecimiento de API MCP.",
+    "itemCodes": [],
+    "markdownContent": "## [0.5.0] — Unreleased\n\n### 🎯 Resumen\n*Resolución de errores de UX/UI, coherencia de backlog, selectores enriquecidos de sprints y releases, soporte para BDD y optimizaciones en el servidor MCP.*",
+    "createdAt": "2026-09-24T10:00:00.000Z"
+  },
+  {
     "id": "rel-0-4-0",
     "projectId": "dev-board",
     "version": "0.4.0",

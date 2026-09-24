@@ -3,11 +3,17 @@ id: DEV-078
 title: "Separación estricta de Sprint y Estado en columnas filtros y datos"
 status: Done
 created_date: '2026-09-23'
-updated_date: '2026-09-23 22:59'
+updated_date: '2026-09-24 12:14'
 labels: []
 dependencies: []
 priority: high
 type: bug
+milestone: "0.4.0"
+sprint: "Sprint 4"
+targetSprint: "Sprint 4"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: 140
 ---
 
 ## Description

@@ -177,8 +177,8 @@ const statusLabels: Record<string, string> = {
   done: 'Done',
   dismissed: 'Dismissed',
   cancelled: 'Cancelled',
+  ideas: 'Ideas (Discovery)',
   // legacy
-  ideas: 'Draft',
   backlog: 'Draft',
   in_progress: 'Doing',
   testing_qa: 'Review',
@@ -339,8 +339,8 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
                   </button>
 
                   {statusMenuOpen && (
-                    <div className="absolute right-full top-0 mr-1 w-40 rounded-xl bg-white dark:bg-[#0e1626] border border-slate-200 dark:border-white/10 shadow-2xl p-1 z-50 text-xs">
-                      {(['draft', 'doing', 'review', 'ready', 'done'] as ItemStatus[]).map((s) => (
+                    <div className="absolute right-full top-0 mr-1 w-44 rounded-xl bg-white dark:bg-[#0e1626] border border-slate-200 dark:border-white/10 shadow-2xl p-1 z-50 text-xs">
+                      {(['ideas', 'draft', 'doing', 'review', 'ready', 'done'] as ItemStatus[]).map((s) => (
                         <button
                           key={s}
                           onClick={() => {

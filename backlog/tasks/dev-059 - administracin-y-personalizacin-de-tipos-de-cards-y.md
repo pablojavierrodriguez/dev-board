@@ -3,7 +3,7 @@ id: DEV-059
 title: "Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-23 22:59'
+updated_date: '2026-09-24 12:14'
 labels:
   - customization
   - settings
@@ -13,10 +13,15 @@ dependencies: []
 priority: medium
 type: feature
 milestone: "0.5.0"
+sprints:
+  - "Sprint 4"
+releases:
+  - "0.5.0"
 release: "0.5.0"
 targetRelease: "0.5.0"
-order: "60"
+order: 100
 sprint: "Sprint 4"
+targetSprint: "Sprint 4"
 ---
 
 ## Description

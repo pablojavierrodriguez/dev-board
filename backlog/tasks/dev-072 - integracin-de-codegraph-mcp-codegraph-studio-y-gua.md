@@ -3,14 +3,21 @@ id: DEV-072
 title: "Integración de CodeGraph MCP, Codegraph Studio y Guía de Arquitectura de Código"
 status: Done
 created_date: '2026-09-23'
-updated_date: '2026-09-23 14:43'
+updated_date: '2026-09-24 12:14'
 labels: []
 dependencies: []
 priority: high
 type: tech_debt
-milestone: "Sprint 4"
+milestone: "0.4.0"
+sprints:
+  - "Sprint 4"
+releases:
+  - "0.4.0"
 sprint: "Sprint 4"
 targetSprint: "Sprint 4"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: 30
 ---
 
 ## Description

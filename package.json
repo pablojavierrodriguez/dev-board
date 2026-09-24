@@ -15,6 +15,7 @@
     "build:bin": "node scripts/build-binaries.js",
     "preview": "vite preview --port 4100",
     "import:dom": "node scripts/import-dom-docs.js",
+    "test": "node scripts/test-parser.js && node --experimental-strip-types scripts/verify-integration.js",
     "test:backlog": "node --experimental-strip-types scripts/verify-integration.js",
     "mcp": "node bin/devboard-mcp.js",
     "tasks": "node --experimental-strip-types scripts/devboard-cli.ts list --open",

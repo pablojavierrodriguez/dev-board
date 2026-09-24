@@ -14,7 +14,9 @@ console.log('Testing backlogMdParser...');
 
 // 1. Status normalization
 assert.strictEqual(normalizeStatus('Draft'), 'draft');
-assert.strictEqual(normalizeStatus('ideas'), 'draft');
+assert.strictEqual(normalizeStatus('ideas'), 'ideas');
+assert.strictEqual(normalizeStatus('Idea'), 'ideas');
+assert.strictEqual(normalizeStatus('Discovery'), 'ideas');
 assert.strictEqual(normalizeStatus('backlog'), 'draft');
 assert.strictEqual(normalizeStatus('To Do'), 'draft');
 assert.strictEqual(normalizeStatus('in_progress'), 'doing');

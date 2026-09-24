@@ -3,7 +3,7 @@ id: DEV-056
 title: "Releases Multi-Versión y Modelo Unificado de Sprints Jira-Style"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-23 22:59'
+updated_date: '2026-09-24 12:14'
 labels:
   - sprints
   - releases
@@ -14,10 +14,15 @@ dependencies:
 priority: high
 type: feature
 milestone: "0.4.0"
+sprints:
+  - "Sprint 4"
+releases:
+  - "0.4.0"
 release: "0.4.0"
 targetRelease: "0.4.0"
-order: "50"
+order: 90
 sprint: "Sprint 4"
+targetSprint: "Sprint 4"
 ---
 
 ## Description

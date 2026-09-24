@@ -82,6 +82,8 @@ export interface BacklogItem {
   releases?: string[]; // Multi-version releases
   sourceDoc?: string;
   acceptanceCriteriaList?: AcceptanceCriterion[];
+  acProgress?: string; // Summary string e.g. "3/4 AC"
+  epic?: string; // Epic / parent grouping label
   implementationPlan?: string;
   assignees?: string[];
   labels?: string[];

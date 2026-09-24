@@ -3,12 +3,21 @@ id: DEV-070
 title: "Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado"
 status: Done
 created_date: '2026-09-19'
-updated_date: '2026-09-23 22:59'
+updated_date: '2026-09-24 12:14'
 labels: []
 dependencies: []
 priority: medium
 type: feature
+milestone: "0.4.0"
+sprints:
+  - "Sprint 4"
+releases:
+  - "0.4.0"
 sprint: "Sprint 4"
+targetSprint: "Sprint 4"
+release: "0.4.0"
+targetRelease: "0.4.0"
+order: 10
 ---
 
 ## Description

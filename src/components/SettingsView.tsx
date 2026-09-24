@@ -275,10 +275,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     };
   }, [config, theme, density, methodology, defaultView, enabledTabs, autoSave, rankingEnabled, customItemTypes, customColumns, customSimplifiedColumns, showIdeasByDefault, showDoneHistoryByDefault, wipLimits]);
 
-  // Check if modified (dirty state)
+  // Helper to normalize config object for reliable dirty-checking (DEV-081)
+  const normalizeForComparison = (c: Partial<DevBoardConfig>) => {
+    const kanban = c.kanban || {};
+    return {
+      theme: c.theme || 'system',
+      density: c.density || 'comfortable',
+      methodology: c.methodology || 'scrumban',
+      defaultView: c.defaultView || (c.methodology === 'scrum' ? 'sprint' : 'kanban'),
+      enabledTabs: {
+        kanban: c.enabledTabs?.kanban !== undefined ? c.enabledTabs.kanban : c.methodology !== 'scrum',
+        sprint: c.enabledTabs?.sprint !== undefined ? c.enabledTabs.sprint : c.methodology !== 'kanban',
+        release: c.enabledTabs?.release !== false
+      },
+      autoSave: c.autoSave ?? true,
+      rankingEnabled: c.rankingEnabled !== false,
+      customItemTypes: (c.customItemTypes && c.customItemTypes.length > 0) ? c.customItemTypes : undefined,
+      kanban: {
+        showIdeasByDefault: kanban.showIdeasByDefault ?? false,
+        showDoneHistoryByDefault: kanban.showDoneHistoryByDefault ?? false,
+        columns: kanban.columns || [],
+        simplifiedColumns: kanban.simplifiedColumns || [],
+        wipLimits: kanban.wipLimits || {}
+      }
+    };
+  };
+
+  // Check if modified (dirty state) (DEV-081)
   const isDirty = useMemo(() => {
     try {
-      return JSON.stringify(builtConfig) !== JSON.stringify(config);
+      const normBuilt = normalizeForComparison(builtConfig);
+      const normConfig = normalizeForComparison(config);
+      return JSON.stringify(normBuilt) !== JSON.stringify(normConfig);
     } catch {
       return false;
     }

@@ -44,5 +44,16 @@
     "status": "completed",
     "createdAt": "2026-09-19T05:00:00.000Z",
     "completedAt": "2026-09-23T19:05:00.000Z"
+  },
+  {
+    "id": "sprint-1790252674566",
+    "projectId": "dev-board",
+    "name": "Sprint 5",
+    "goal": "Resolución de errores críticos de UX/UI, coherencia de backlog, mejoras de configuración y robustecimiento de MCP",
+    "startDate": "2026-09-24",
+    "endDate": "2026-10-01",
+    "durationWeeks": 1,
+    "status": "active",
+    "createdAt": "2026-09-24T12:24:34.498Z"
   }
 ]

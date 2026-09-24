@@ -1,13 +1,23 @@
 ---
 id: DEV-077
 title: "Mejora selectores sprints y releases en modal de card"
-status: Draft
+status: Ready
 created_date: '2026-09-23'
-updated_date: '2026-09-23 21:45'
+updated_date: '2026-09-24 14:56'
 labels: []
 dependencies: []
 priority: low
 type: ux
+milestone: "0.5.0"
+sprints:
+  - "Sprint 5"
+releases:
+  - "0.5.0"
+sprint: "Sprint 5"
+targetSprint: "Sprint 5"
+order: "50"
+release: "0.5.0"
+targetRelease: "0.5.0"
 ---
 
 ## Description
@@ -19,9 +29,9 @@ Para el campo sprint el listado de sprint debiera ser con un UX/UI similar a la 
 ## Acceptance Criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 Diseñar un selector/dropdown con estética coherente con la UI de DevBoard para el campo de Sprint en ItemModal
-- [ ] #2 Filtrar las sugerencias por defecto del campo Release mostrando únicamente versiones en estado unreleased
-- [ ] #3 Permitir la entrada o selección manual de versiones released si el usuario lo requiere expresamente
+- [x] #1 Diseñar un selector/dropdown con estética coherente con la UI de DevBoard para el campo de Sprint en ItemModal
+- [x] #2 Filtrar las sugerencias por defecto del campo Release mostrando únicamente versiones en estado unreleased
+- [x] #3 Permitir la entrada o selección manual de versiones released si el usuario lo requiere expresamente
 <!-- AC:END -->
 
 ## Implementation Plan

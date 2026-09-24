@@ -6,7 +6,8 @@ Bienvenido a **DevBoard**. Al trabajar en este repositorio, tanto agentes de IA 
 - **Toda modificación de código debe estar asociada a una tarea en `backlog/tasks/`.**
 - Pasa la tarea a `doing` antes de codificar.
 - Tilda los criterios de aceptación (`- [x]`) en vivo.
-- Promociona la tarea a `ready` o `done` antes de proponer o ejecutar un commit.
+- **Límite Canónico del Desarrollo: Sólo hasta `ready`.** El agente NUNCA promueve una tarea a `done` durante el sprint. El estado `ready` (Ready for Release) es el estado terminal del desarrollo en el sprint.
+- **El estado `done` pertenece exclusivamente al Release liberado:** Una tarea pasa a `done` única y exclusivamente cuando la versión formal a la que pertenece es promovida a `released` en `backlog/releases.json`.
 - **Incluye el archivo `.md` de la tarea en el mismo commit que el código.**
 
 ## 2. Herramientas MCP Disponibles
@@ -26,7 +27,7 @@ Usa el servidor MCP de DevBoard (`npm run mcp` o `bin/devboard-mcp.js`) para int
 - `find_type_definitions`, `find_declarations`, `find_implementations`: Navegación de interfaces y tipos.
 
 > [!CAUTION]
-> **Regla Anti-Scripts Sueltos:** NUNCA ejecutes scripts de terminal ad-hoc (`node -e ...`) ni comandos bash destructivos (`mv`, `rm` sobre tareas del backlog). Usa siempre las herramientas MCP provistas.
+> **Regla Anti-Scripts Sueltos y Anti-Node Ad-Hoc:** NUNCA ejecutes scripts de terminal ad-hoc (`node -e ...`, `node scripts/...` sueltos) ni comandos bash destructivos (`mv`, `rm` sobre tareas del backlog). Usa siempre los scripts declarados en `package.json` (`npm test`, `npm run backlog:check`, `npm run build:bin`) o las herramientas MCP provistas.
 
 ## 3. Comandos de Verificación de Integridad y Releases
 - `npm run backlog:check`: Audita la coherencia entre código, criterios y estados.
@@ -122,6 +123,31 @@ Estas reglas provienen de errores detectados en sesiones reales. Son **obligator
 > 2. **Inspección quirúrgica obligatoria**: El agente DEBE abrir inmediatamente el componente TSX responsable (`view_file`) y contrastar con el DOM en el navegador (`browser_subagent`).
 > 3. Las preguntas se reservan únicamente para decisiones de producto genuinamente ambiguas tras haber identificado y explicado con precisión técnica la causa raíz en el código.
 
+> [!CAUTION]
+> **Regla de Eficiencia de Verificación (Anti-Browser-Subagent Ineficiente / Zero-Waste Testing)**
+>
+> El `browser_subagent` es un recurso pesado en tokens, latency y tiempo del usuario.
+> - **Prohibido invocar `browser_subagent` para verificar lógica de estado, contratos de API, cálculos o persistencia de datos** que pueden ser auditados en milisegundos de forma headless.
+> - **Pirámide de Verificación Obligatoria:**
+>   1. `npx tsc --noEmit` (tipado estricto, 0 errores).
+>   2. `npm test` (pruebas de parser e integración en ~300ms).
+>   3. `npm run backlog:check` (auditoría de integridad y sincronización viva).
+> - `browser_subagent` se reserva **exclusivamente para:**
+>   - Validación de bugs visuales complejos de CSS/layout que no puedan deducirse estáticamente.
+>   - Pedido explícito y textual del usuario para una prueba visual o captura de pantalla.
+
+> [!NOTE]
+> **Gotcha: Estado `ideas` (Idea / Discovery) es Ciudadano de Primera Clase**
+>
+> En `backlogMdParser.ts`, `CanonicalStatus` y `normalizeStatus` deben preservar `ideas`. NUNCA normalizar o degradar `ideas` a `draft`, ya que rompe la columna `col-ideas` del tablero Kanban y corrompe los filtros de estado del usuario.
+
+> [!NOTE]
+> **Gotcha: Simetría y Ortogonalidad de `sprint` vs `sprints`**
+>
+> - Al desasignar sprint en `ItemModal`, enviar `sprint: ""` y `targetSprint: ""` explícitamente (no `undefined`) para evitar que `JSON.stringify` omita el campo y no se limpie en el backend.
+> - `saveBacklogMdItem` debe sincronizar simétricamente `taskData.sprint`, `taskData.targetSprint` y `taskData.sprints`, escribiendo `sprint:` en el frontmatter.
+> - `readProjectBacklog` debe resolver `sprintVal` buscando en cascada: `task.sprint || task.targetSprint || rawFm.sprint || (sprints.length ? sprints[last] : undefined)`.
+
 ---
 
 ## 7. Gate de Calidad Antes de Marcar `ready`
@@ -147,11 +173,17 @@ Antes de promover cualquier versión a `released` en `backlog/releases.json`:
 
 ---
 
-## 8. Retrospectiva Obligatoria al Cerrar un Sprint
+## 8. Cierre de Sprint y Retrospectiva — Soberanía Exclusiva del Usuario
 
-**Al completar todos los items de un sprint, el agente DEBE ejecutar una retrospectiva** antes de declarar el sprint cerrado. No es opcional.
+> [!CAUTION]
+> **Prohibido el Cierre de Sprint o Retrospectiva por Deducción**
+>
+> Completar todos los items asignados a un sprint (`ready`) **NUNCA autoriza al agente a cerrar el sprint ni a ejecutar la retrospectiva final**.
+> - El sprint permanece formalmente abierto (`status: "active"`).
+> - El agente solo reporta que los items están listos en `ready` y queda a la espera de la validación del usuario (quien puede solicitar ajustes, rechazar criterios o incorporar más tareas al sprint).
+> - La retrospectiva y el cierre del sprint se ejecutan **única y exclusivamente ante una orden textual y explícita del usuario** (ej: *"cerremos el sprint"*, *"hacé la retro del sprint 5"*).
 
-### Formato de la Retro
+### Formato Canónico de la Retro (Solo cuando el usuario ordene el cierre)
 
 | Dimensión | Pregunta |
 |-----------|----------|
@@ -162,16 +194,9 @@ Antes de promover cualquier versión a `released` en `backlog/releases.json`:
 
 ### Salidas Obligatorias de la Retro
 
-Después de la retrospectiva, el agente DEBE:
+Después de que el usuario ordene formalmente la retrospectiva, el agente DEBE:
 
 1. **Actualizar este `AGENTS.md`** con cualquier gotcha o regla nueva descubierta.
 2. **Actualizar los skills relevantes** en `.agents/skills/` con las lecciones técnicas.
 3. **Crear tareas en el backlog** para mejoras de proceso o producto identificadas.
 4. **Confirmar al usuario** que el sprint está cerrado y la retro ejecutada.
-
-### Trigger Automático de la Retro
-
-La retro se dispara cuando:
-- Todos los items del sprint activo están en estado `ready` o `done`
-- El usuario solicita cerrar el sprint
-- El agente detecta que completó el último item del sprint en curso

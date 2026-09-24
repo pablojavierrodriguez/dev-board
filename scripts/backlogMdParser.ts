@@ -4,7 +4,7 @@
  * Compatible con Node.js y navegadores.
  */
 
-export type CanonicalStatus = 'draft' | 'doing' | 'review' | 'ready' | 'done' | 'dismissed' | 'cancelled';
+export type CanonicalStatus = 'draft' | 'doing' | 'review' | 'ready' | 'done' | 'dismissed' | 'cancelled' | 'ideas';
 
 export interface ParsedAcceptanceCriteria {
   index: number;
@@ -43,17 +43,20 @@ export interface BacklogMdTask {
 
 /**
  * Normaliza cualquier estado (legacy o comunidad) al estándar unificado:
- * 'draft' | 'doing' | 'review' | 'ready' | 'done' | 'dismissed' | 'cancelled'
+ * 'draft' | 'doing' | 'review' | 'ready' | 'done' | 'dismissed' | 'cancelled' | 'ideas'
  */
 export function normalizeStatus(raw: string | undefined | null): CanonicalStatus {
   if (!raw) return 'draft';
   const clean = raw.trim().toLowerCase().replace(/[\s_-]+/g, '');
 
   switch (clean) {
-    case 'draft':
-    case 'drafts':
     case 'ideas':
     case 'idea':
+    case 'discovery':
+      return 'ideas';
+
+    case 'draft':
+    case 'drafts':
     case 'backlog':
     case 'todo':
     case 'open':
@@ -107,6 +110,7 @@ export function normalizeStatus(raw: string | undefined | null): CanonicalStatus
  */
 export function formatStatusForMd(status: CanonicalStatus): string {
   switch (status) {
+    case 'ideas': return 'Ideas';
     case 'draft': return 'Draft';
     case 'doing': return 'Doing';
     case 'review': return 'Review';
@@ -182,7 +186,13 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
         else if (currentKey === 'blocks') result.blocks = currentList;
         else if (currentKey === 'blocked_by' || currentKey === 'blockedby') result.blockedBy = currentList;
         else if (currentKey === 'related_to' || currentKey === 'relatedto') result.relatedTo = currentList;
-        else if (currentKey === 'sprints') result.sprints = currentList;
+        else if (currentKey === 'sprints') {
+          result.sprints = currentList;
+          if (currentList.length > 0 && !result.sprint) {
+            result.sprint = currentList[currentList.length - 1];
+            result.targetSprint = currentList[currentList.length - 1];
+          }
+        }
         else if (currentKey === 'releases') result.releases = currentList;
       }
       inList = false;
@@ -229,7 +239,13 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
           else if (key === 'blocks') result.blocks = items;
           else if (key === 'blocked_by' || key === 'blockedby') result.blockedBy = items;
           else if (key === 'related_to' || key === 'relatedto') result.relatedTo = items;
-          else if (key === 'sprints') result.sprints = items;
+          else if (key === 'sprints') {
+            result.sprints = items;
+            if (items.length > 0 && !result.sprint) {
+              result.sprint = items[items.length - 1];
+              result.targetSprint = items[items.length - 1];
+            }
+          }
           else if (key === 'releases') result.releases = items;
           continue;
         }
@@ -279,6 +295,9 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
           case 'targetsprint':
             result.sprint = cleanVal;
             result.targetSprint = cleanVal;
+            if (!result.sprints || result.sprints.length === 0) {
+              result.sprints = [cleanVal];
+            }
             if (result.rawExtraFrontmatter) {
               result.rawExtraFrontmatter.sprint = cleanVal;
               result.rawExtraFrontmatter.targetSprint = cleanVal;
@@ -311,6 +330,10 @@ export function parseBacklogMd(content: string, defaultId = ''): BacklogMdTask {
       }
     }
     finalizeList();
+    if (result.sprints && result.sprints.length > 0 && !result.sprint) {
+      result.sprint = result.sprints[result.sprints.length - 1];
+      result.targetSprint = result.sprint;
+    }
   }
 
   // 2. Extraer Secciones Delimitadas
@@ -393,14 +416,14 @@ export function serializeBacklogMd(task: BacklogMdTask): string {
 
   if (task.labels && task.labels.length > 0) {
     frontmatterLines.push('labels:');
-    task.labels.forEach(l => frontmatterLines.push(`  - ${l}`));
+    task.labels.forEach(l => frontmatterLines.push(`  - ${JSON.stringify(l)}`));
   } else {
     frontmatterLines.push('labels: []');
   }
 
   if (task.dependencies && task.dependencies.length > 0) {
     frontmatterLines.push('dependencies:');
-    task.dependencies.forEach(d => frontmatterLines.push(`  - ${d}`));
+    task.dependencies.forEach(d => frontmatterLines.push(`  - ${JSON.stringify(d)}`));
   } else {
     frontmatterLines.push('dependencies: []');
   }
@@ -444,9 +467,17 @@ export function serializeBacklogMd(task: BacklogMdTask): string {
     task.releases.forEach(r => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
   }
 
+  if (task.sprint) {
+    frontmatterLines.push(`sprint: ${JSON.stringify(task.sprint)}`);
+  }
+
+  if (task.targetSprint && task.targetSprint !== task.sprint) {
+    frontmatterLines.push(`targetSprint: ${JSON.stringify(task.targetSprint)}`);
+  }
+
   if (task.rawExtraFrontmatter) {
     for (const [k, v] of Object.entries(task.rawExtraFrontmatter)) {
-      if (!['id', 'title', 'status', 'assignee', 'created_date', 'updated_date', 'labels', 'dependencies', 'priority', 'type', 'milestone', 'parent', 'parentid', 'blocks', 'blocked_by', 'blockedby', 'related_to', 'relatedto', 'sprints', 'releases'].includes(k.toLowerCase())) {
+      if (!['id', 'title', 'status', 'assignee', 'created_date', 'updated_date', 'labels', 'dependencies', 'priority', 'type', 'milestone', 'parent', 'parentid', 'blocks', 'blocked_by', 'blockedby', 'related_to', 'relatedto', 'sprints', 'releases', 'sprint', 'targetsprint'].includes(k.toLowerCase())) {
         frontmatterLines.push(`${k}: ${JSON.stringify(v)}`);
       }
     }
@@ -536,8 +567,9 @@ export function generateMonolithicBacklogMd(projectName: string, items: BacklogM
     ''
   ];
 
-  const statuses: CanonicalStatus[] = ['doing', 'review', 'ready', 'draft', 'done', 'dismissed'];
+  const statuses: CanonicalStatus[] = ['ideas', 'doing', 'review', 'ready', 'draft', 'done', 'dismissed'];
   const grouped: Record<CanonicalStatus, BacklogMdTask[]> = {
+    ideas: [],
     doing: [],
     review: [],
     ready: [],
@@ -558,6 +590,7 @@ export function generateMonolithicBacklogMd(projectName: string, items: BacklogM
     if (list.length === 0) continue;
 
     const titleMap: Record<string, string> = {
+      ideas: '💡 Ideas / Discovery',
       doing: '⚡ In Progress / Doing',
       review: '🔍 Review & QA',
       ready: '🚀 Ready for Deploy',

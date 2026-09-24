@@ -998,18 +998,22 @@ export function App() {
     return Array.from(set).sort();
   }, [availableSprints, allProjectItems]);
 
-  // Unique releases for autocomplete (DEV-033)
+  // Releases pertenecientes al proyecto seleccionado (DEV-056, DEV-087)
+  const projectReleases = useMemo(() => {
+    if (!boardData?.releases) return [];
+    if (selectedProjectId === 'all') return boardData.releases;
+    return boardData.releases.filter((r) => r.projectId === selectedProjectId);
+  }, [boardData?.releases, selectedProjectId]);
+
+  // Versiones canónicas oficiales para autocompletar y chips (DEV-033, DEV-087)
+  // NUNCA incluir strings arbitrarios/corruptos inferidos de tareas para evitar DEV-087
   const availableReleases = useMemo(() => {
     const set = new Set<string>();
-    for (const r of boardData?.releases || []) {
+    for (const r of projectReleases) {
       if (r.version) set.add(r.version);
     }
-    for (const it of allProjectItems) {
-      if (it.release) set.add(it.release);
-      else if (it.targetRelease) set.add(it.targetRelease);
-    }
     return Array.from(set).sort();
-  }, [allProjectItems, boardData]);
+  }, [projectReleases]);
 
   // Metrics
   const stats = useMemo(() => {
@@ -1237,6 +1241,7 @@ export function App() {
 
         {activeTab === 'sprint' && (
           <SprintView
+            projectId={selectedProjectId !== 'all' ? selectedProjectId : projects[0]?.id}
             items={visibleItems}
             sprints={projectSprints}
             onClickItem={(item) => {
@@ -1251,7 +1256,11 @@ export function App() {
               const curSprint = existing ? (existing.sprint || existing.targetSprint || '') : '';
               if (curSprint === newSprint) return;
               try {
-                const updated = await updateItem(id, { sprint: newSprint, targetSprint: newSprint });
+                const updated = await updateItem(id, { 
+                  sprint: newSprint, 
+                  targetSprint: newSprint,
+                  sprints: newSprint ? [newSprint] : []
+                });
                 setBoardData((prev) => {
                   if (!prev) return prev;
                   return {
@@ -1380,6 +1389,8 @@ export function App() {
         availableModules={availableModules}
         availableSprints={sprintNamesForAutocomplete}
         availableReleases={availableReleases}
+        sprints={projectSprints}
+        releases={projectReleases}
         onSave={handleSaveItem}
         onDelete={handleDeleteItem}
         activeProjectId={selectedProjectId !== 'all' ? selectedProjectId : projects[0]?.id}

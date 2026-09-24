@@ -3,14 +3,19 @@ id: DEV-040
 title: "Arquitectura Autocontenida (Embedded-First) y Configuración Local en .devboard/"
 status: Done
 created_date: '2026-09-18'
-updated_date: '2026-09-23 22:59'
+updated_date: '2026-09-24 12:14'
 labels: []
 dependencies: []
 priority: high
 type: feature
 milestone: "Sprint 4"
+sprints:
+  - "Sprint 4"
+releases:
+  - "Sprint 4"
 sprint: "Sprint 4"
-order: "90"
+targetSprint: "Sprint 4"
+order: 160
 release: "Sprint 4"
 targetRelease: "Sprint 4"
 ---

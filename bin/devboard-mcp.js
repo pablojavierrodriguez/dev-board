@@ -11,10 +11,12 @@ function normalizeStatus(raw) {
   if (!raw) return "draft";
   const clean = raw.trim().toLowerCase().replace(/[\s_-]+/g, "");
   switch (clean) {
-    case "draft":
-    case "drafts":
     case "ideas":
     case "idea":
+    case "discovery":
+      return "ideas";
+    case "draft":
+    case "drafts":
     case "backlog":
     case "todo":
     case "open":
@@ -58,6 +60,8 @@ function normalizeStatus(raw) {
 }
 function formatStatusForMd(status) {
   switch (status) {
+    case "ideas":
+      return "Ideas";
     case "draft":
       return "Draft";
     case "doing":
@@ -123,8 +127,13 @@ function parseBacklogMd(content, defaultId = "") {
         else if (currentKey === "blocks") result.blocks = currentList;
         else if (currentKey === "blocked_by" || currentKey === "blockedby") result.blockedBy = currentList;
         else if (currentKey === "related_to" || currentKey === "relatedto") result.relatedTo = currentList;
-        else if (currentKey === "sprints") result.sprints = currentList;
-        else if (currentKey === "releases") result.releases = currentList;
+        else if (currentKey === "sprints") {
+          result.sprints = currentList;
+          if (currentList.length > 0 && !result.sprint) {
+            result.sprint = currentList[currentList.length - 1];
+            result.targetSprint = currentList[currentList.length - 1];
+          }
+        } else if (currentKey === "releases") result.releases = currentList;
       }
       inList = false;
       currentList = [];
@@ -159,8 +168,13 @@ function parseBacklogMd(content, defaultId = "") {
           else if (key === "blocks") result.blocks = items;
           else if (key === "blocked_by" || key === "blockedby") result.blockedBy = items;
           else if (key === "related_to" || key === "relatedto") result.relatedTo = items;
-          else if (key === "sprints") result.sprints = items;
-          else if (key === "releases") result.releases = items;
+          else if (key === "sprints") {
+            result.sprints = items;
+            if (items.length > 0 && !result.sprint) {
+              result.sprint = items[items.length - 1];
+              result.targetSprint = items[items.length - 1];
+            }
+          } else if (key === "releases") result.releases = items;
           continue;
         }
         switch (key) {
@@ -208,6 +222,9 @@ function parseBacklogMd(content, defaultId = "") {
           case "targetsprint":
             result.sprint = cleanVal;
             result.targetSprint = cleanVal;
+            if (!result.sprints || result.sprints.length === 0) {
+              result.sprints = [cleanVal];
+            }
             if (result.rawExtraFrontmatter) {
               result.rawExtraFrontmatter.sprint = cleanVal;
               result.rawExtraFrontmatter.targetSprint = cleanVal;
@@ -240,6 +257,10 @@ function parseBacklogMd(content, defaultId = "") {
       }
     }
     finalizeList();
+    if (result.sprints && result.sprints.length > 0 && !result.sprint) {
+      result.sprint = result.sprints[result.sprints.length - 1];
+      result.targetSprint = result.sprint;
+    }
   }
   const descMatch = bodyContent.match(/<!--\s*SECTION:DESCRIPTION:BEGIN\s*-->([\s\S]*?)<!--\s*SECTION:DESCRIPTION:END\s*-->/i);
   if (descMatch) {
@@ -300,13 +321,13 @@ function serializeBacklogMd(task) {
   frontmatterLines.push(`updated_date: '${nowStr}'`);
   if (task.labels && task.labels.length > 0) {
     frontmatterLines.push("labels:");
-    task.labels.forEach((l) => frontmatterLines.push(`  - ${l}`));
+    task.labels.forEach((l) => frontmatterLines.push(`  - ${JSON.stringify(l)}`));
   } else {
     frontmatterLines.push("labels: []");
   }
   if (task.dependencies && task.dependencies.length > 0) {
     frontmatterLines.push("dependencies:");
-    task.dependencies.forEach((d) => frontmatterLines.push(`  - ${d}`));
+    task.dependencies.forEach((d) => frontmatterLines.push(`  - ${JSON.stringify(d)}`));
   } else {
     frontmatterLines.push("dependencies: []");
   }
@@ -340,9 +361,15 @@ function serializeBacklogMd(task) {
     frontmatterLines.push("releases:");
     task.releases.forEach((r) => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
   }
+  if (task.sprint) {
+    frontmatterLines.push(`sprint: ${JSON.stringify(task.sprint)}`);
+  }
+  if (task.targetSprint && task.targetSprint !== task.sprint) {
+    frontmatterLines.push(`targetSprint: ${JSON.stringify(task.targetSprint)}`);
+  }
   if (task.rawExtraFrontmatter) {
     for (const [k, v] of Object.entries(task.rawExtraFrontmatter)) {
-      if (!["id", "title", "status", "assignee", "created_date", "updated_date", "labels", "dependencies", "priority", "type", "milestone", "parent", "parentid", "blocks", "blocked_by", "blockedby", "related_to", "relatedto", "sprints", "releases"].includes(k.toLowerCase())) {
+      if (!["id", "title", "status", "assignee", "created_date", "updated_date", "labels", "dependencies", "priority", "type", "milestone", "parent", "parentid", "blocks", "blocked_by", "blockedby", "related_to", "relatedto", "sprints", "releases", "sprint", "targetsprint"].includes(k.toLowerCase())) {
         frontmatterLines.push(`${k}: ${JSON.stringify(v)}`);
       }
     }
@@ -403,8 +430,9 @@ function generateMonolithicBacklogMd(projectName, items) {
     "## Resumen de Estados",
     ""
   ];
-  const statuses = ["doing", "review", "ready", "draft", "done", "dismissed"];
+  const statuses = ["ideas", "doing", "review", "ready", "draft", "done", "dismissed"];
   const grouped = {
+    ideas: [],
     doing: [],
     review: [],
     ready: [],
@@ -422,6 +450,7 @@ function generateMonolithicBacklogMd(projectName, items) {
     const list = grouped[s];
     if (list.length === 0) continue;
     const titleMap = {
+      ideas: "\u{1F4A1} Ideas / Discovery",
       doing: "\u26A1 In Progress / Doing",
       review: "\u{1F50D} Review & QA",
       ready: "\u{1F680} Ready for Deploy",
@@ -528,7 +557,7 @@ function readTasksForProject(project) {
           notes: task.implementationNotes,
           acceptanceCriteriaList: task.acceptanceCriteria,
           sprint: task.sprint || task.targetSprint || task.rawExtraFrontmatter?.sprint,
-          targetSprint: task.targetSprint || task.sprint || task.rawExtraFrontmatter?.sprint || task.milestone,
+          targetSprint: task.targetSprint || task.sprint || task.rawExtraFrontmatter?.sprint,
           milestone: task.milestone,
           createdAt: task.createdDate ? `${task.createdDate}T00:00:00.000Z` : void 0,
           updatedAt: task.updatedDate ? `${task.updatedDate}T00:00:00.000Z` : void 0
@@ -629,6 +658,7 @@ var TOOLS = [
             status: { type: "string", enum: ["draft", "doing", "review", "ready", "done", "dismissed", "cancelled"] },
             priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
             milestone: { type: "string" },
+            sprint: { type: "string", description: "Sprint a asignar a las tareas coincidentes." },
             implementationNotes: { type: "string" },
             labels: { type: "array", items: { type: "string" } }
           }
@@ -694,14 +724,18 @@ var TOOLS = [
             description: { type: "string" },
             priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
             implementationPlan: { type: "string" },
-            milestone: { type: "string" }
+            milestone: { type: "string" },
+            sprint: { type: "string" },
+            checkAllAcs: { type: "boolean" }
           }
         },
         title: { type: "string" },
         description: { type: "string" },
         priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
         implementationPlan: { type: "string", description: "Actualizaci\xF3n del plan t\xE9cnico." },
+        sprint: { type: "string", description: 'Nombre del sprint a asignar a la tarea (ej: "Sprint 5").' },
         toggleAcIndex: { type: "number", description: "\xCDndice de AC (1-indexed) a alternar como completado/pendiente." },
+        checkAllAcs: { type: "boolean", description: "Si es true, marca todos los ACs como completados. Si es false, los desmarca todos en una sola operaci\xF3n." },
         milestone: { type: "string" }
       },
       required: ["taskId"]
@@ -804,7 +838,7 @@ async function handleToolCall(name, args) {
     if (args.sprint) {
       const sp = String(args.sprint).toLowerCase();
       tasks = tasks.filter(
-        (t) => t.sprint && String(t.sprint).toLowerCase() === sp || t.targetSprint && String(t.targetSprint).toLowerCase() === sp || t.milestone && String(t.milestone).toLowerCase() === sp
+        (t) => t.sprint && String(t.sprint).toLowerCase() === sp || t.targetSprint && String(t.targetSprint).toLowerCase() === sp || Array.isArray(t.sprints) && t.sprints.some((s) => String(s).toLowerCase() === sp)
       );
     }
     if (args.milestone) {
@@ -950,6 +984,16 @@ async function handleToolCall(name, args) {
             if (updates.status) current.status = normalizeStatus(updates.status);
             if (updates.priority) current.priority = normalizePriority(updates.priority);
             if (updates.milestone !== void 0) current.milestone = updates.milestone;
+            if (updates.sprint !== void 0) {
+              current.sprint = updates.sprint;
+              current.targetSprint = updates.sprint;
+              if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+              current.rawExtraFrontmatter.sprint = updates.sprint;
+              current.rawExtraFrontmatter.targetSprint = updates.sprint;
+              if (updates.sprint) {
+                current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], updates.sprint]));
+              }
+            }
             if (updates.implementationNotes !== void 0) current.implementationNotes = updates.implementationNotes;
             if (Array.isArray(updates.labels)) current.labels = updates.labels;
             current.updatedDate = today;
@@ -1001,6 +1045,13 @@ async function handleToolCall(name, args) {
           if (updates.milestone !== void 0) {
             current.milestone = updates.milestone;
             current.targetSprint = updates.milestone;
+          }
+          if (updates.sprint !== void 0) {
+            current.sprint = updates.sprint;
+            current.targetSprint = updates.sprint;
+            if (updates.sprint) {
+              current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], updates.sprint]));
+            }
           }
           if (updates.implementationNotes !== void 0) {
             current.implementationNotes = updates.implementationNotes;
@@ -1143,6 +1194,8 @@ async function handleToolCall(name, args) {
           const effectivePriority = args.priority || args.updates?.priority;
           const effectivePlan = args.implementationPlan !== void 0 ? args.implementationPlan : args.updates?.implementationPlan;
           const effectiveMilestone = args.milestone !== void 0 ? args.milestone : args.updates?.milestone;
+          const effectiveSprint = args.sprint !== void 0 ? args.sprint : args.updates?.sprint;
+          const effectiveCheckAllAcs = args.checkAllAcs !== void 0 ? args.checkAllAcs : args.updates?.checkAllAcs;
           const usedUpdatesObject = Boolean(args.updates && !args.status && args.updates.status);
           if (effectiveStatus) current.status = normalizeStatus(effectiveStatus);
           if (effectiveTitle) current.title = effectiveTitle;
@@ -1150,8 +1203,23 @@ async function handleToolCall(name, args) {
           if (effectivePriority) current.priority = normalizePriority(effectivePriority);
           if (effectivePlan !== void 0) current.implementationPlan = effectivePlan;
           if (effectiveMilestone !== void 0) current.milestone = effectiveMilestone;
+          if (effectiveSprint !== void 0) {
+            current.sprint = effectiveSprint;
+            current.targetSprint = effectiveSprint;
+            if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+            current.rawExtraFrontmatter.sprint = effectiveSprint;
+            current.rawExtraFrontmatter.targetSprint = effectiveSprint;
+            if (effectiveSprint) {
+              current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], effectiveSprint]));
+            }
+          }
           current.updatedDate = today;
-          if (args.toggleAcIndex !== void 0 && current.acceptanceCriteria) {
+          if (effectiveCheckAllAcs !== void 0 && current.acceptanceCriteria) {
+            current.acceptanceCriteria = current.acceptanceCriteria.map((ac) => ({
+              ...ac,
+              checked: Boolean(effectiveCheckAllAcs)
+            }));
+          } else if (args.toggleAcIndex !== void 0 && current.acceptanceCriteria) {
             current.acceptanceCriteria = current.acceptanceCriteria.map(
               (ac) => ac.index === args.toggleAcIndex ? { ...ac, checked: !ac.checked } : ac
             );
@@ -1188,6 +1256,8 @@ async function handleToolCall(name, args) {
             const effectivePriority = args.priority || args.updates?.priority;
             const effectivePlan = args.implementationPlan !== void 0 ? args.implementationPlan : args.updates?.implementationPlan;
             const effectiveMilestone = args.milestone !== void 0 ? args.milestone : args.updates?.milestone;
+            const effectiveSprint = args.sprint !== void 0 ? args.sprint : args.updates?.sprint;
+            const effectiveCheckAllAcs = args.checkAllAcs !== void 0 ? args.checkAllAcs : args.updates?.checkAllAcs;
             const usedUpdatesObject = Boolean(args.updates && !args.status && args.updates.status);
             if (effectiveStatus) current.status = normalizeStatus(effectiveStatus);
             if (effectiveTitle) current.title = effectiveTitle;
@@ -1195,8 +1265,20 @@ async function handleToolCall(name, args) {
             if (effectivePriority) current.priority = normalizePriority(effectivePriority);
             if (effectivePlan !== void 0) current.implementationPlan = effectivePlan;
             if (effectiveMilestone !== void 0) current.milestone = effectiveMilestone;
+            if (effectiveSprint !== void 0) {
+              current.sprint = effectiveSprint;
+              current.targetSprint = effectiveSprint;
+              if (effectiveSprint) {
+                current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], effectiveSprint]));
+              }
+            }
             current.updatedAt = now;
-            if (args.toggleAcIndex !== void 0 && current.acceptanceCriteriaList) {
+            if (effectiveCheckAllAcs !== void 0 && current.acceptanceCriteriaList) {
+              current.acceptanceCriteriaList = current.acceptanceCriteriaList.map((ac) => ({
+                ...ac,
+                checked: Boolean(effectiveCheckAllAcs)
+              }));
+            } else if (args.toggleAcIndex !== void 0 && current.acceptanceCriteriaList) {
               current.acceptanceCriteriaList = current.acceptanceCriteriaList.map(
                 (ac) => ac.index === args.toggleAcIndex ? { ...ac, checked: !ac.checked } : ac
               );

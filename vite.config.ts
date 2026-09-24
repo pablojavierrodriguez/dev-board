@@ -392,8 +392,8 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
           const fallbackId = filename.split(' - ')[0] || filename.replace(/\.md$/, '');
           const task = parseBacklogMd(raw, fallbackId);
           const rawFm = task.rawExtraFrontmatter || {};
-          const sprintVal = rawFm.sprint || rawFm.targetSprint || (task.milestone && task.milestone.toLowerCase().includes('sprint') ? task.milestone : undefined);
-          const releaseVal = rawFm.release || rawFm.targetRelease || (task.milestone && !task.milestone.toLowerCase().includes('sprint') ? task.milestone : undefined);
+          const sprintVal = task.sprint || task.targetSprint || rawFm.sprint || rawFm.targetSprint || (task.sprints && task.sprints.length > 0 ? task.sprints[task.sprints.length - 1] : undefined) || (task.milestone && task.milestone.toLowerCase().includes('sprint') ? task.milestone : undefined);
+          const releaseVal = task.milestone || rawFm.release || rawFm.targetRelease || (task.releases && task.releases.length > 0 ? task.releases[task.releases.length - 1] : undefined);
 
           items.push({
             id: task.id || fallbackId,
@@ -669,16 +669,31 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
   if (item.impactedFile) taskData.rawExtraFrontmatter!.impactedFile = item.impactedFile;
   if (item.risk) taskData.rawExtraFrontmatter!.risk = item.risk;
   if (item.fix) taskData.rawExtraFrontmatter!.fix = item.fix;
-  if (item.sprint !== undefined || item.targetSprint !== undefined) {
-    const sVal = item.sprint || item.targetSprint || '';
+  if (item.sprint !== undefined || item.targetSprint !== undefined || item.sprints !== undefined) {
+    const sVal = item.sprint || item.targetSprint || (item.sprints && item.sprints.length > 0 ? item.sprints[item.sprints.length - 1] : '') || '';
     if (sVal) {
+      taskData.sprint = sVal;
+      taskData.targetSprint = sVal;
+      taskData.sprints = Array.from(new Set([...(taskData.sprints || []), sVal]));
       taskData.rawExtraFrontmatter!.sprint = sVal;
       taskData.rawExtraFrontmatter!.targetSprint = sVal;
     } else {
+      taskData.sprint = undefined;
+      taskData.targetSprint = undefined;
+      taskData.sprints = [];
       delete taskData.rawExtraFrontmatter!.sprint;
       delete taskData.rawExtraFrontmatter!.targetSprint;
       if (taskData.milestone && taskData.milestone.toLowerCase().includes('sprint')) {
         taskData.milestone = undefined;
+      }
+    }
+  } else if (existingTask.sprint || existingTask.targetSprint || (existingTask.sprints && existingTask.sprints.length > 0)) {
+    const sVal = existingTask.sprint || existingTask.targetSprint || (existingTask.sprints && existingTask.sprints.length > 0 ? existingTask.sprints[existingTask.sprints.length - 1] : '');
+    if (sVal) {
+      taskData.sprint = sVal;
+      taskData.targetSprint = sVal;
+      if (!taskData.sprints || taskData.sprints.length === 0) {
+        taskData.sprints = [sVal];
       }
     }
   }
@@ -1166,6 +1181,14 @@ function devBoardApi(): PluginOption {
                     if (!body.sprint && updatedItem.milestone && updatedItem.milestone.toLowerCase().includes('sprint')) {
                       updatedItem.milestone = undefined;
                     }
+                    if (body.sprint) {
+                      updatedItem.sprints = Array.from(new Set([...(updatedItem.sprints || []), body.sprint]));
+                    } else {
+                      updatedItem.sprints = [];
+                    }
+                  }
+                  if (body.sprints !== undefined) {
+                    updatedItem.sprints = body.sprints;
                   }
                   if (body.release !== undefined) {
                     updatedItem.release = body.release || undefined;

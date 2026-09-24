@@ -155,20 +155,23 @@ Registra los pasos técnicos que vas a ejecutar en la sección `<!-- SECTION:PLA
 ### Paso 4: Tildar Criterios a Medida que Avanzas
 A medida que completes cada criterio de aceptación, tilda su checkbox (`toggleAcIndex` o cambiando `- [ ]` por `- [x]` en el archivo Markdown).
 
-### Paso 5: Pasar a `review` o `ready`
+### Paso 5: Pasar a `review` o `ready` (Límite Terminal del Sprint)
 Cuando termines la implementación y las pruebas automáticas pasen:
 - Pasa la tarea a `review` (si requiere revisión humana o testing de QA).
-- Pasa la tarea a `ready` (si está lista para ser empaquetada en el próximo release).
+- Pasa la tarea a `ready` (Ready for Release).
+- **PROHIBIDO pasar a `done`:** El desarrollo dentro de un sprint nunca marca tareas como `done`. Ese estado lo otorga exclusivamente el Release cuando se despliega a producción.
+- **PROHIBIDO cerrar el sprint automáticamente:** El sprint permanece abierto (`active`) esperando validación explícita del usuario.
 
 ---
 
 ## 5. Convención de Estados Unificada
 
-- **`draft`**: En backlog o triaged (las ideas son tareas en `draft` con etiqueta `idea`).
+- **`ideas`**: Discovery, investigación previa y backlog crudo (ciudadano de primera clase en modelo y Kanban).
+- **`draft`**: En backlog general o triaged.
 - **`doing`**: Desarrollo activo por el agente o desarrollador.
 - **`review`**: Code review, validación de diseño o pruebas de QA.
-- **`ready`**: Merged y listo para deploy o empaquetado en release.
-- **`done`**: Desplegado en producción o liberado en una versión.
+- **`ready`**: **LÍMITE TERMINAL DE DESARROLLO EN SPRINT**. Merged, validado y listo para empaquetado en release.
+- **`done`**: **EXCLUSIVO DE RELEASES LIBERADOS A PRODUCCIÓN**. Ningún agente ni desarrollador marca tareas en sprint como `done` manualmente; se transicionan al liberar la versión formal (`released` en `backlog/releases.json`).
 - **`dismissed` / `cancelled`**: Archivadas fuera del tablero.
 
 ### Ciclo de Vida Canónico de Versiones y Releases (DEV-062 y DEV-065)

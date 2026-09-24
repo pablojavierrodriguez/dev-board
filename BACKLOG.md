@@ -1,9 +1,180 @@
 # Backlog: dev-board
-> Consolidado generado el 2026-09-23 por DevBoard ⚡
+> Consolidado generado el 2026-09-24 por DevBoard ⚡
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (9)
+### 🚀 Ready for Deploy (12)
+
+#### [DEV-077] Mejora selectores sprints y releases en modal de card
+- **Prioridad**: `low` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.5.0
+
+Para el campo sprint el listado de sprint debiera ser con un UX/UI similar a la app / modal, no debiera parecer un listado de autocompletado del navegador sin personalidad. Para el campo release, las sugerencias debieran ser por defecto las versiones creadas y en estado unreleased, ya que si no se acumulan históricamente sin límite. Al completar el campo manualmente esta bien que permita incluir tanto unreleased como released versiones, pero no sugerirlas.
+
+**Criterios de Aceptación:**
+- [x] #1 Diseñar un selector/dropdown con estética coherente con la UI de DevBoard para el campo de Sprint en ItemModal
+- [x] #2 Filtrar las sugerencias por defecto del campo Release mostrando únicamente versiones en estado unreleased
+- [x] #3 Permitir la entrada o selección manual de versiones released si el usuario lo requiere expresamente
+
+---
+
+#### [DEV-079] mejora en columnas / sumar mas campos
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.5.0
+
+Permitir agregar y ocultar columnas adicionales de tareas en la vista de Sprints y Backlog. Específicamente, incorporar campos estructurados no extensos: Criterios de Aceptación (ACs ratio/progreso), Responsables/Asignados (assignees), Etiquetas (labels) y Épica (epic). Cada columna puede activarse u ocultarse dinámicamente desde el popover de Columnas.
+
+**Criterios de Aceptación:**
+- [x] #1 El popover de Columnas permite activar/desactivar Criterios de Aceptación (acProgress), Asignados (assignees), Etiquetas (labels) y Épica (epic).
+- [x] #2 Cada nueva columna cuenta con su celda th en el encabezado y su renderizado correspondiente con diseño visual pulido en las filas de tareas.
+- [x] #3 Las selecciones de columnas se persisten de forma transparente en localStorage y se sincronizan al modificar opciones.
+
+---
+
+#### [DEV-080] la retro no es del release
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+la retro debe estar asignada al sprint no al release, es un error conceptual
+
+**Criterios de Aceptación:**
+- [x] #1 Eliminar la pestaña errónea de Retrospectivas en el Drawer de Releases (`ReleaseAssembler.tsx`), desacoplando conceptualmente la ceremonia de sprint del release.
+- [x] #2 Incorporar en `SprintView.tsx` un botón "Ver Retrospectiva" en la cabecera de sprints completados (`status === 'completed'`).
+- [x] #3 Diseñar modal para visualizar el acta Markdown de la retrospectiva del sprint completado correspondiente.
+
+---
+
+#### [DEV-081] cambios pendientes apenas al entrar a config
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al ingresar a la vista de Configuración (SettingsView), aparece de inmediato el banner de cambios pendientes y el botón "Deshacer cambios" sin que el usuario haya modificado ningún ajuste. Esto se debe a que `isDirty` realiza un `JSON.stringify` ingenuo donde `builtConfig.customItemTypes` es `[]` mientras que en `config.json` dicha propiedad es `undefined`, produciendo un falso positivo permanente.
+
+**Criterios de Aceptación:**
+- [x] #1 Al ingresar a Configuración sin editar nada, el banner de cambios pendientes y botón 'Deshacer' deben permanecer ocultos (isDirty = false).
+- [x] #2 La función de detección de dirty state debe normalizar propiedades opcionales/vacías (customItemTypes, wipLimits, tabs) para evitar discrepancias estructurales.
+- [x] #3 Al modificar efectivamente cualquier valor de configuración, el banner de cambios pendientes debe activarse y responder correctamente a Guardar y Deshacer.
+
+---
+
+#### [DEV-082] Soporte de campo sprint en mutaciones MCP y marcado masivo de criterios de aceptación (ACs)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.5.0
+
+Requerimiento de usuario originado desde el proyecto consumidor DOM (m3). Disculpas al equipo de DevBoard por cualquier intromisión previa con specs técnicas no solicitadas.
+
+Como consumidores del servidor MCP de DevBoard al gestionar tareas bajo el estándar Backlog.md, encontramos las siguientes oportunidades de mejora para su evaluación:
+1. Poder asignar o mover tareas de sprint directamente vía MCP (actualmente `devboard_update_task` y `devboard_bulk_update_tasks` no admiten el campo `sprint`).
+2. Permitir marcar todos los criterios de aceptación en una sola llamada (actualmente sólo existe `toggleAcIndex` individual, lo que en tareas con muchos ACs genera lentitud y riesgo de race conditions).
+3. Asegurar que el filtro `sprint` en `devboard_list_tasks` restrinja correctamente las tareas devueltas.
+4. Robustecer el formateo de frontmatter cuando los títulos incluyen comillas o tags como `<input ...>`.
+
+Queda a total consideración y diseño del equipo de DevBoard.
+
+**Criterios de Aceptación:**
+- [x] #1 El servidor MCP permite actualizar el campo sprint en devboard_update_task y devboard_bulk_update_tasks
+- [x] #2 Se dispone de un parámetro (ej: checkAllAcs: true) para alternar todos los ACs en una sola operación sin requerir múltiples tool calls secuenciales
+- [x] #3 El filtro sprint en devboard_list_tasks filtra adecuadamente por la propiedad sprint del frontmatter
+- [x] #4 El serializador de frontmatter YAML maneja defensivamente caracteres especiales y comillas en títulos
+
+---
+
+#### [DEV-083] backlog no es un sprint
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+En la vista de Sprints y Backlog (SprintView), los ítems sin sprint asignado (grupo Backlog) no deben indicar porcentaje de completitud ni barra de progreso. El Backlog es un inventario continuo y abierto de tareas no planificadas o pendientes, por lo que mostrar métricas de avance de iteración (ej: '0/14 (0%)') es conceptualmente erróneo.
+
+**Criterios de Aceptación:**
+- [x] #1 El bloque de Backlog (ítems sin sprint) no debe mostrar indicador de porcentaje ni barra de progreso.
+- [x] #2 El encabezado del Backlog debe indicar el conteo de ítems totales sin métricas de finalización de sprint.
+- [x] #3 Los sprints formales continúan mostrando su barra de progreso y ratio de completitud normalmente.
+
+---
+
+#### [DEV-084] incluir soporte para BDD (historias y criterios de aceptacion)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.5.0
+
+incluir la posibilidad de que se completen los requerimientos en formato historia de usuario con el framework BDD
+
+Historia de usurario / Feature / Requerimiento > COMO (rol) QUIERO (necesidad) PARA (beneficio)
+Criterios de aceptacion > Scenario/GIVEN/WHEN/THEN
+
+**Criterios de Aceptación:**
+- [x] #1 Agregar botón/atajo en ItemModal para insertar plantilla de Historia de Usuario BDD en la Descripción: COMO (rol) / QUIERO (acción) / PARA (beneficio).
+- [x] #2 Agregar botón/atajo en ItemModal para insertar Criterios de Aceptación con formato BDD Scenario: DADO (contexto) / CUANDO (evento) / ENTONCES (resultado).
+- [x] #3 Mantener compatibilidad total con texto libre y criterios existentes.
+
+---
+
+#### [DEV-085] La tabla de tareas en la vista de Sprints/Backlog no muestra columnas de Tipo, Estado y Release
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+En la vista de Sprints y Backlog, al desplegar la lista de tareas del Backlog (o de un sprint), la tabla solo mostraba las columnas `#`, `Prio`, `Código` y `Título`. Las columnas `Tipo`, `Estado` y `Release` no se renderizaban en navegadores con un `localStorage` antiguo porque la migración solo forzó la inclusión de `estado`. Se requiere una inicialización defensiva que garantice que las columnas núcleo estén visibles por defecto y un botón de restablecimiento.
+
+**Criterios de Aceptación:**
+- [x] #1 La tabla de tareas en Sprints y Backlog renderiza por defecto las columnas Tipo, Estado y Release sin requerir configuración manual.
+- [x] #2 Se implementa migración defensiva para usuarios existentes con localStorage desfasado garantizando la visualización de columnas esenciales.
+- [x] #3 El popover de Columnas incluye la opción de 'Restablecer por defecto' para recuperar la configuración canónica en un solo clic.
+
+---
+
+#### [DEV-086] Visibilidad de Sprints planificados vacíos en vista de Sprint & Priorización
+- **Prioridad**: `urgent` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al crear un nuevo Sprint en estado 'planned' (como Sprint 5 recien creado), no se visualiza en la vista de Sprint & Priorización porque el filtro de agrupación excluye sprints planned con 0 tareas, impidiendo planificar y arrastrar o asignar tareas al nuevo sprint.
+
+**Criterios de Aceptación:**
+- [x] #1 Los sprints en estado planned vacíos deben mostrarse en la vista de Sprint & Priorización con su drop zone para permitir la planificación.
+- [x] #2 El selector inline de sprints en las filas del backlog debe listar todos los sprints disponibles incluyendo sprints planificados.
+- [x] #3 El nuevo Sprint 5 debe renderizarse inmediatamente en la vista y permitir arrastrar y soltar tareas desde el Backlog.
+
+---
+
+#### [DEV-087] veo releases en los atributos del item que no existen en la tab release
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+ej. vv1.1.0, vSprint 4, etc no son releases ni en preparacion ni finalizados
+
+**Criterios de Aceptación:**
+- [x] #1 No extraer valores arbitrarios o desalineados de `item.release`/`targetRelease` para las sugerencias de versiones; tomar como fuente canónica las versiones declaradas en `releases.json` (`boardData.releases`).
+- [x] #2 En el selector/chips de versiones en `ItemModal`, mostrar únicamente versiones oficiales existentes, priorizando por defecto las versiones `unreleased` (en preparación).
+- [x] #3 Permitir tipeo manual libre si el usuario necesita especificar una versión nueva o no listada aún.
+
+---
+
+#### [DEV-088] No es posible cambiar un item a Idea / Discovery
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al seleccionar un item del backlog, el cambio de "estado" a Idea no se persiste y por ende no se visualiza el item en la columna de ideas / discovery. CanonicalStatus y normalizeStatus en backlogMdParser normalizaban ideas a draft, impidiendo su almacenamiento y visualización en la columna col-ideas del tablero Kanban.
+
+**Criterios de Aceptación:**
+- [x] #1 CanonicalStatus y normalizeStatus en backlogMdParser.ts reconocen ideas, idea y discovery como estado 'ideas', y formatStatusForMd formatea 'Ideas'.
+- [x] #2 Al cambiar el estado a '💡 Idea / Discovery' desde ItemModal.tsx o arrastrando en KanbanBoard, el estado 'ideas' se persiste en memoria y disco sin degradarse a 'draft'.
+- [x] #3 Los items en estado 'ideas' son correctamente filtrados y visibles en la columna 'Ideas' (col-ideas) del KanbanBoard al activar la visualización de ideas.
+
+---
+
+#### [DEV-089] Persistencia del campo sprint al guardar desde ItemModal
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al seleccionar un sprint y guardar desde el modal de edición de tarea (ItemModal), el item no persiste el campo de sprint en disco ni se refleja correctamente en la vista de Sprints & Priorización, quedando ubicado en Backlog. Debe asegurarse la serialización atómica y bidireccional de sprint/sprints tanto en ItemModal, la API y el parser de Backlog.md.
+
+**Criterios de Aceptación:**
+- [x] #1 ItemModal envía el valor de sprint y targetSprint (y limpia adecuadamente si se desasigna el sprint) hacia la API PUT /api/items/:id.
+- [x] #2 La API y saveBacklogMdItem sincronizan taskData.sprint, targetSprint y taskData.sprints, escribiendo correctamente la propiedad sprint en el frontmatter del archivo Markdown.
+- [x] #3 readProjectBacklog y parseBacklogMd resuelven de forma robusta el sprint activo ya sea desde sprint, targetSprint o sprints array.
+- [x] #4 Al cambiar el sprint desde ItemModal y recargar la vista, el ítem permanece en la columna del sprint asignado en la vista de Sprints y en el selector del modal.
+
+---
+
+### 📋 Backlog / Draft (5)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -98,49 +269,6 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 - [ ] #3 Tabla con listado de skills, última invocación y frecuencia de uso
 - [ ] #4 Sugerencias automáticas de depuración para skills obsoletas o nunca consultadas
 - [ ] #5 Integración opcional con comando CLI npm run skills --stats
-
----
-
-#### [DEV-077] Mejora selectores sprints y releases en modal de card
-- **Prioridad**: `low` | **Tipo**: `ux`
-
-Para el campo sprint el listado de sprint debiera ser con un UX/UI similar a la app / modal, no debiera parecer un listado de autocompletado del navegador sin personalidad. Para el campo release, las sugerencias debieran ser por defecto las versiones creadas y en estado unreleased, ya que si no se acumulan históricamente sin límite. Al completar el campo manualmente esta bien que permita incluir tanto unreleased como released versiones, pero no sugerirlas.
-
-**Criterios de Aceptación:**
-- [ ] #1 Diseñar un selector/dropdown con estética coherente con la UI de DevBoard para el campo de Sprint en ItemModal
-- [ ] #2 Filtrar las sugerencias por defecto del campo Release mostrando únicamente versiones en estado unreleased
-- [ ] #3 Permitir la entrada o selección manual de versiones released si el usuario lo requiere expresamente
-
----
-
-#### [DEV-079] mejora en columnas / sumar mas campos
-- **Prioridad**: `medium` | **Tipo**: `feature`
-
-deberia ser posible agregar/ocultar todos los campos disponibles en un item del backlog
-por lo menos aquellos que no son de texto amplio (ej plan de implementacion, solucion propuesta,, riesgo/impacto) o de multiples valores simultaaneos (crriterios de aceptaciones, relaciones multiples)
-
-**Criterios de Aceptación:**
-- [ ] #1 Criterio de aceptación inicial definido.
-
----
-
-#### [DEV-080] la retro no es del release
-- **Prioridad**: `medium` | **Tipo**: `bug`
-
-la retro debe estar asignada al sprint no al release, es un error conceptual
-
-**Criterios de Aceptación:**
-- [ ] #1 Criterio de aceptación inicial definido.
-
----
-
-#### [DEV-081] cambios pendientes apenas al entrar a config
-- **Prioridad**: `medium` | **Tipo**: `bug`
-
-aparece el mensaje de cambios pendientes y deshacer cambios apenas ingreso a config sin haber modificado nada
-
-**Criterios de Aceptación:**
-- [ ] #1 Criterio de aceptación inicial definido.
 
 ---
 
@@ -1250,6 +1378,7 @@ Esto genera un bug silencioso muy difícil de detectar: el agente cree que actua
 
 #### [DEV-070] Feature: Retro Automática al Cerrar Sprint — Template y Checklist Integrado
 - **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.4.0
 
 Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
 
@@ -1274,6 +1403,7 @@ Implementar soporte nativo para Sprint Retrospectivas en DevBoard.
 
 #### [DEV-071] Fix: Aislamiento estricto de Sprints por Proyecto y Prevención de Fugas Cross-Project
 - **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.4.0
 
 En instalaciones multi-proyecto, los sprints registrados en otros proyectos (ej. dom/m3) se filtraban hacia el proyecto activo (dev-board), generando agrupadores de sprints vacíos con badge 'Activo' ('Integridad Financiera', 'Performance y Escala', etc.) que no existen en el sprints.json local y no pueden ser eliminados.
 
@@ -1288,7 +1418,7 @@ En instalaciones multi-proyecto, los sprints registrados en otros proyectos (ej.
 
 #### [DEV-072] Integración de CodeGraph MCP, Codegraph Studio y Guía de Arquitectura de Código
 - **Prioridad**: `high` | **Tipo**: `tech_debt`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 Integración de la extensión CodeGraph MCP (Andrey Gavrilov) y Codegraph Studio en el entorno de desarrollo para agilizar el análisis semántico de código, reducir consumo de tokens y prevenir regresiones antes del Sprint 4. Incluye la documentación canónica de arquitectura y reglas de navegación para agentes.
 
@@ -1302,7 +1432,7 @@ Integración de la extensión CodeGraph MCP (Andrey Gavrilov) y Codegraph Studio
 
 #### [DEV-073] Documentación técnica de CodeGraph MCP y refinamiento de skills de ingeniería
 - **Prioridad**: `medium` | **Tipo**: `tech_debt`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 Refinar la documentación y skills de DevBoard incorporando las herramientas de CodeGraph MCP, sus comandos de consulta semántica, el gotcha de activación del Language Server de TypeScript y la estrategia de fallback con docs/ARCHITECTURE.md.
 
@@ -1316,7 +1446,7 @@ Refinar la documentación y skills de DevBoard incorporando las herramientas de 
 
 #### [DEV-074] Botón Deshacer Cambios en Settings (Restablecer Estado no Guardado)
 - **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: Sprint 4
+- **Sprint / Milestone**: 0.4.0
 
 Al lado del botón 'Guardar Cambios' en la vista de configuración (`SettingsView.tsx`), agregar un botón 'Deshacer Cambios' que permita descartar la configuración editada en el formulario y restablecer todas las preferencias locales al estado guardado en disco (`config`), evitando guardar modificaciones no deseadas.
 
@@ -1330,6 +1460,7 @@ Al lado del botón 'Guardar Cambios' en la vista de configuración (`SettingsVie
 
 #### [DEV-075] Mostrar/ocultar sprint como columna en SprintView
 - **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.4.0
 
 Permitir que la activación/desactivación de la columna Sprint en el popover de Columnas refleje visualmente la columna en la tabla tanto en agrupamiento por sprint como en otros agrupamientos.
 
@@ -1343,6 +1474,7 @@ Permitir que la activación/desactivación de la columna Sprint en el popover de
 
 #### [DEV-076] Sanitización de prefijo y cálculo max+1 al crear ítems en la API web
 - **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.4.0
 
 Corregir POST /api/items en vite.config.ts para sanitizar codePrefix (evitar dobles guiones DEV--) y calcular el correlativo usando max+1 sobre backlog.items y archivos en disco, alineándolo con el MCP server.
 
@@ -1356,6 +1488,7 @@ Corregir POST /api/items en vite.config.ts para sanitizar codePrefix (evitar dob
 
 #### [DEV-078] Separación estricta de Sprint y Estado en columnas filtros y datos
 - **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.4.0
 
 Garantizar la independencia total y estricta entre Sprint y Estado: agregar Estado como columna configurable en SprintView, desacoplar la opción 'Backlog' cambiándola a 'Sin Sprint' en selectores de Sprint, y eliminar etiquetas cruzadas en modales y filtros.
 

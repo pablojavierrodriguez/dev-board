@@ -839,7 +839,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       const isActive = spObj?.status === 'active';
                       return (
                         <option key={s} value={s}>
-                          {s} {isActive ? '🟢 (Activo)' : spObj?.status === 'completed' ? '⚪ (Completado)' : ''}
+                          {s} {isActive ? '🟢 (Activo)' : spObj?.status === 'completed' ? '⚪ (Completado)' : spObj?.status === 'planned' ? '🟡 (Planificado)' : ''}
                         </option>
                       );
                     })}

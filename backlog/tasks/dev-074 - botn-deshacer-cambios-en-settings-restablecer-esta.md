@@ -3,16 +3,23 @@ id: DEV-074
 title: "Botón Deshacer Cambios en Settings (Restablecer Estado no Guardado)"
 status: Done
 created_date: '2026-09-19T04:54:51.829Z'
-updated_date: '2026-09-23 22:59'
+updated_date: '2026-09-24 12:14'
 labels:
   - settings
   - ux
 dependencies: []
 priority: medium
 type: feature
-milestone: "Sprint 4"
-order: "10"
+milestone: "0.4.0"
+sprints:
+  - "Sprint 4"
+releases:
+  - "0.4.0"
+order: 50
 sprint: "Sprint 4"
+targetSprint: "Sprint 4"
+release: "0.4.0"
+targetRelease: "0.4.0"
 ---
 
 ## Description
