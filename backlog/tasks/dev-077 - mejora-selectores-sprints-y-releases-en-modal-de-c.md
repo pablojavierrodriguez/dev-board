@@ -1,7 +1,7 @@
 ---
 id: DEV-077
 title: "Mejora selectores sprints y releases en modal de card"
-status: Ready
+status: Done
 created_date: '2026-09-23'
 updated_date: '2026-09-24 18:49'
 labels: []

@@ -1,7 +1,7 @@
 ---
 id: DEV-093
 title: "Desacople de scroll horizontal en columnas y preservación de sprint al togglear Ideas en KanbanBoard"
-status: Ready
+status: Done
 created_date: '2026-09-24'
 updated_date: '2026-09-24 18:49'
 labels: []

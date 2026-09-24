@@ -1,17 +1,22 @@
 ---
 id: DEV-100
 title: "Eliminación de confirmación nativa del navegador en vista de Releases y UX de Promoción a Producción"
-status: ready
+status: Done
 created_date: '2026-09-24 21:07'
-updated_date: '2026-09-24 21:12'
+updated_date: '2026-09-24 20:10'
 labels: []
 dependencies: []
 priority: medium
 type: ux
+milestone: "0.5.0"
 sprints:
   - "Sprint 5"
+releases:
+  - "0.5.0"
 sprint: "Sprint 5"
 targetSprint: "Sprint 5"
+release: "0.5.0"
+targetRelease: "0.5.0"
 created: "2026-09-24"
 ---
 

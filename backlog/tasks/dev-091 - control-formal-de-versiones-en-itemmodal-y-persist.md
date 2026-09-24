@@ -1,7 +1,7 @@
 ---
 id: DEV-091
 title: "Control formal de versiones en ItemModal y persistencia simétrica al desasignar releases"
-status: Ready
+status: Done
 created_date: '2026-09-24'
 updated_date: '2026-09-24 18:49'
 labels: []

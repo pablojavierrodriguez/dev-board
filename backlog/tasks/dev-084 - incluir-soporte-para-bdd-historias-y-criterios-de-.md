@@ -1,7 +1,7 @@
 ---
 id: DEV-084
 title: "incluir soporte para BDD (historias y criterios de aceptacion)"
-status: Ready
+status: Done
 created_date: '2026-09-24T12:21:25.797Z'
 updated_date: '2026-09-24 18:49'
 labels: []

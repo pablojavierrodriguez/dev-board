@@ -1,7 +1,7 @@
 ---
 id: DEV-086
 title: "Visibilidad de Sprints planificados vacíos en vista de Sprint & Priorización"
-status: Ready
+status: Done
 created_date: '2026-09-24'
 updated_date: '2026-09-24 18:49'
 labels: []

@@ -1,7 +1,7 @@
 ---
 id: DEV-094
 title: "Estabilización de layout, scrollbar-gutter y alineación de márgenes al alternar Ideas y filtros"
-status: Ready
+status: Done
 created_date: '2026-09-24'
 updated_date: '2026-09-24 18:49'
 labels: []

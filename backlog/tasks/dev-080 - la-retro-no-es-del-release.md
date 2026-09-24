@@ -1,7 +1,7 @@
 ---
 id: DEV-080
 title: "la retro no es del release"
-status: Ready
+status: Done
 created_date: '2026-09-23T23:04:56.271Z'
 updated_date: '2026-09-24 18:49'
 labels: []

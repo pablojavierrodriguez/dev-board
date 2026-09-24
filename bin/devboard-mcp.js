@@ -96,6 +96,12 @@ function formatPriorityForMd(p) {
   if (p === "p3") return "low";
   return p || "medium";
 }
+function normalizeType(raw) {
+  if (!raw) return "feature";
+  const clean = raw.trim().toLowerCase();
+  if (clean === "bugfix" || clean === "defect" || clean === "fix") return "bug";
+  return clean;
+}
 function parseBacklogMd(content, defaultId = "") {
   const result = {
     id: defaultId,
@@ -189,7 +195,7 @@ function parseBacklogMd(content, defaultId = "") {
             result.status = normalizeStatus(cleanVal);
             break;
           case "type":
-            result.type = cleanVal;
+            result.type = normalizeType(cleanVal);
             break;
           case "priority":
             result.priority = cleanVal;
@@ -247,6 +253,24 @@ function parseBacklogMd(content, defaultId = "") {
             break;
           case "assignee":
             result.assignees = [cleanVal];
+            break;
+          case "isdeleted":
+            result.isDeleted = cleanVal.toLowerCase() === "true";
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter[key] = cleanVal;
+            }
+            break;
+          case "deletedat":
+            result.deletedAt = cleanVal;
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter[key] = cleanVal;
+            }
+            break;
+          case "previousstatus":
+            result.previousStatus = cleanVal;
+            if (result.rawExtraFrontmatter) {
+              result.rawExtraFrontmatter[key] = cleanVal;
+            }
             break;
           default:
             if (result.rawExtraFrontmatter) {
@@ -367,9 +391,18 @@ function serializeBacklogMd(task) {
   if (task.targetSprint && task.targetSprint !== task.sprint) {
     frontmatterLines.push(`targetSprint: ${JSON.stringify(task.targetSprint)}`);
   }
+  if (task.isDeleted) {
+    frontmatterLines.push("isDeleted: true");
+    if (task.deletedAt) {
+      frontmatterLines.push(`deletedAt: ${JSON.stringify(task.deletedAt)}`);
+    }
+    if (task.previousStatus) {
+      frontmatterLines.push(`previousStatus: ${JSON.stringify(task.previousStatus)}`);
+    }
+  }
   if (task.rawExtraFrontmatter) {
     for (const [k, v] of Object.entries(task.rawExtraFrontmatter)) {
-      if (!["id", "title", "status", "assignee", "created_date", "updated_date", "labels", "dependencies", "priority", "type", "milestone", "parent", "parentid", "blocks", "blocked_by", "blockedby", "related_to", "relatedto", "sprints", "releases", "sprint", "targetsprint"].includes(k.toLowerCase())) {
+      if (!["id", "title", "status", "assignee", "created_date", "updated_date", "labels", "dependencies", "priority", "type", "milestone", "parent", "parentid", "blocks", "blocked_by", "blockedby", "related_to", "relatedto", "sprints", "releases", "sprint", "targetsprint", "isdeleted", "deletedat", "previousstatus"].includes(k.toLowerCase())) {
         frontmatterLines.push(`${k}: ${JSON.stringify(v)}`);
       }
     }

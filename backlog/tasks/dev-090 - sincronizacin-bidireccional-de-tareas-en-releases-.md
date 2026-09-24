@@ -1,7 +1,7 @@
 ---
 id: DEV-090
 title: "Sincronización bidireccional de tareas en releases y rediseño UX/UI del drawer"
-status: Ready
+status: Done
 created_date: '2026-09-24'
 updated_date: '2026-09-24 18:49'
 labels: []

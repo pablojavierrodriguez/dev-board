@@ -1,7 +1,7 @@
 ---
 id: DEV-087
 title: "veo releases en los atributos del item que no existen en la tab release"
-status: Ready
+status: Done
 created_date: '2026-09-24T13:08:33.316Z'
 updated_date: '2026-09-24 18:49'
 labels: []

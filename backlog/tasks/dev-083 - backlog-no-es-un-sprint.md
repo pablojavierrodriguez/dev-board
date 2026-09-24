@@ -1,7 +1,7 @@
 ---
 id: DEV-083
 title: "backlog no es un sprint"
-status: Ready
+status: Done
 created_date: '2026-09-24T12:13:06.693Z'
 updated_date: '2026-09-24 18:49'
 labels: []

@@ -1,7 +1,7 @@
 ---
 id: DEV-088
 title: "No es posible cambiar un item a Idea / Discovery"
-status: Ready
+status: Done
 created_date: '2026-09-24T14:05:25.732Z'
 updated_date: '2026-09-24 18:49'
 labels: []

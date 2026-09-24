@@ -1,7 +1,7 @@
 ---
 id: DEV-081
 title: "cambios pendientes apenas al entrar a config"
-status: Ready
+status: Done
 created_date: '2026-09-23T23:16:34.944Z'
 updated_date: '2026-09-24 18:49'
 labels: []

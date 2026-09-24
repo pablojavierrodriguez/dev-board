@@ -27,347 +27,6 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 
 ---
 
-### 🚀 Ready for Deploy (23)
-
-#### [DEV-077] Mejora selectores sprints y releases en modal de card
-- **Prioridad**: `low` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.5.0
-
-Para el campo sprint el listado de sprint debiera ser con un UX/UI similar a la app / modal, no debiera parecer un listado de autocompletado del navegador sin personalidad. Para el campo release, las sugerencias debieran ser por defecto las versiones creadas y en estado unreleased, ya que si no se acumulan históricamente sin límite. Al completar el campo manualmente esta bien que permita incluir tanto unreleased como released versiones, pero no sugerirlas.
-
-**Criterios de Aceptación:**
-- [x] #1 Diseñar un selector/dropdown con estética coherente con la UI de DevBoard para el campo de Sprint en ItemModal
-- [x] #2 Filtrar las sugerencias por defecto del campo Release mostrando únicamente versiones en estado unreleased
-- [x] #3 Permitir la entrada o selección manual de versiones released si el usuario lo requiere expresamente
-
----
-
-#### [DEV-079] mejora en columnas / sumar mas campos
-- **Prioridad**: `medium` | **Tipo**: `ux`
-- **Sprint / Milestone**: 0.5.0
-
-Permitir agregar y ocultar columnas adicionales de tareas en la vista de Sprints y Backlog. Específicamente, incorporar campos estructurados no extensos: Criterios de Aceptación (ACs ratio/progreso), Responsables/Asignados (assignees), Etiquetas (labels) y Épica (epic). Cada columna puede activarse u ocultarse dinámicamente desde el popover de Columnas.
-
-**Criterios de Aceptación:**
-- [x] #1 El popover de Columnas permite activar/desactivar Criterios de Aceptación (acProgress), Asignados (assignees), Etiquetas (labels) y Épica (epic).
-- [x] #2 Cada nueva columna cuenta con su celda th en el encabezado y su renderizado correspondiente con diseño visual pulido en las filas de tareas.
-- [x] #3 Las selecciones de columnas se persisten de forma transparente en localStorage y se sincronizan al modificar opciones.
-
----
-
-#### [DEV-080] la retro no es del release
-- **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-la retro debe estar asignada al sprint no al release, es un error conceptual
-
-**Criterios de Aceptación:**
-- [x] #1 Eliminar la pestaña errónea de Retrospectivas en el Drawer de Releases (`ReleaseAssembler.tsx`), desacoplando conceptualmente la ceremonia de sprint del release.
-- [x] #2 Incorporar en `SprintView.tsx` un botón "Ver Retrospectiva" en la cabecera de sprints completados (`status === 'completed'`).
-- [x] #3 Diseñar modal para visualizar el acta Markdown de la retrospectiva del sprint completado correspondiente.
-
----
-
-#### [DEV-081] cambios pendientes apenas al entrar a config
-- **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Al ingresar a la vista de Configuración (SettingsView), aparece de inmediato el banner de cambios pendientes y el botón "Deshacer cambios" sin que el usuario haya modificado ningún ajuste. Esto se debe a que `isDirty` realiza un `JSON.stringify` ingenuo donde `builtConfig.customItemTypes` es `[]` mientras que en `config.json` dicha propiedad es `undefined`, produciendo un falso positivo permanente.
-
-**Criterios de Aceptación:**
-- [x] #1 Al ingresar a Configuración sin editar nada, el banner de cambios pendientes y botón 'Deshacer' deben permanecer ocultos (isDirty = false).
-- [x] #2 La función de detección de dirty state debe normalizar propiedades opcionales/vacías (customItemTypes, wipLimits, tabs) para evitar discrepancias estructurales.
-- [x] #3 Al modificar efectivamente cualquier valor de configuración, el banner de cambios pendientes debe activarse y responder correctamente a Guardar y Deshacer.
-
----
-
-#### [DEV-082] Soporte de campo sprint en mutaciones MCP y marcado masivo de criterios de aceptación (ACs)
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
-
-Requerimiento de usuario originado desde el proyecto consumidor DOM (m3). Disculpas al equipo de DevBoard por cualquier intromisión previa con specs técnicas no solicitadas.
-
-Como consumidores del servidor MCP de DevBoard al gestionar tareas bajo el estándar Backlog.md, encontramos las siguientes oportunidades de mejora para su evaluación:
-1. Poder asignar o mover tareas de sprint directamente vía MCP (actualmente `devboard_update_task` y `devboard_bulk_update_tasks` no admiten el campo `sprint`).
-2. Permitir marcar todos los criterios de aceptación en una sola llamada (actualmente sólo existe `toggleAcIndex` individual, lo que en tareas con muchos ACs genera lentitud y riesgo de race conditions).
-3. Asegurar que el filtro `sprint` en `devboard_list_tasks` restrinja correctamente las tareas devueltas.
-4. Robustecer el formateo de frontmatter cuando los títulos incluyen comillas o tags como `<input ...>`.
-
-Queda a total consideración y diseño del equipo de DevBoard.
-
-**Criterios de Aceptación:**
-- [x] #1 El servidor MCP permite actualizar el campo sprint en devboard_update_task y devboard_bulk_update_tasks
-- [x] #2 Se dispone de un parámetro (ej: checkAllAcs: true) para alternar todos los ACs en una sola operación sin requerir múltiples tool calls secuenciales
-- [x] #3 El filtro sprint en devboard_list_tasks filtra adecuadamente por la propiedad sprint del frontmatter
-- [x] #4 El serializador de frontmatter YAML maneja defensivamente caracteres especiales y comillas en títulos
-
----
-
-#### [DEV-083] backlog no es un sprint
-- **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-En la vista de Sprints y Backlog (SprintView), los ítems sin sprint asignado (grupo Backlog) no deben indicar porcentaje de completitud ni barra de progreso. El Backlog es un inventario continuo y abierto de tareas no planificadas o pendientes, por lo que mostrar métricas de avance de iteración (ej: '0/14 (0%)') es conceptualmente erróneo.
-
-**Criterios de Aceptación:**
-- [x] #1 El bloque de Backlog (ítems sin sprint) no debe mostrar indicador de porcentaje ni barra de progreso.
-- [x] #2 El encabezado del Backlog debe indicar el conteo de ítems totales sin métricas de finalización de sprint.
-- [x] #3 Los sprints formales continúan mostrando su barra de progreso y ratio de completitud normalmente.
-
----
-
-#### [DEV-084] incluir soporte para BDD (historias y criterios de aceptacion)
-- **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
-
-incluir la posibilidad de que se completen los requerimientos en formato historia de usuario con el framework BDD
-
-Historia de usurario / Feature / Requerimiento > COMO (rol) QUIERO (necesidad) PARA (beneficio)
-Criterios de aceptacion > Scenario/GIVEN/WHEN/THEN
-
-**Criterios de Aceptación:**
-- [x] #1 Agregar botón/atajo en ItemModal para insertar plantilla de Historia de Usuario BDD en la Descripción: COMO (rol) / QUIERO (acción) / PARA (beneficio).
-- [x] #2 Agregar botón/atajo en ItemModal para insertar Criterios de Aceptación con formato BDD Scenario: DADO (contexto) / CUANDO (evento) / ENTONCES (resultado).
-- [x] #3 Mantener compatibilidad total con texto libre y criterios existentes.
-
----
-
-#### [DEV-085] La tabla de tareas en la vista de Sprints/Backlog no muestra columnas de Tipo, Estado y Release
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-En la vista de Sprints y Backlog, al desplegar la lista de tareas del Backlog (o de un sprint), la tabla solo mostraba las columnas `#`, `Prio`, `Código` y `Título`. Las columnas `Tipo`, `Estado` y `Release` no se renderizaban en navegadores con un `localStorage` antiguo porque la migración solo forzó la inclusión de `estado`. Se requiere una inicialización defensiva que garantice que las columnas núcleo estén visibles por defecto y un botón de restablecimiento.
-
-**Criterios de Aceptación:**
-- [x] #1 La tabla de tareas en Sprints y Backlog renderiza por defecto las columnas Tipo, Estado y Release sin requerir configuración manual.
-- [x] #2 Se implementa migración defensiva para usuarios existentes con localStorage desfasado garantizando la visualización de columnas esenciales.
-- [x] #3 El popover de Columnas incluye la opción de 'Restablecer por defecto' para recuperar la configuración canónica en un solo clic.
-
----
-
-#### [DEV-086] Visibilidad de Sprints planificados vacíos en vista de Sprint & Priorización
-- **Prioridad**: `urgent` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Al crear un nuevo Sprint en estado 'planned' (como Sprint 5 recien creado), no se visualiza en la vista de Sprint & Priorización porque el filtro de agrupación excluye sprints planned con 0 tareas, impidiendo planificar y arrastrar o asignar tareas al nuevo sprint.
-
-**Criterios de Aceptación:**
-- [x] #1 Los sprints en estado planned vacíos deben mostrarse en la vista de Sprint & Priorización con su drop zone para permitir la planificación.
-- [x] #2 El selector inline de sprints en las filas del backlog debe listar todos los sprints disponibles incluyendo sprints planificados.
-- [x] #3 El nuevo Sprint 5 debe renderizarse inmediatamente en la vista y permitir arrastrar y soltar tareas desde el Backlog.
-
----
-
-#### [DEV-087] veo releases en los atributos del item que no existen en la tab release
-- **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-ej. vv1.1.0, vSprint 4, etc no son releases ni en preparacion ni finalizados
-
-**Criterios de Aceptación:**
-- [x] #1 No extraer valores arbitrarios o desalineados de `item.release`/`targetRelease` para las sugerencias de versiones; tomar como fuente canónica las versiones declaradas en `releases.json` (`boardData.releases`).
-- [x] #2 En el selector/chips de versiones en `ItemModal`, mostrar únicamente versiones oficiales existentes, priorizando por defecto las versiones `unreleased` (en preparación).
-- [x] #3 Permitir tipeo manual libre si el usuario necesita especificar una versión nueva o no listada aún.
-
----
-
-#### [DEV-088] No es posible cambiar un item a Idea / Discovery
-- **Prioridad**: `medium` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Al seleccionar un item del backlog, el cambio de "estado" a Idea no se persiste y por ende no se visualiza el item en la columna de ideas / discovery. CanonicalStatus y normalizeStatus en backlogMdParser normalizaban ideas a draft, impidiendo su almacenamiento y visualización en la columna col-ideas del tablero Kanban.
-
-**Criterios de Aceptación:**
-- [x] #1 CanonicalStatus y normalizeStatus en backlogMdParser.ts reconocen ideas, idea y discovery como estado 'ideas', y formatStatusForMd formatea 'Ideas'.
-- [x] #2 Al cambiar el estado a '💡 Idea / Discovery' desde ItemModal.tsx o arrastrando en KanbanBoard, el estado 'ideas' se persiste en memoria y disco sin degradarse a 'draft'.
-- [x] #3 Los items en estado 'ideas' son correctamente filtrados y visibles en la columna 'Ideas' (col-ideas) del KanbanBoard al activar la visualización de ideas.
-
----
-
-#### [DEV-089] Persistencia del campo sprint al guardar desde ItemModal
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Al seleccionar un sprint y guardar desde el modal de edición de tarea (ItemModal), el item no persiste el campo de sprint en disco ni se refleja correctamente en la vista de Sprints & Priorización, quedando ubicado en Backlog. Debe asegurarse la serialización atómica y bidireccional de sprint/sprints tanto en ItemModal, la API y el parser de Backlog.md.
-
-**Criterios de Aceptación:**
-- [x] #1 ItemModal envía el valor de sprint y targetSprint (y limpia adecuadamente si se desasigna el sprint) hacia la API PUT /api/items/:id.
-- [x] #2 La API y saveBacklogMdItem sincronizan taskData.sprint, targetSprint y taskData.sprints, escribiendo correctamente la propiedad sprint en el frontmatter del archivo Markdown.
-- [x] #3 readProjectBacklog y parseBacklogMd resuelven de forma robusta el sprint activo ya sea desde sprint, targetSprint o sprints array.
-- [x] #4 Al cambiar el sprint desde ItemModal y recargar la vista, el ítem permanece en la columna del sprint asignado en la vista de Sprints y en el selector del modal.
-
----
-
-#### [DEV-090] Sincronización bidireccional de tareas en releases y rediseño UX/UI del drawer
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Inconsistencia entre tareas con release asignado en Sprint/Backlog y el panel de releases (se mostraba 0 tareas asociadas en el drawer y métrica divergente en la tarjeta). Adicionalmente, el popup/drawer de releases presenta deficiencias graves de UX/UI: el desenfoque de fondo no cubre el 100% de la pantalla (deja la barra de navegación expuesta) y la disposición/alineación de elementos dentro del drawer es deficiente.
-
-**Criterios de Aceptación:**
-- [x] #1 Sincronización bidireccional estricta de tareas asociadas a releases: tareas con release/targetRelease v0.5.0 se reflejan inmediatamente en la pestaña de Tareas del drawer y en rel.itemCodes.
-- [x] #2 Consistencia en métricas de alcance y progreso del release card con las tareas realmente asociadas al paquete en el drawer y sprint backlog.
-- [x] #3 Rediseño UX/UI del drawer de releases: overlay con backdrop-blur 100% viewport (createPortal), cabecera estilizada, tabs modernas y ergonomía refinada de tarjetas y botones de vinculación.
-
----
-
-#### [DEV-091] Control formal de versiones en ItemModal y persistencia simétrica al desasignar releases
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Bug en ItemModal: el input de releases agregaba cada prefijo intermedio a selectedReleases en cada pulsación de tecla ('v0', 'v0.', 'v0.6', etc.), inventando versiones que persistían en la UI. Además, al intentar remover un release de una tarea y guardar, el backend restauraba el valor previo ignorando la modificación debido a fallbacks que no contemplaban la desasignación explícita, y existían versiones fantasma (0.6.0) no dadas de alta en releases.json.
-
-**Criterios de Aceptación:**
-- [x] #1 Selector de releases controlado en ItemModal: Dropdown y chips basados estrictamente en el registro oficial de versiones (releases.json), eliminando la generación de versiones intermedias por cada tecla pulsada.
-- [x] #2 Persistencia simétrica al desasignar: al remover el release de un ítem, el guardado limpia explícitamente release, targetRelease, releases y milestone sin restaurar valores anteriores desde existingTask.
-- [x] #3 Sanitización de tareas: eliminación de versiones fantasma no registradas (ej. 0.6.0 en DEV-043, DEV-057, DEV-060, DEV-061), garantizando que solo existan releases formalmente registrados en el Centro de Releases.
-
----
-
-#### [DEV-092] Alineación de métricas de progreso de Sprint: Ready como estado terminal del desarrollo en KanbanBoard
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-En KanbanBoard.tsx, el banner de Sprint Goal calculaba el progreso considerando únicamente status === 'done' y clasificaba erróneamente 'ready' como 'inProgress', arrojando 0/14 (0%) de progreso y 14 en curso cuando todas las tareas estaban terminadas en 'ready'. En la metodología ágil de DevBoard, 'ready' es el estado terminal del desarrollo en el sprint (Ready for Release), mientras que 'done' pertenece exclusivamente a las tareas ya liberadas en producción.
-
-**Criterios de Aceptación:**
-- [x] #1 sprintStats en KanbanBoard.tsx contabiliza como terminadas las tareas con estado ready, done o finish (alineado con App.tsx y SprintView.tsx).
-- [x] #2 Tareas en estado ready son excluidas de inProgress en el banner de Sprint Goal, reflejando exclusivamente el trabajo activo en doing o review.
-- [x] #3 El indicador porcentual, la barra de progreso y la insignia Objetivo cumplido reflejan fielmente el 100% al alcanzarse el desarrollo completo en ready.
-
----
-
-#### [DEV-093] Desacople de scroll horizontal en columnas y preservación de sprint al togglear Ideas en KanbanBoard
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Dos defectos de UX en KanbanBoard: 1) El contenedor principal con overflow-x-auto arrastraba la barra de herramientas, selector de sprint, toggle de vistas y banner de progreso al hacer scroll horizontal para ver columnas derechas (ej. Ready y Done). 2) Al encender o apagar la columna de Ideas, un useEffect con dependencias inestables sobreescribía la selección del usuario (ej. 'all') forzando la vuelta al sprint activo.
-
-**Criterios de Aceptación:**
-- [x] #1 El scroll horizontal del tablero Kanban queda encapsulado exclusivamente en el contenedor de columnas, manteniendo fija la barra superior (Sprint Goal, selector de sprint, vista Simple/Ampliada, toggle Ideas) y el banner de progreso sin desplazarse con el scroll.
-- [x] #2 La selección del selector de sprint (ej. 'all' / Todos los ítems) se preserva estrictamente al activar o desactivar la columna de ideas, eliminando el re-filtrado forzado al sprint activo.
-- [x] #3 Eliminación de anchos mínimos artificiales (md:min-w-[960px]) en la barra superior y banner para que ocupen fluidamente el 100% del ancho del viewport.
-
----
-
-#### [DEV-094] Estabilización de layout, scrollbar-gutter y alineación de márgenes al alternar Ideas y filtros
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Eliminación de saltos visuales de layout (jank) al activar/desactivar Ideas o aplicar filtros: 1) Scrollbar layout shift solucionado con scrollbar-gutter: stable en html. 2) Contenedor KanbanBoard alineado con max-w-[1680px] mx-auto. 3) FilterBar desacoplada para no contabilizar includeIdeas como filtro activo. 4) Ancho estable del botón Ideas en la barra de herramientas.
-
-**Criterios de Aceptación:**
-- [x] #1 Estabilidad global de scrollbar: incorporar scrollbar-gutter: stable en html para evitar el salto de layout (15px) al filtrar o variar la altura de las tarjetas.
-- [x] #2 Alineación de contenedor en KanbanBoard: agregar max-w-[1680px] mx-auto para que coincida exactamente con Header, FilterBar y SprintView, eliminando desfasajes de márgenes en pantallas medianas y anchas.
-- [x] #3 Eliminación de sobrecarga semántica en FilterBar: aislar includeIdeas para que no altere hasCustomStatuses ni inserte el botón Limpiar (1) que desplazaba la fila de filtros rápidos.
-- [x] #4 Dimensionado estable del botón Ideas en el toolbar de KanbanBoard mediante conteo independiente de ideas disponibles, evitando cambios de ancho y saltos de controles adyacentes.
-
----
-
-#### [DEV-095] Solución integral de estabilidad de layout en FilterBar ante activación de filtros (Zero-CLS)
-- **Prioridad**: `high` | **Tipo**: `bug`
-- **Sprint / Milestone**: 0.5.0
-
-Eliminación integral de desplazamientos de controles en FilterBar al activar cualquier filtro: 1) Badge numérico de filtros activos desacoplado con position: absolute en la esquina superior derecha del botón Filtros, manteniendo su ancho estrictamente constante y evitando empujar la botonera de filtros rápidos (Todos, Bug, Feature, etc.). 2) Supresión de saltos de ancho por cambio de font-weight en píldoras rápidas de tipo y prioridad (uso de font-medium uniforme). 3) Prevención de salto vertical de FilterBar mediante contenedor nowrap con control de overflow horizontal.
-
-**Criterios de Aceptación:**
-- [x] #1 Badge absoluto en botón Filtros: posicionar el contador de filtros activos con position: absolute (-top-1.5 -right-1.5) para que el botón mantenga un ancho idéntico (cero píxeles de desplazamiento hacia los controles de la derecha).
-- [x] #2 Estabilidad métrica en píldoras de tipo y prioridad: mantener font-medium tanto en estado activo como inactivo, diferenciando la selección mediante fondo, borde y sombra sin alterar el ancho del texto ni desfasar botones adyacentes.
-- [x] #3 Prevención de wrap vertical en FilterBar: contenedor de barra configurado para prevenir que la aparición de Limpiar fuerce salto a una segunda línea o altere la altura del toolbar.
-- [x] #4 Botón Limpiar desacoplado: asegurar que el botón Limpiar no altere el alineamiento de los filtros rápidos a su izquierda al montarse o desmontarse.
-
----
-
-#### [DEV-096] Unificación conceptual de borrado: separación ortogonal de Descartar vs Papelera y persistencia de soft-delete
-- **Prioridad**: `high` | **Tipo**: `ux`
-
-Resolver la inconsistencia conceptual y de UX en la eliminación de tareas (Opción A):
-1. Separación ortogonal estricta entre la dimensión de Estado de Producto ('dismissed' / Descartada) y el Ciclo de Vida Físico ('isDeleted' / Papelera).
-2. Eliminar el laberinto de 3 instancias (Backlog -> Archivo -> Papelera -> Purgar): el botón de eliminar envía directo a la Papelera sin pasar por Descartada.
-3. Reparar el bug en readProjectBacklog (vite.config.ts) que omitía isDeleted/deletedAt/previousStatus provocando el rebote de tareas a 'Descartada'.
-4. En la Papelera, permitir Restaurar al estado original o Purgar definitivamente de forma directa con 1 confirmación.
-
-**Criterios de Aceptación:**
-- [x] #1 1. Backend readProjectBacklog mapea de forma determinista isDeleted, deletedAt y previousStatus desde el frontmatter Markdown.
-- [x] #2 2. La acción de descartar (status: dismissed) es exclusivamente un cambio de estado de producto sin modales de advertencia destructiva.
-- [x] #3 3. El botón de eliminar (tachito) envía directamente a la Papelera (isDeleted: true) con mensaje claro y sin mutar el status a dismissed ni pasar por la vista de Descartados.
-- [x] #4 4. En la vista de Archivo y Papelera se resuelven los bucles: la Papelera permite Restaurar al estado anterior o Purgar definitivamente con 1 confirmación.
-- [x] #5 5. Limpieza de datos en dev-060 y compatibilidad case-insensitive con claves de frontmatter isdeleted / isDeleted.
-
----
-
-#### [DEV-097] Simplificación de vistas: Papelera como vista directa y gestión de descartadas desde Backlog y Filtros
-- **Prioridad**: `high` | **Tipo**: `ux`
-
-Simplificar la arquitectura de vistas eliminando la duplicidad entre Archivo y Backlog:
-1. Las tareas descartadas/canceladas (status: dismissed/cancelled) viven naturalmente en el Backlog y Tablero Kanban, ocultas por defecto y visibles activando el filtro de estados.
-2. La vista dedicada en la cabecera pasa a ser exclusivamente la 'Papelera' (TrashView), con acceso directo sin subpestañas artificiales.
-3. Se remueve la vista redundante ArchiveView.tsx.
-
-**Criterios de Aceptación:**
-- [x] #1 1. En Header.tsx, reemplazar el botón de 'Archivo' por acceso directo a 'Papelera' (ícono Trash2 y badge con conteo de elementos en papelera).
-- [x] #2 2. En App.tsx, transformar la vista 'archive' en 'trash' dedicada, renderizando directamente TrashView sin subpestañas redundantes.
-- [x] #3 3. Garantizar que las tareas 'dismissed' / 'cancelled' se gestionen y visualicen exclusivamente desde Backlog (SprintView) y Kanban (KanbanBoard) gobernadas por filtros de estado (ocultas por defecto).
-- [x] #4 4. Limpieza y remoción de ArchiveView.tsx y del estado archiveSubTab.
-- [x] #5 5. Validación con npx tsc --noEmit, npm test y npm run backlog:check con 0 errores.
-
----
-
-#### [DEV-098] Estabilización de layout de scrollbar: eliminación de layout shift en Header entre vistas Home y Papelera
-- **Prioridad**: `high` | **Tipo**: `bug`
-
-Al alternar entre vistas que tienen scroll vertical (como Home/Tablero o Configuración) y vistas cuyo contenido entra completamente en el viewport sin desbordar (como Papelera cuando tiene pocos o ningún elemento), la aparición y desaparición de la barra de desplazamiento vertical de la ventana altera el ancho disponible del viewport (`window.innerWidth - scrollbarWidth`). Esto provocaba un desplazamiento ("layout shift" horizontal) hacia la derecha del encabezado superior (`Header`), el cual está centrado con `max-w-[1680px] mx-auto`.
-
-Causa raíz:
-1. `html` contaba con `scrollbar-gutter: stable`, pero sin `overflow-y: scroll`, los navegadores en macOS/Windows con mouse clásico o scrollbars persistentes liberan el espacio del gutter cuando el contenedor no tiene overflow activo.
-2. `TrashView` no contaba con el contenedor canónico `max-w-[1680px] mx-auto w-full px-4 sm:px-6` presente en el Header y el Tablero.
-
-**Criterios de Aceptación:**
-- [x] #1 Configurar `overflow-y: scroll` en `html` (combinado con `scrollbar-gutter: stable`) en `src/index.css` para garantizar que el ancho del layout viewport permanezca 100% invariable entre todas las vistas.
-- [x] #2 Alinear el contenedor de `TrashView` en `App.tsx` y `TrashView.tsx` con el estándar `max-w-[1680px] mx-auto w-full px-4 sm:px-6`.
-- [x] #3 Resolver advertencias y variables sin usar en `src/App.tsx` y `src/components/Header.tsx` asegurando compilación TypeScript estricta con 0 errores (`npx tsc --noEmit`).
-- [x] #4 Verificar ausencia total de layout shift horizontal del `Header` y validar integridad del backlog con `npm run backlog:check` y `npm test`.
-
----
-
-#### [DEV-099] Desacople estricto de Sprint vs Release: eliminación de versión falsa vSprint5 y prevención de label smuggling
-- **Prioridad**: `high` | **Tipo**: `bug`
-
-Al crear o leer tareas pertenecientes a un sprint (como Sprint 5), se producía una sobrecarga semántica ("label smuggling") donde el valor del sprint se propagaba indebidamente a las propiedades `milestone` y `release`. Esto provocaba que en la UI (tablas de `SprintView`, badges de `ItemCard` y selectores de `ItemModal`) apareciera una versión falsa `vSprint 5` / `vSprint5` como si fuera un release oficial, en lugar de dejar la versión vacía (`—`) hasta que el usuario decida formalmente en qué versión se liberará la tarea.
-
-Causa raíz:
-1. En `backlog/tasks/dev-096*.md` y `dev-097*.md`, el agente escribió `milestone: "Sprint 5"` en el frontmatter, violando la ortogonalidad entre Sprint y Release.
-2. En `vite.config.ts` (`readProjectBacklog`), existía un fallback `milestone: task.milestone || releaseVal || sprintVal`, asignando el `sprintVal` como `milestone` por defecto. A su vez, `releaseVal` leía `task.milestone`, contaminando `release`, `targetRelease` y `releases` con nombres de sprint.
-3. El formateo de releases en la interfaz anteponía prefijos `v` indiscriminadamente sobre cualquier texto (`vSprint 5`).
-
-**Criterios de Aceptación:**
-- [x] #1 Corregir `vite.config.ts` eliminando cualquier fallback de `sprintVal` a `milestone` o `releaseVal`, y garantizando que valores que contengan "sprint" nunca sean interpretados ni guardados como versiones de release.
-- [x] #2 Limpiar `milestone: "Sprint 5"` de los archivos de tareas en `backlog/tasks/` (`DEV-096`, `DEV-097`, etc.) dejando sus campos de release vacíos.
-- [x] #3 Asegurar que las tarjetas en `ItemCard`, la columna Release en `SprintView` y el selector de `ItemModal` muestren `—` (sin versión asignada) cuando un ítem no tenga release formal.
-- [x] #4 Validar compilación (`npx tsc --noEmit`), suite de pruebas (`npm test`) y sincronización (`npm run backlog:check`).
-
----
-
-#### [DEV-100] Eliminación de confirmación nativa del navegador en vista de Releases y UX de Promoción a Producción
-- **Prioridad**: `medium` | **Tipo**: `ux`
-
-Al presionar "Liberar" o "Eliminar borrador" en el Centro de Releases (`ReleaseAssembler.tsx`), se invocaba la función nativa del navegador `window.confirm()`. Este diálogo gris del sistema operativo rompía por completo la coherencia estética, diseño y accesibilidad de la aplicación.
-
-Solución:
-1. Se clarificó la función del botón "Liberar": promueve una versión en estado 'unreleased' (en preparación) a 'released' (inmutable y desplegada en producción), sella la fecha de publicación oficial y promueve las tareas en 'ready' al estado final 'done'.
-2. Se incorporó la variante 'success' en `ConfirmModal` (con icono `Rocket` y paleta esmeralda) para confirmaciones de publicación formal.
-3. Se reemplazaron todos los llamados a `window.confirm()` en `ReleaseAssembler.tsx` por instancias de `ConfirmModal` con títulos, mensajes explicativos y detalles precisos del impacto.
-4. Se corrigió el contenedor de detalle en `ConfirmModal` removiendo `truncate` y permitiendo multilínea fluida (`break-words text-[11px]`), sintetizando el copy para que sea conciso y armonioso con el espacio.
-
-**Criterios de Aceptación:**
-- [x] #1 Extender `ConfirmModal` con la variante 'success' (icono Rocket, acento esmeralda) manteniendo soporte accesible de teclado (Escape/Enter).
-- [x] #2 Reemplazar el `window.confirm` de "Liberar" en `ReleaseAssembler.tsx` por `ConfirmModal` descriptivo que aclare que la versión pasará a ser inmutable y promoverá las tareas en 'ready' a 'done'.
-- [x] #3 Reemplazar el `window.confirm` de "Eliminar borrador" en `ReleaseAssembler.tsx` por `ConfirmModal` (variante 'danger').
-- [x] #4 Ajustar `ConfirmModal` para permitir multilínea sin recorte por `truncate` y sintetizar los textos para óptima proporción visual.
-- [x] #5 Validar compilación TypeScript (`npx tsc --noEmit`), suite de pruebas (`npm test`) y sincronización viva (`npm run backlog:check`).
-
----
-
 ### 📋 Backlog / Draft (5)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
@@ -452,7 +111,7 @@ Tras los aprendizajes de la retrospectiva de Sprint 5, se requiere enriquecer la
 
 ---
 
-### ✅ Done / Deployed (70)
+### ✅ Done / Deployed (93)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1666,6 +1325,19 @@ Corregir POST /api/items en vite.config.ts para sanitizar codePrefix (evitar dob
 
 ---
 
+#### [DEV-077] Mejora selectores sprints y releases en modal de card
+- **Prioridad**: `low` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.5.0
+
+Para el campo sprint el listado de sprint debiera ser con un UX/UI similar a la app / modal, no debiera parecer un listado de autocompletado del navegador sin personalidad. Para el campo release, las sugerencias debieran ser por defecto las versiones creadas y en estado unreleased, ya que si no se acumulan históricamente sin límite. Al completar el campo manualmente esta bien que permita incluir tanto unreleased como released versiones, pero no sugerirlas.
+
+**Criterios de Aceptación:**
+- [x] #1 Diseñar un selector/dropdown con estética coherente con la UI de DevBoard para el campo de Sprint en ItemModal
+- [x] #2 Filtrar las sugerencias por defecto del campo Release mostrando únicamente versiones en estado unreleased
+- [x] #3 Permitir la entrada o selección manual de versiones released si el usuario lo requiere expresamente
+
+---
+
 #### [DEV-078] Separación estricta de Sprint y Estado en columnas filtros y datos
 - **Prioridad**: `high` | **Tipo**: `bug`
 - **Sprint / Milestone**: 0.4.0
@@ -1678,5 +1350,336 @@ Garantizar la independencia total y estricta entre Sprint y Estado: agregar Esta
 - [x] #3 Reemplazar la opción 'Backlog' por 'Sin Sprint' en el selector de Sprint de SprintView y filtros
 - [x] #4 Remover sufijo '(Backlog)' en ItemModal, KanbanBoard y AdvancedFiltersPopover para desacoplar Estado y Sprint
 - [x] #5 Verificar compilación limpia con tsc --noEmit
+
+---
+
+#### [DEV-079] mejora en columnas / sumar mas campos
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.5.0
+
+Permitir agregar y ocultar columnas adicionales de tareas en la vista de Sprints y Backlog. Específicamente, incorporar campos estructurados no extensos: Criterios de Aceptación (ACs ratio/progreso), Responsables/Asignados (assignees), Etiquetas (labels) y Épica (epic). Cada columna puede activarse u ocultarse dinámicamente desde el popover de Columnas.
+
+**Criterios de Aceptación:**
+- [x] #1 El popover de Columnas permite activar/desactivar Criterios de Aceptación (acProgress), Asignados (assignees), Etiquetas (labels) y Épica (epic).
+- [x] #2 Cada nueva columna cuenta con su celda th en el encabezado y su renderizado correspondiente con diseño visual pulido en las filas de tareas.
+- [x] #3 Las selecciones de columnas se persisten de forma transparente en localStorage y se sincronizan al modificar opciones.
+
+---
+
+#### [DEV-080] la retro no es del release
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+la retro debe estar asignada al sprint no al release, es un error conceptual
+
+**Criterios de Aceptación:**
+- [x] #1 Eliminar la pestaña errónea de Retrospectivas en el Drawer de Releases (`ReleaseAssembler.tsx`), desacoplando conceptualmente la ceremonia de sprint del release.
+- [x] #2 Incorporar en `SprintView.tsx` un botón "Ver Retrospectiva" en la cabecera de sprints completados (`status === 'completed'`).
+- [x] #3 Diseñar modal para visualizar el acta Markdown de la retrospectiva del sprint completado correspondiente.
+
+---
+
+#### [DEV-081] cambios pendientes apenas al entrar a config
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al ingresar a la vista de Configuración (SettingsView), aparece de inmediato el banner de cambios pendientes y el botón "Deshacer cambios" sin que el usuario haya modificado ningún ajuste. Esto se debe a que `isDirty` realiza un `JSON.stringify` ingenuo donde `builtConfig.customItemTypes` es `[]` mientras que en `config.json` dicha propiedad es `undefined`, produciendo un falso positivo permanente.
+
+**Criterios de Aceptación:**
+- [x] #1 Al ingresar a Configuración sin editar nada, el banner de cambios pendientes y botón 'Deshacer' deben permanecer ocultos (isDirty = false).
+- [x] #2 La función de detección de dirty state debe normalizar propiedades opcionales/vacías (customItemTypes, wipLimits, tabs) para evitar discrepancias estructurales.
+- [x] #3 Al modificar efectivamente cualquier valor de configuración, el banner de cambios pendientes debe activarse y responder correctamente a Guardar y Deshacer.
+
+---
+
+#### [DEV-082] Soporte de campo sprint en mutaciones MCP y marcado masivo de criterios de aceptación (ACs)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.5.0
+
+Requerimiento de usuario originado desde el proyecto consumidor DOM (m3). Disculpas al equipo de DevBoard por cualquier intromisión previa con specs técnicas no solicitadas.
+
+Como consumidores del servidor MCP de DevBoard al gestionar tareas bajo el estándar Backlog.md, encontramos las siguientes oportunidades de mejora para su evaluación:
+1. Poder asignar o mover tareas de sprint directamente vía MCP (actualmente `devboard_update_task` y `devboard_bulk_update_tasks` no admiten el campo `sprint`).
+2. Permitir marcar todos los criterios de aceptación en una sola llamada (actualmente sólo existe `toggleAcIndex` individual, lo que en tareas con muchos ACs genera lentitud y riesgo de race conditions).
+3. Asegurar que el filtro `sprint` en `devboard_list_tasks` restrinja correctamente las tareas devueltas.
+4. Robustecer el formateo de frontmatter cuando los títulos incluyen comillas o tags como `<input ...>`.
+
+Queda a total consideración y diseño del equipo de DevBoard.
+
+**Criterios de Aceptación:**
+- [x] #1 El servidor MCP permite actualizar el campo sprint en devboard_update_task y devboard_bulk_update_tasks
+- [x] #2 Se dispone de un parámetro (ej: checkAllAcs: true) para alternar todos los ACs en una sola operación sin requerir múltiples tool calls secuenciales
+- [x] #3 El filtro sprint en devboard_list_tasks filtra adecuadamente por la propiedad sprint del frontmatter
+- [x] #4 El serializador de frontmatter YAML maneja defensivamente caracteres especiales y comillas en títulos
+
+---
+
+#### [DEV-083] backlog no es un sprint
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+En la vista de Sprints y Backlog (SprintView), los ítems sin sprint asignado (grupo Backlog) no deben indicar porcentaje de completitud ni barra de progreso. El Backlog es un inventario continuo y abierto de tareas no planificadas o pendientes, por lo que mostrar métricas de avance de iteración (ej: '0/14 (0%)') es conceptualmente erróneo.
+
+**Criterios de Aceptación:**
+- [x] #1 El bloque de Backlog (ítems sin sprint) no debe mostrar indicador de porcentaje ni barra de progreso.
+- [x] #2 El encabezado del Backlog debe indicar el conteo de ítems totales sin métricas de finalización de sprint.
+- [x] #3 Los sprints formales continúan mostrando su barra de progreso y ratio de completitud normalmente.
+
+---
+
+#### [DEV-084] incluir soporte para BDD (historias y criterios de aceptacion)
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.5.0
+
+incluir la posibilidad de que se completen los requerimientos en formato historia de usuario con el framework BDD
+
+Historia de usurario / Feature / Requerimiento > COMO (rol) QUIERO (necesidad) PARA (beneficio)
+Criterios de aceptacion > Scenario/GIVEN/WHEN/THEN
+
+**Criterios de Aceptación:**
+- [x] #1 Agregar botón/atajo en ItemModal para insertar plantilla de Historia de Usuario BDD en la Descripción: COMO (rol) / QUIERO (acción) / PARA (beneficio).
+- [x] #2 Agregar botón/atajo en ItemModal para insertar Criterios de Aceptación con formato BDD Scenario: DADO (contexto) / CUANDO (evento) / ENTONCES (resultado).
+- [x] #3 Mantener compatibilidad total con texto libre y criterios existentes.
+
+---
+
+#### [DEV-085] La tabla de tareas en la vista de Sprints/Backlog no muestra columnas de Tipo, Estado y Release
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+En la vista de Sprints y Backlog, al desplegar la lista de tareas del Backlog (o de un sprint), la tabla solo mostraba las columnas `#`, `Prio`, `Código` y `Título`. Las columnas `Tipo`, `Estado` y `Release` no se renderizaban en navegadores con un `localStorage` antiguo porque la migración solo forzó la inclusión de `estado`. Se requiere una inicialización defensiva que garantice que las columnas núcleo estén visibles por defecto y un botón de restablecimiento.
+
+**Criterios de Aceptación:**
+- [x] #1 La tabla de tareas en Sprints y Backlog renderiza por defecto las columnas Tipo, Estado y Release sin requerir configuración manual.
+- [x] #2 Se implementa migración defensiva para usuarios existentes con localStorage desfasado garantizando la visualización de columnas esenciales.
+- [x] #3 El popover de Columnas incluye la opción de 'Restablecer por defecto' para recuperar la configuración canónica en un solo clic.
+
+---
+
+#### [DEV-086] Visibilidad de Sprints planificados vacíos en vista de Sprint & Priorización
+- **Prioridad**: `urgent` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al crear un nuevo Sprint en estado 'planned' (como Sprint 5 recien creado), no se visualiza en la vista de Sprint & Priorización porque el filtro de agrupación excluye sprints planned con 0 tareas, impidiendo planificar y arrastrar o asignar tareas al nuevo sprint.
+
+**Criterios de Aceptación:**
+- [x] #1 Los sprints en estado planned vacíos deben mostrarse en la vista de Sprint & Priorización con su drop zone para permitir la planificación.
+- [x] #2 El selector inline de sprints en las filas del backlog debe listar todos los sprints disponibles incluyendo sprints planificados.
+- [x] #3 El nuevo Sprint 5 debe renderizarse inmediatamente en la vista y permitir arrastrar y soltar tareas desde el Backlog.
+
+---
+
+#### [DEV-087] veo releases en los atributos del item que no existen en la tab release
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+ej. vv1.1.0, vSprint 4, etc no son releases ni en preparacion ni finalizados
+
+**Criterios de Aceptación:**
+- [x] #1 No extraer valores arbitrarios o desalineados de `item.release`/`targetRelease` para las sugerencias de versiones; tomar como fuente canónica las versiones declaradas en `releases.json` (`boardData.releases`).
+- [x] #2 En el selector/chips de versiones en `ItemModal`, mostrar únicamente versiones oficiales existentes, priorizando por defecto las versiones `unreleased` (en preparación).
+- [x] #3 Permitir tipeo manual libre si el usuario necesita especificar una versión nueva o no listada aún.
+
+---
+
+#### [DEV-088] No es posible cambiar un item a Idea / Discovery
+- **Prioridad**: `medium` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al seleccionar un item del backlog, el cambio de "estado" a Idea no se persiste y por ende no se visualiza el item en la columna de ideas / discovery. CanonicalStatus y normalizeStatus en backlogMdParser normalizaban ideas a draft, impidiendo su almacenamiento y visualización en la columna col-ideas del tablero Kanban.
+
+**Criterios de Aceptación:**
+- [x] #1 CanonicalStatus y normalizeStatus en backlogMdParser.ts reconocen ideas, idea y discovery como estado 'ideas', y formatStatusForMd formatea 'Ideas'.
+- [x] #2 Al cambiar el estado a '💡 Idea / Discovery' desde ItemModal.tsx o arrastrando en KanbanBoard, el estado 'ideas' se persiste en memoria y disco sin degradarse a 'draft'.
+- [x] #3 Los items en estado 'ideas' son correctamente filtrados y visibles en la columna 'Ideas' (col-ideas) del KanbanBoard al activar la visualización de ideas.
+
+---
+
+#### [DEV-089] Persistencia del campo sprint al guardar desde ItemModal
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al seleccionar un sprint y guardar desde el modal de edición de tarea (ItemModal), el item no persiste el campo de sprint en disco ni se refleja correctamente en la vista de Sprints & Priorización, quedando ubicado en Backlog. Debe asegurarse la serialización atómica y bidireccional de sprint/sprints tanto en ItemModal, la API y el parser de Backlog.md.
+
+**Criterios de Aceptación:**
+- [x] #1 ItemModal envía el valor de sprint y targetSprint (y limpia adecuadamente si se desasigna el sprint) hacia la API PUT /api/items/:id.
+- [x] #2 La API y saveBacklogMdItem sincronizan taskData.sprint, targetSprint y taskData.sprints, escribiendo correctamente la propiedad sprint en el frontmatter del archivo Markdown.
+- [x] #3 readProjectBacklog y parseBacklogMd resuelven de forma robusta el sprint activo ya sea desde sprint, targetSprint o sprints array.
+- [x] #4 Al cambiar el sprint desde ItemModal y recargar la vista, el ítem permanece en la columna del sprint asignado en la vista de Sprints y en el selector del modal.
+
+---
+
+#### [DEV-090] Sincronización bidireccional de tareas en releases y rediseño UX/UI del drawer
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Inconsistencia entre tareas con release asignado en Sprint/Backlog y el panel de releases (se mostraba 0 tareas asociadas en el drawer y métrica divergente en la tarjeta). Adicionalmente, el popup/drawer de releases presenta deficiencias graves de UX/UI: el desenfoque de fondo no cubre el 100% de la pantalla (deja la barra de navegación expuesta) y la disposición/alineación de elementos dentro del drawer es deficiente.
+
+**Criterios de Aceptación:**
+- [x] #1 Sincronización bidireccional estricta de tareas asociadas a releases: tareas con release/targetRelease v0.5.0 se reflejan inmediatamente en la pestaña de Tareas del drawer y en rel.itemCodes.
+- [x] #2 Consistencia en métricas de alcance y progreso del release card con las tareas realmente asociadas al paquete en el drawer y sprint backlog.
+- [x] #3 Rediseño UX/UI del drawer de releases: overlay con backdrop-blur 100% viewport (createPortal), cabecera estilizada, tabs modernas y ergonomía refinada de tarjetas y botones de vinculación.
+
+---
+
+#### [DEV-091] Control formal de versiones en ItemModal y persistencia simétrica al desasignar releases
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Bug en ItemModal: el input de releases agregaba cada prefijo intermedio a selectedReleases en cada pulsación de tecla ('v0', 'v0.', 'v0.6', etc.), inventando versiones que persistían en la UI. Además, al intentar remover un release de una tarea y guardar, el backend restauraba el valor previo ignorando la modificación debido a fallbacks que no contemplaban la desasignación explícita, y existían versiones fantasma (0.6.0) no dadas de alta en releases.json.
+
+**Criterios de Aceptación:**
+- [x] #1 Selector de releases controlado en ItemModal: Dropdown y chips basados estrictamente en el registro oficial de versiones (releases.json), eliminando la generación de versiones intermedias por cada tecla pulsada.
+- [x] #2 Persistencia simétrica al desasignar: al remover el release de un ítem, el guardado limpia explícitamente release, targetRelease, releases y milestone sin restaurar valores anteriores desde existingTask.
+- [x] #3 Sanitización de tareas: eliminación de versiones fantasma no registradas (ej. 0.6.0 en DEV-043, DEV-057, DEV-060, DEV-061), garantizando que solo existan releases formalmente registrados en el Centro de Releases.
+
+---
+
+#### [DEV-092] Alineación de métricas de progreso de Sprint: Ready como estado terminal del desarrollo en KanbanBoard
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+En KanbanBoard.tsx, el banner de Sprint Goal calculaba el progreso considerando únicamente status === 'done' y clasificaba erróneamente 'ready' como 'inProgress', arrojando 0/14 (0%) de progreso y 14 en curso cuando todas las tareas estaban terminadas en 'ready'. En la metodología ágil de DevBoard, 'ready' es el estado terminal del desarrollo en el sprint (Ready for Release), mientras que 'done' pertenece exclusivamente a las tareas ya liberadas en producción.
+
+**Criterios de Aceptación:**
+- [x] #1 sprintStats en KanbanBoard.tsx contabiliza como terminadas las tareas con estado ready, done o finish (alineado con App.tsx y SprintView.tsx).
+- [x] #2 Tareas en estado ready son excluidas de inProgress en el banner de Sprint Goal, reflejando exclusivamente el trabajo activo en doing o review.
+- [x] #3 El indicador porcentual, la barra de progreso y la insignia Objetivo cumplido reflejan fielmente el 100% al alcanzarse el desarrollo completo en ready.
+
+---
+
+#### [DEV-093] Desacople de scroll horizontal en columnas y preservación de sprint al togglear Ideas en KanbanBoard
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Dos defectos de UX en KanbanBoard: 1) El contenedor principal con overflow-x-auto arrastraba la barra de herramientas, selector de sprint, toggle de vistas y banner de progreso al hacer scroll horizontal para ver columnas derechas (ej. Ready y Done). 2) Al encender o apagar la columna de Ideas, un useEffect con dependencias inestables sobreescribía la selección del usuario (ej. 'all') forzando la vuelta al sprint activo.
+
+**Criterios de Aceptación:**
+- [x] #1 El scroll horizontal del tablero Kanban queda encapsulado exclusivamente en el contenedor de columnas, manteniendo fija la barra superior (Sprint Goal, selector de sprint, vista Simple/Ampliada, toggle Ideas) y el banner de progreso sin desplazarse con el scroll.
+- [x] #2 La selección del selector de sprint (ej. 'all' / Todos los ítems) se preserva estrictamente al activar o desactivar la columna de ideas, eliminando el re-filtrado forzado al sprint activo.
+- [x] #3 Eliminación de anchos mínimos artificiales (md:min-w-[960px]) en la barra superior y banner para que ocupen fluidamente el 100% del ancho del viewport.
+
+---
+
+#### [DEV-094] Estabilización de layout, scrollbar-gutter y alineación de márgenes al alternar Ideas y filtros
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Eliminación de saltos visuales de layout (jank) al activar/desactivar Ideas o aplicar filtros: 1) Scrollbar layout shift solucionado con scrollbar-gutter: stable en html. 2) Contenedor KanbanBoard alineado con max-w-[1680px] mx-auto. 3) FilterBar desacoplada para no contabilizar includeIdeas como filtro activo. 4) Ancho estable del botón Ideas en la barra de herramientas.
+
+**Criterios de Aceptación:**
+- [x] #1 Estabilidad global de scrollbar: incorporar scrollbar-gutter: stable en html para evitar el salto de layout (15px) al filtrar o variar la altura de las tarjetas.
+- [x] #2 Alineación de contenedor en KanbanBoard: agregar max-w-[1680px] mx-auto para que coincida exactamente con Header, FilterBar y SprintView, eliminando desfasajes de márgenes en pantallas medianas y anchas.
+- [x] #3 Eliminación de sobrecarga semántica en FilterBar: aislar includeIdeas para que no altere hasCustomStatuses ni inserte el botón Limpiar (1) que desplazaba la fila de filtros rápidos.
+- [x] #4 Dimensionado estable del botón Ideas en el toolbar de KanbanBoard mediante conteo independiente de ideas disponibles, evitando cambios de ancho y saltos de controles adyacentes.
+
+---
+
+#### [DEV-095] Solución integral de estabilidad de layout en FilterBar ante activación de filtros (Zero-CLS)
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Eliminación integral de desplazamientos de controles en FilterBar al activar cualquier filtro: 1) Badge numérico de filtros activos desacoplado con position: absolute en la esquina superior derecha del botón Filtros, manteniendo su ancho estrictamente constante y evitando empujar la botonera de filtros rápidos (Todos, Bug, Feature, etc.). 2) Supresión de saltos de ancho por cambio de font-weight en píldoras rápidas de tipo y prioridad (uso de font-medium uniforme). 3) Prevención de salto vertical de FilterBar mediante contenedor nowrap con control de overflow horizontal.
+
+**Criterios de Aceptación:**
+- [x] #1 Badge absoluto en botón Filtros: posicionar el contador de filtros activos con position: absolute (-top-1.5 -right-1.5) para que el botón mantenga un ancho idéntico (cero píxeles de desplazamiento hacia los controles de la derecha).
+- [x] #2 Estabilidad métrica en píldoras de tipo y prioridad: mantener font-medium tanto en estado activo como inactivo, diferenciando la selección mediante fondo, borde y sombra sin alterar el ancho del texto ni desfasar botones adyacentes.
+- [x] #3 Prevención de wrap vertical en FilterBar: contenedor de barra configurado para prevenir que la aparición de Limpiar fuerce salto a una segunda línea o altere la altura del toolbar.
+- [x] #4 Botón Limpiar desacoplado: asegurar que el botón Limpiar no altere el alineamiento de los filtros rápidos a su izquierda al montarse o desmontarse.
+
+---
+
+#### [DEV-096] Unificación conceptual de borrado: separación ortogonal de Descartar vs Papelera y persistencia de soft-delete
+- **Prioridad**: `high` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.5.0
+
+Resolver la inconsistencia conceptual y de UX en la eliminación de tareas (Opción A):
+1. Separación ortogonal estricta entre la dimensión de Estado de Producto ('dismissed' / Descartada) y el Ciclo de Vida Físico ('isDeleted' / Papelera).
+2. Eliminar el laberinto de 3 instancias (Backlog -> Archivo -> Papelera -> Purgar): el botón de eliminar envía directo a la Papelera sin pasar por Descartada.
+3. Reparar el bug en readProjectBacklog (vite.config.ts) que omitía isDeleted/deletedAt/previousStatus provocando el rebote de tareas a 'Descartada'.
+4. En la Papelera, permitir Restaurar al estado original o Purgar definitivamente de forma directa con 1 confirmación.
+
+**Criterios de Aceptación:**
+- [x] #1 1. Backend readProjectBacklog mapea de forma determinista isDeleted, deletedAt y previousStatus desde el frontmatter Markdown.
+- [x] #2 2. La acción de descartar (status: dismissed) es exclusivamente un cambio de estado de producto sin modales de advertencia destructiva.
+- [x] #3 3. El botón de eliminar (tachito) envía directamente a la Papelera (isDeleted: true) con mensaje claro y sin mutar el status a dismissed ni pasar por la vista de Descartados.
+- [x] #4 4. En la vista de Archivo y Papelera se resuelven los bucles: la Papelera permite Restaurar al estado anterior o Purgar definitivamente con 1 confirmación.
+- [x] #5 5. Limpieza de datos en dev-060 y compatibilidad case-insensitive con claves de frontmatter isdeleted / isDeleted.
+
+---
+
+#### [DEV-097] Simplificación de vistas: Papelera como vista directa y gestión de descartadas desde Backlog y Filtros
+- **Prioridad**: `high` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.5.0
+
+Simplificar la arquitectura de vistas eliminando la duplicidad entre Archivo y Backlog:
+1. Las tareas descartadas/canceladas (status: dismissed/cancelled) viven naturalmente en el Backlog y Tablero Kanban, ocultas por defecto y visibles activando el filtro de estados.
+2. La vista dedicada en la cabecera pasa a ser exclusivamente la 'Papelera' (TrashView), con acceso directo sin subpestañas artificiales.
+3. Se remueve la vista redundante ArchiveView.tsx.
+
+**Criterios de Aceptación:**
+- [x] #1 1. En Header.tsx, reemplazar el botón de 'Archivo' por acceso directo a 'Papelera' (ícono Trash2 y badge con conteo de elementos en papelera).
+- [x] #2 2. En App.tsx, transformar la vista 'archive' en 'trash' dedicada, renderizando directamente TrashView sin subpestañas redundantes.
+- [x] #3 3. Garantizar que las tareas 'dismissed' / 'cancelled' se gestionen y visualicen exclusivamente desde Backlog (SprintView) y Kanban (KanbanBoard) gobernadas por filtros de estado (ocultas por defecto).
+- [x] #4 4. Limpieza y remoción de ArchiveView.tsx y del estado archiveSubTab.
+- [x] #5 5. Validación con npx tsc --noEmit, npm test y npm run backlog:check con 0 errores.
+
+---
+
+#### [DEV-098] Estabilización de layout de scrollbar: eliminación de layout shift en Header entre vistas Home y Papelera
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al alternar entre vistas que tienen scroll vertical (como Home/Tablero o Configuración) y vistas cuyo contenido entra completamente en el viewport sin desbordar (como Papelera cuando tiene pocos o ningún elemento), la aparición y desaparición de la barra de desplazamiento vertical de la ventana altera el ancho disponible del viewport (`window.innerWidth - scrollbarWidth`). Esto provocaba un desplazamiento ("layout shift" horizontal) hacia la derecha del encabezado superior (`Header`), el cual está centrado con `max-w-[1680px] mx-auto`.
+
+Causa raíz:
+1. `html` contaba con `scrollbar-gutter: stable`, pero sin `overflow-y: scroll`, los navegadores en macOS/Windows con mouse clásico o scrollbars persistentes liberan el espacio del gutter cuando el contenedor no tiene overflow activo.
+2. `TrashView` no contaba con el contenedor canónico `max-w-[1680px] mx-auto w-full px-4 sm:px-6` presente en el Header y el Tablero.
+
+**Criterios de Aceptación:**
+- [x] #1 Configurar `overflow-y: scroll` en `html` (combinado con `scrollbar-gutter: stable`) en `src/index.css` para garantizar que el ancho del layout viewport permanezca 100% invariable entre todas las vistas.
+- [x] #2 Alinear el contenedor de `TrashView` en `App.tsx` y `TrashView.tsx` con el estándar `max-w-[1680px] mx-auto w-full px-4 sm:px-6`.
+- [x] #3 Resolver advertencias y variables sin usar en `src/App.tsx` y `src/components/Header.tsx` asegurando compilación TypeScript estricta con 0 errores (`npx tsc --noEmit`).
+- [x] #4 Verificar ausencia total de layout shift horizontal del `Header` y validar integridad del backlog con `npm run backlog:check` y `npm test`.
+
+---
+
+#### [DEV-099] Desacople estricto de Sprint vs Release: eliminación de versión falsa vSprint5 y prevención de label smuggling
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Al crear o leer tareas pertenecientes a un sprint (como Sprint 5), se producía una sobrecarga semántica ("label smuggling") donde el valor del sprint se propagaba indebidamente a las propiedades `milestone` y `release`. Esto provocaba que en la UI (tablas de `SprintView`, badges de `ItemCard` y selectores de `ItemModal`) apareciera una versión falsa `vSprint 5` / `vSprint5` como si fuera un release oficial, en lugar de dejar la versión vacía (`—`) hasta que el usuario decida formalmente en qué versión se liberará la tarea.
+
+Causa raíz:
+1. En `backlog/tasks/dev-096*.md` y `dev-097*.md`, el agente escribió `milestone: "Sprint 5"` en el frontmatter, violando la ortogonalidad entre Sprint y Release.
+2. En `vite.config.ts` (`readProjectBacklog`), existía un fallback `milestone: task.milestone || releaseVal || sprintVal`, asignando el `sprintVal` como `milestone` por defecto. A su vez, `releaseVal` leía `task.milestone`, contaminando `release`, `targetRelease` y `releases` con nombres de sprint.
+3. El formateo de releases en la interfaz anteponía prefijos `v` indiscriminadamente sobre cualquier texto (`vSprint 5`).
+
+**Criterios de Aceptación:**
+- [x] #1 Corregir `vite.config.ts` eliminando cualquier fallback de `sprintVal` a `milestone` o `releaseVal`, y garantizando que valores que contengan "sprint" nunca sean interpretados ni guardados como versiones de release.
+- [x] #2 Limpiar `milestone: "Sprint 5"` de los archivos de tareas en `backlog/tasks/` (`DEV-096`, `DEV-097`, etc.) dejando sus campos de release vacíos.
+- [x] #3 Asegurar que las tarjetas en `ItemCard`, la columna Release en `SprintView` y el selector de `ItemModal` muestren `—` (sin versión asignada) cuando un ítem no tenga release formal.
+- [x] #4 Validar compilación (`npx tsc --noEmit`), suite de pruebas (`npm test`) y sincronización (`npm run backlog:check`).
+
+---
+
+#### [DEV-100] Eliminación de confirmación nativa del navegador en vista de Releases y UX de Promoción a Producción
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.5.0
+
+Al presionar "Liberar" o "Eliminar borrador" en el Centro de Releases (`ReleaseAssembler.tsx`), se invocaba la función nativa del navegador `window.confirm()`. Este diálogo gris del sistema operativo rompía por completo la coherencia estética, diseño y accesibilidad de la aplicación.
+
+Solución:
+1. Se clarificó la función del botón "Liberar": promueve una versión en estado 'unreleased' (en preparación) a 'released' (inmutable y desplegada en producción), sella la fecha de publicación oficial y promueve las tareas en 'ready' al estado final 'done'.
+2. Se incorporó la variante 'success' en `ConfirmModal` (con icono `Rocket` y paleta esmeralda) para confirmaciones de publicación formal.
+3. Se reemplazaron todos los llamados a `window.confirm()` en `ReleaseAssembler.tsx` por instancias de `ConfirmModal` con títulos, mensajes explicativos y detalles precisos del impacto.
+4. Se corrigió el contenedor de detalle en `ConfirmModal` removiendo `truncate` y permitiendo multilínea fluida (`break-words text-[11px]`), sintetizando el copy para que sea conciso y armonioso con el espacio.
+
+**Criterios de Aceptación:**
+- [x] #1 Extender `ConfirmModal` con la variante 'success' (icono Rocket, acento esmeralda) manteniendo soporte accesible de teclado (Escape/Enter).
+- [x] #2 Reemplazar el `window.confirm` de "Liberar" en `ReleaseAssembler.tsx` por `ConfirmModal` descriptivo que aclare que la versión pasará a ser inmutable y promoverá las tareas en 'ready' a 'done'.
+- [x] #3 Reemplazar el `window.confirm` de "Eliminar borrador" en `ReleaseAssembler.tsx` por `ConfirmModal` (variante 'danger').
+- [x] #4 Ajustar `ConfirmModal` para permitir multilínea sin recorte por `truncate` y sintetizar los textos para óptima proporción visual.
+- [x] #5 Validar compilación TypeScript (`npx tsc --noEmit`), suite de pruebas (`npm test`) y sincronización viva (`npm run backlog:check`).
 
 ---

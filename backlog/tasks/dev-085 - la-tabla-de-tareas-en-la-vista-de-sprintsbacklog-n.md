@@ -1,7 +1,7 @@
 ---
 id: DEV-085
 title: "La tabla de tareas en la vista de Sprints/Backlog no muestra columnas de Tipo, Estado y Release"
-status: Ready
+status: Done
 created_date: '2026-09-24'
 updated_date: '2026-09-24 18:49'
 labels: []

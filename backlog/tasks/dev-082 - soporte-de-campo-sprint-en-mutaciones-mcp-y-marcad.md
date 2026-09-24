@@ -1,7 +1,7 @@
 ---
 id: DEV-082
 title: "Soporte de campo sprint en mutaciones MCP y marcado masivo de criterios de aceptación (ACs)"
-status: Ready
+status: Done
 created_date: '2026-09-24'
 updated_date: '2026-09-24 18:49'
 labels: []

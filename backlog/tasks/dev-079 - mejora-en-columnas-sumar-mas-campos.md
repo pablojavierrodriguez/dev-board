@@ -1,7 +1,7 @@
 ---
 id: DEV-079
 title: "mejora en columnas / sumar mas campos"
-status: Ready
+status: Done
 created_date: '2026-09-23T22:28:17.255Z'
 updated_date: '2026-09-24 18:49'
 labels: []

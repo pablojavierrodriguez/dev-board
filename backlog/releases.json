@@ -4,11 +4,11 @@
     "projectId": "dev-board",
     "version": "0.5.0",
     "date": "2026-09-24",
-    "targetDate": "2026-09-30",
-    "status": "unreleased",
-    "title": "v0.5.0 - UX Polishing, Backlog Coherence, BDD Support & MCP Hardening",
-    "summary": "Resolución de errores de UX/UI, coherencia de backlog, selectores enriquecidos de sprints y releases, soporte para BDD y optimizaciones en el servidor MCP.",
-    "scopeNotes": "Estabilización de sprint 5, corrección de selectores y robustecimiento de API MCP.",
+    "targetDate": "2026-09-24",
+    "status": "released",
+    "title": "v0.5.0 - UX Polishing, Backlog Coherence, BDD Support, Sovereign Releases & MCP Hardening",
+    "summary": "Consolidación integral de Sprint 5 (23 ítems completados): estabilización visual sin CLS, soporte BDD nativo, desacople ortogonal de sprints vs releases, acceso directo a Papelera, diálogos de confirmación accesibles y hardening del servidor MCP.",
+    "scopeNotes": "Estabilización de sprint 5, corrección de selectores, erradicación de versiones fantasma (label smuggling) y robustecimiento de API MCP.",
     "itemCodes": [
       "DEV-077",
       "DEV-079",
@@ -27,9 +27,14 @@
       "DEV-092",
       "DEV-093",
       "DEV-094",
-      "DEV-095"
+      "DEV-095",
+      "DEV-096",
+      "DEV-097",
+      "DEV-098",
+      "DEV-099",
+      "DEV-100"
     ],
-    "markdownContent": "## [0.5.0] — Unreleased\n\n### 🎯 Resumen\n*Resolución de errores de UX/UI, coherencia de backlog, selectores enriquecidos de sprints y releases, soporte para BDD y optimizaciones en el servidor MCP.*",
+    "markdownContent": "## [0.5.0] — 2026-09-24 🚀 UX Polishing, Backlog Coherence, BDD Support, Sovereign Releases & MCP Hardening\\n\\n### 🎯 Resumen\\n*Consolidación integral de Sprint 5 (23 ítems completados): estabilización visual sin CLS, soporte para Historias de Usuario con BDD, desacople ortogonal estricto de Sprints vs Releases, acceso directo a Papelera, confirmaciones contextuales accesibles y hardening del servidor MCP.*\\n\\n### 🚀 Novedades y Mejoras\\n- **Soporte BDD Nativo (DEV-084):** Integración de sintaxis Given/When/Then en historias y criterios de aceptación, enriqueciendo la especificación ágil.\\n- **Acceso Directo a Papelera (DEV-096, DEV-097):** Navegación de primer nivel a la Papelera (TrashView), eliminación de subpestañas redundantes de Archivo y separación ortogonal entre Descartar (`status: dismissed`) y Borrado Lógico (`isDeleted: true`).\\n- **Confirmaciones UX Accesibles (DEV-100):** Sustitución de `window.confirm` por un diálogo temático (`ConfirmModal`) accesible por teclado y con soporte para publicación formal de releases.\\n- **Selectores Enriquecidos y Control de Versiones (DEV-077, DEV-091):** Selector visual de versiones en `ItemModal` con distinción entre versiones en preparación (`unreleased`) y liberadas (`released`).\\n- **Ampliación de Columnas y Vistas (DEV-079, DEV-085, DEV-086):** Incorporación de más campos a las tablas de Sprint y Backlog, con visibilidad garantizada de sprints planificados vacíos.\\n\\n### 🐛 Correcciones y Estabilidad\\n- **Desacople Estricto Sprint vs Release (DEV-080, DEV-083, DEV-099):** Erradicación del \\\"label smuggling\\\": \\\"Backlog\\\" no es un sprint y pertenecer a un sprint no inventa versiones fantasma como `vSprint5`.\\n- **Estabilidad de Layout Cross-View Zero-CLS (DEV-094, DEV-095, DEV-098):** Regla `overflow-y: scroll` y `scrollbar-gutter: stable` en `index.css` eliminando el layout shift horizontal de 15px en el Header entre vistas.\\n- **Preservación de Estado Discovery (DEV-088):** Preservación de `status: ideas` como ciudadano de primera clase sin degradación a `draft`.\\n- **Sincronización Bidireccional de Releases (DEV-087, DEV-090):** Consistencia en tiempo real entre `releases.json` y el frontmatter de tareas, sanitizando versiones inexistentes.\\n- **Hardening MCP y Métricas (DEV-081, DEV-082, DEV-089, DEV-092):** Soporte del campo `sprint` en mutaciones MCP, cálculo de métricas de avance de sprint alineadas a `ready` y corrección de cambios pendientes fantasma en Configuración.\\n- **Desacople de Scroll Horizontal (DEV-093):** Scroll horizontal independiente en columnas del tablero Kanban preservando la visibilidad del encabezado.",
     "createdAt": "2026-09-24T10:00:00.000Z"
   },
   {
