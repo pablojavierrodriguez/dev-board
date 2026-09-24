@@ -368,7 +368,7 @@ Solución:
 
 ---
 
-### 📋 Backlog / Draft (4)
+### 📋 Backlog / Draft (5)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -437,6 +437,18 @@ Infraestructura completa de internacionalización (i18n) para soportar navegaci�
 - [ ] #3 Selector interactivo de idioma en SettingsView con persistencia en .devboard/config.json
 - [ ] #4 Detección automática inicial del idioma del navegador
 - [ ] #5 Auditoría estricta de código para validar ausencia de strings de texto visibles hardcodeadas
+
+---
+
+#### [DEV-101] Extensión de script audit:ux con detección estática de anti-patrones UX-009 y UX-010
+- **Prioridad**: `medium` | **Tipo**: `ux`
+
+Tras los aprendizajes de la retrospectiva de Sprint 5, se requiere enriquecer la herramienta de análisis estático local `scripts/audit-ux-code.cjs` para detectar preventivamente el uso de `truncate` en textos explicativos de diálogos y verificar que los estilos globales mantengan la reserva de espacio de la barra de desplazamiento para evitar layout shifts (CLS).
+
+**Criterios de Aceptación:**
+- [ ] #1 Incorporar regla UX-009 en scripts/audit-ux-code.cjs para reportar warning si se detecta 'truncate' en componentes modales o de diálogo (ej: *Modal.tsx).
+- [ ] #2 Incorporar regla UX-010 en scripts/audit-ux-code.cjs para verificar la presencia de 'overflow-y: scroll' y 'scrollbar-gutter: stable' en el archivo principal CSS.
+- [ ] #3 Ejecutar npm run audit:ux y comprobar que no genere falsos positivos en celdas de tabla o headers.
 
 ---
 

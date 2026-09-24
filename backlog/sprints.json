@@ -53,7 +53,8 @@
     "startDate": "2026-09-24",
     "endDate": "2026-09-25",
     "durationWeeks": 1,
-    "status": "active",
-    "createdAt": "2026-09-24T12:24:34.498Z"
+    "status": "completed",
+    "createdAt": "2026-09-24T12:24:34.498Z",
+    "completedAt": "2026-09-24T18:41:00.000Z"
   }
 ]

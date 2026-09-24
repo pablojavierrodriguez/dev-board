@@ -165,6 +165,16 @@ Estas reglas provienen de errores detectados en sesiones reales. Son **obligator
 > - `saveBacklogMdItem` debe sincronizar simétricamente `taskData.sprint`, `taskData.targetSprint` y `taskData.sprints`, escribiendo `sprint:` en el frontmatter.
 > - `readProjectBacklog` debe resolver `sprintVal` buscando en cascada: `task.sprint || task.targetSprint || rawFm.sprint || (sprints.length ? sprints[last] : undefined)`.
 
+> [!CAUTION]
+> **Gotcha: Cero `truncate` en Cajas de Detalle de Diálogos o Mensajes Explicativos**
+>
+> En `ConfirmModal` u otros contenedores de texto explicativo o de advertencia, NUNCA usar `truncate` o `whitespace-nowrap`. La clase `truncate` corta las oraciones largas con elipsis (`…`), ocultando al usuario el impacto real de su confirmación. Emplear siempre `break-words text-[11px] leading-relaxed` y diseñar textos concisos.
+
+> [!TIP]
+> **Gotcha: Estabilidad de Layout y Scrollbar Gutter (Zero-CLS)**
+>
+> El elemento raíz `html` debe declarar siempre `overflow-y: scroll; scrollbar-gutter: stable;` en `index.css` para evitar que la barra de desplazamiento aparezca y desaparezca entre vistas con distinta altura, previniendo desplazamientos horizontales bruscos del encabezado o contenido.
+
 ---
 
 ## 7. Gate de Calidad Antes de Marcar `ready`

@@ -258,3 +258,16 @@ Si no tienes acceso a herramientas MCP en tu entorno, puedes manipular directame
 >
 > 1. **Cero Commits No Solicitados**: NUNCA ejecutar `git commit` por deducción propia al resolver un task. El commit requiere orden explícita del usuario.
 > 2. **Alcance 100% en Producción**: Antes de promover una versión a `released` en `releases.json`, verificar que todas las tareas con ese `milestone`/`targetRelease` estén en `done`. Las tareas incompletas deben reasignarse a la siguiente versión planificada antes de sellar el release.
+
+> [!CAUTION]
+> **Soberanía Estricta de Releases — Cero Releases Deducidos o Inventados**
+>
+> Pertenecer a un Sprint NO implica tener una versión asignada.
+> - **Prohibido asociar nombres de Sprint a Release o Milestone**: El agente NUNCA debe escribir `milestone: "Sprint X"` ni inventar versiones artificiales (`vSprint 5`).
+> - **Valor por Defecto**: Si una tarea no fue formalmente agregada a una versión en `backlog/releases.json` o asignada explícitamente por el usuario, sus campos de release (`release`, `targetRelease`, `releases`, `milestone`) DEBEN permanecer estrictamente vacíos / `undefined`, mostrándose como `—` en la interfaz.
+
+> [!TIP]
+> **Taxonomía Canónica de Tipos — bug vs bugfix**
+>
+> El tipo canónico universal para anomalías y defectos en DevBoard es `bug`. Aunque el parser normaliza automáticamente alias como `bugfix`, los archivos Markdown de tareas en `backlog/tasks/` deben crearse y mantenerse siempre con el valor canónico `type: bug`.
+

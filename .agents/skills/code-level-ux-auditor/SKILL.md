@@ -61,9 +61,19 @@ Esta skill proporciona las reglas de inspección, heurísticas y herramientas de
 - **Regla de corrección:** Escuchar tecla Escape globalmente, bloquear scroll del body (`overflow-hidden`) mientras el modal esté abierto y restaurarlo al desmontar.
 
 ### 8. [UX-008] Clases Arbitrarias fuera de la Escala Tipográfica de Tailwind
-- **Firma en código:** `text-[11px]`, `text-[13px]`, `p-[7px]` en componentes nuevos.
+- **Firma en código:** `text-[11px]`, `text-[13px]`, `p-[7px]` en componentes nuevos sin justificación semántica.
 - **Impacto en Runtime:** Inconsistencia visual, degradación del sistema de diseño y fragmentación tipográfica.
-- **Regla de corrección:** Utilizar la escala canónica: `text-xs` (12px), `text-sm` (14px), `text-base` (16px), `text-lg` (18px).
+- **Regla de corrección:** Utilizar la escala canónica: `text-xs` (12px), `text-sm` (14px), `text-base` (16px), `text-lg` (18px), reservando tamaños micro solo para detalles secundarios explícitos.
+
+### 9. [UX-009] Truncate Indebido en Texto Explicativo Multilínea
+- **Firma en código:** Clases `truncate` o `overflow-hidden text-ellipsis whitespace-nowrap` en cajas de texto de descripción, modales de confirmación o mensajes de advertencia.
+- **Impacto en Runtime:** El texto explicativo se corta con puntos suspensivos (`…`), ocultando información crítica para la decisión del usuario (ej: consecuencias de liberar a producción).
+- **Regla de corrección:** En contenedores de detalle, advertencias o mensajes explicativos, utilizar `break-words text-[11px] leading-relaxed` y NUNCA `truncate`.
+
+### 10. [UX-010] Layout Shift Horizontal por Barra de Scroll entre Vistas
+- **Firma en código:** Ausencia de `scrollbar-gutter: stable` o de `overflow-y: scroll` en la raíz `html` / `body`.
+- **Impacto en Runtime:** Al navegar entre una vista con mucho scroll vertical (Kanban) y una vista corta (Papelera), el encabezado y el contenido central saltan lateralmente ~15px por la desaparición de la barra de desplazamiento.
+- **Regla de corrección:** Declarar `html { overflow-y: scroll; scrollbar-gutter: stable; }` en `index.css`.
 
 ---
 

@@ -36,10 +36,19 @@ Hacer que **DevBoard** se sienta tan pulida, reactiva, sobria y adictiva de usar
 - Atajos de teclado naturales (`Escape` para cerrar cualquier modal o deseleccionar, `Enter` para crear o confirmar, `/` o `Cmd+K` para buscar).
 - Los atajos se acompañan de chips sutiles `<kbd className="text-[10px] font-mono bg-muted/50 px-1.5 py-0.5 rounded border border-border/60 hidden sm:inline-flex">`.
 
+### 5. Estabilidad de Layout y Scrollbar Gutter (Zero-CLS)
+- **Prevención de Saltos de Layout Cross-View:** Al transicionar entre vistas con scroll vertical extenso (como el tablero Kanban o la lista de tareas) y vistas compactas (como la Papelera o Configuración), el encabezado y el contenedor principal nunca deben sufrir saltos horizontales por la aparición/desaparición del scrollbar.
+- **Regla:** Mantener `html { overflow-y: scroll; scrollbar-gutter: stable; }` en los estilos globales para garantizar simetría constante en cualquier viewport.
+
+### 6. Diseño Responsivo de Diálogos y Modales de Confirmación
+- **Cero Truncate en Texto Explicativo:** En cajas de detalle o textos explicativos de diálogos (`ConfirmModal`, alertas de impacto), NUNCA usar `truncate` ni forzar `white-space: nowrap`. El texto de advertencia debe fluir con `break-words text-[11px] leading-relaxed`.
+- **Copy Conciso y Proporcionado:** Diseñar textos directos, concisos y sin redundancias que no saturen el modal. Diferenciar claramente la *pregunta de confirmación* (ej: `¿Confirmas la liberación formal de esta versión?`) del *impacto colateral* (ej: `Sellará la versión como inmutable y promoverá las tareas en 'ready' a 'done'.`).
+
 ---
 
 ## 📋 Entregables de Diseño
 Al proponer cambios visuales o maquetar componentes nuevos:
 1. Definir los 5 estados de cada elemento: **normal, hover, active, focus-visible y disabled**.
-2. Verificar que los textos largos apliquen `truncate min-w-0` sin romper la cuadrícula.
+2. Verificar que los textos largos en celdas o filas de ancho fijo apliquen `truncate min-w-0`, pero en contenedores multilínea o modales se aplique `break-words`.
 3. Asegurar contraste accesible según WCAG AA.
+4. Validar que la apertura de modales mantenga soporte de teclado accesible (`Escape` para cerrar, `Enter` para confirmar).
