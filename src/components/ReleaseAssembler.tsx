@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, type FC } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Rocket, 
   Copy, 
@@ -93,9 +94,32 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
       setEditSummary(activeRelease.summary || '');
       setEditScopeNotes(activeRelease.scopeNotes || '');
       setEditMarkdown(activeRelease.markdownContent || '');
-      setEditItemCodes(activeRelease.itemCodes || []);
+
+      const relV = (activeRelease.version || '').replace(/^v/i, '');
+      const codesFromTasks = items
+        .filter((it) => {
+          const itV = (it.release || it.targetRelease || '').replace(/^v/i, '');
+          const inReleases = (it.releases || []).some((r) => r.replace(/^v/i, '') === relV);
+          return itV === relV || inReleases;
+        })
+        .map((it) => it.code);
+
+      const allCodes = Array.from(new Set([...(activeRelease.itemCodes || []), ...codesFromTasks]));
+      setEditItemCodes(allCodes);
     }
-  }, [activeRelease, todayStr]);
+  }, [activeRelease, todayStr, items]);
+
+  // Close drawer / modal on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (activeRelease) setActiveReleaseId(null);
+        if (newReleaseModalOpen) setNewReleaseModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeRelease, newReleaseModalOpen]);
 
   // Pure binary model: unreleased vs released
   const unreleasedReleases = useMemo(() => {
@@ -133,17 +157,19 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
   const availableDoneTasks = useMemo(() => {
     const assignedCodes = new Set<string>();
     for (const r of releases) {
+      if (r.id === activeRelease?.id || r.version === activeRelease?.version) continue;
       for (const c of r.itemCodes || []) {
-        assignedCodes.add(c);
+        assignedCodes.add(c.toUpperCase());
       }
     }
+    const currentDrawerCodes = new Set(editItemCodes.map((c) => c.toUpperCase()));
     return items.filter(
       (it) =>
         (it.status === 'done' || it.status === 'ready' || it.status === 'finish') &&
-        !assignedCodes.has(it.code) &&
-        !editItemCodes.includes(it.code)
+        !assignedCodes.has((it.code || '').toUpperCase()) &&
+        !currentDrawerCodes.has((it.code || '').toUpperCase())
     );
-  }, [items, releases, editItemCodes]);
+  }, [items, releases, editItemCodes, activeRelease]);
 
   // Helper to generate markdown changelog from items
   const generateChangelogForTasks = (versionStr: string, titleStr: string, summaryStr: string, itemCodeList: string[]) => {
@@ -455,11 +481,12 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
         ) : (
           visibleReleases.map((rel) => {
             const isUnrel = rel.status === 'unreleased' || (!rel.status && rel.version !== '0.2.0');
+            const relV = rel.version.replace(/^v/i, '');
             const matchingItems = items.filter(
               (it) =>
                 (rel.itemCodes || []).includes(it.code) ||
-                it.milestone === rel.version ||
-                it.targetRelease === rel.version
+                (it.release && it.release.replace(/^v/i, '') === relV) ||
+                (it.targetRelease && it.targetRelease.replace(/^v/i, '') === relV)
             );
             const total = matchingItems.length;
             const done = matchingItems.filter(
@@ -603,75 +630,94 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* PROGRESSIVE DISCLOSURE DRAWER (Master-Detail Linear-Style)                */}
+      {/* PROGRESSIVE DISCLOSURE DRAWER (Master-Detail Linear-Style via Portal)     */}
       {/* ========================================================================= */}
-      {activeRelease && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in">
+      {activeRelease && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex justify-end bg-slate-950/75 backdrop-blur-md transition-all animate-fade-in"
+          onClick={() => setActiveReleaseId(null)}
+        >
           <div
-            className="w-full max-w-2xl h-full bg-slate-950 border-l border-white/[0.1] shadow-2xl flex flex-col overflow-hidden animate-slide-left"
+            className="w-full max-w-2xl h-full bg-[#0c121e] border-l border-white/[0.08] shadow-2xl flex flex-col overflow-hidden animate-slide-left"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
-            <div className="p-5 border-b border-white/[0.08] bg-slate-900/60 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+            <div className="px-6 py-4 border-b border-white/[0.08] bg-slate-900/80 backdrop-blur-sm flex items-center justify-between gap-4 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
                 <span
-                  className={`font-mono font-bold text-sm px-2.5 py-1 rounded-lg border ${
+                  className={`font-mono text-xs font-bold px-2.5 py-1 rounded-md border flex items-center gap-1.5 shadow-sm ${
                     activeRelease.status === 'released'
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                      : 'bg-amber-500/10 text-amber-400 border-amber-500/25'
                   }`}
                 >
+                  <Rocket className="w-3.5 h-3.5 shrink-0" />
                   v{activeRelease.version}
                 </span>
 
-                <div>
-                  <h3 className="text-sm font-semibold text-white">
-                    {editTitle || activeRelease.title}
-                  </h3>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        activeRelease.status === 'released' ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`}
-                    />
-                    <span>
-                      {activeRelease.status === 'released'
-                        ? 'Implementado en Producción (Inmutable)'
-                        : 'En Preparación (Editable)'}
-                    </span>
-                  </div>
-                </div>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                    activeRelease.status === 'released'
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      activeRelease.status === 'released' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
+                    }`}
+                  />
+                  {activeRelease.status === 'released'
+                    ? 'Implementado en Producción'
+                    : 'En Preparación (Editable)'}
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {activeRelease.status !== 'released' && (
                   <button
                     onClick={handleSaveDrawer}
                     disabled={isSavingDrawer}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-md transition-all"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-95 disabled:opacity-50 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all"
                   >
-                    <Save className="w-3.5 h-3.5" />
+                    {isSavingDrawer ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
                     <span>Guardar</span>
                   </button>
                 )}
 
                 <button
                   onClick={() => setActiveReleaseId(null)}
-                  className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-all"
-                  title="Cerrar panel"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+                  title="Cerrar panel (Esc)"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
+            {/* Release Title Banner */}
+            <div className="px-6 py-3.5 border-b border-white/[0.06] bg-slate-950/40 shrink-0">
+              <h3 className="text-sm font-semibold text-white tracking-tight leading-snug">
+                {editTitle || activeRelease.title || `Versión v${activeRelease.version}`}
+              </h3>
+              {editSummary && (
+                <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                  {editSummary}
+                </p>
+              )}
+            </div>
+
             {/* Drawer Sub-tabs */}
-            <div className="flex items-center gap-1 px-5 pt-3 border-b border-white/[0.06] bg-slate-900/30">
+            <div className="flex items-center gap-1 px-6 pt-2 border-b border-white/[0.08] bg-slate-900/30 shrink-0">
               <button
                 onClick={() => setDrawerTab('details')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all ${
                   drawerTab === 'details'
-                    ? 'border-indigo-500 text-white bg-white/[0.04]'
+                    ? 'border-indigo-500 text-indigo-400 font-semibold'
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
@@ -681,21 +727,30 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
 
               <button
                 onClick={() => setDrawerTab('tasks')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all ${
                   drawerTab === 'tasks'
-                    ? 'border-indigo-500 text-white bg-white/[0.04]'
+                    ? 'border-indigo-500 text-indigo-400 font-semibold'
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Tareas Asociadas ({editItemCodes.length})</span>
+                <span>Tareas Asociadas</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    drawerTab === 'tasks'
+                      ? 'bg-indigo-500/20 text-indigo-300'
+                      : 'bg-white/[0.06] text-slate-400'
+                  }`}
+                >
+                  {editItemCodes.length}
+                </span>
               </button>
 
               <button
                 onClick={() => setDrawerTab('changelog')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-t-lg text-xs font-medium border-b-2 transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all ${
                   drawerTab === 'changelog'
-                    ? 'border-indigo-500 text-white bg-white/[0.04]'
+                    ? 'border-indigo-500 text-indigo-400 font-semibold'
                     : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
               >
@@ -719,7 +774,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
                       placeholder="Ej: Workflow Views & Drag and Drop"
-                      className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                      className="w-full px-3.5 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-60 transition-colors"
                     />
                   </div>
 
@@ -736,7 +791,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                           if (activeRelease.status === 'released') setEditDate(e.target.value);
                           else setEditTargetDate(e.target.value);
                         }}
-                        className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                        className="w-full px-3.5 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 disabled:opacity-60 transition-colors"
                       />
                     </div>
 
@@ -744,7 +799,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                       <label className="text-xs font-medium text-slate-300">
                         Estado del Paquete
                       </label>
-                      <div className="px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs font-medium flex items-center gap-2">
+                      <div className="px-3.5 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs font-medium flex items-center gap-2">
                         {activeRelease.status === 'released' ? (
                           <>
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -770,7 +825,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                       value={editSummary}
                       onChange={(e) => setEditSummary(e.target.value)}
                       placeholder="Breve resumen de los aportes de esta versión para el usuario final..."
-                      className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 resize-none disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 resize-none disabled:opacity-60 transition-colors"
                     />
                   </div>
 
@@ -784,7 +839,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                       value={editScopeNotes}
                       onChange={(e) => setEditScopeNotes(e.target.value)}
                       placeholder="Criterios de alcance, dependencias clave o metas de negocio asociadas a esta versión..."
-                      className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 resize-none disabled:opacity-60"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 resize-none disabled:opacity-60 transition-colors"
                     />
                   </div>
                 </div>
@@ -793,22 +848,28 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
               {/* TAB 2: TAREAS ASOCIADAS */}
               {drawerTab === 'tasks' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold text-slate-200">
-                      Tareas en este Paquete ({editItemCodes.length})
-                    </h4>
-                    {activeRelease.status !== 'released' && (
-                      <span className="text-[11px] text-slate-400">
-                        Pulsa en la cruz para desvincular una tarea
-                      </span>
-                    )}
+                  <div className="flex items-center justify-between pb-1 border-b border-white/[0.06]">
+                    <div>
+                      <h4 className="text-xs font-semibold text-slate-200">
+                        Tareas en este Paquete ({editItemCodes.length})
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Tareas asociadas a este release. Pasarán a estado Done al liberarlo a producción.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     {editItemCodes.length === 0 ? (
-                      <p className="text-xs text-slate-500 py-3 text-center border border-dashed border-white/[0.08] rounded-xl">
-                        No hay tareas asignadas todavía a este paquete.
-                      </p>
+                      <div className="py-8 text-center border border-dashed border-white/[0.08] rounded-xl bg-white/[0.01]">
+                        <Layers className="w-6 h-6 text-slate-600 mx-auto mb-2" />
+                        <p className="text-xs font-medium text-slate-400">
+                          No hay tareas asignadas todavía a este paquete.
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Vincula tareas terminadas usando la sección inferior.
+                        </p>
+                      </div>
                     ) : (
                       editItemCodes.map((code) => {
                         const item = items.find((it) => it.code === code);
@@ -818,18 +879,18 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                         return (
                           <div
                             key={code}
-                            className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-all"
+                            className="group flex items-center justify-between gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all"
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="font-mono text-xs font-semibold text-indigo-400">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span className="font-mono text-xs font-bold text-indigo-400 shrink-0 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
                                 {code}
                               </span>
-                              <span className="text-xs text-slate-200 truncate">
+                              <span className="text-xs font-medium text-slate-200 truncate">
                                 {item?.title || 'Tarea registrada'}
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="flex items-center gap-2 shrink-0">
                               {tConf && (
                                 <span className={`text-[10px] px-2 py-0.5 rounded font-medium border ${tConf.badge}`}>
                                   {tConf.label}
@@ -840,11 +901,19 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                                   {pConf.label}
                                 </span>
                               )}
+                              <span className={`text-[10px] px-2 py-0.5 rounded font-semibold border ${
+                                item?.status === 'done'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                  : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                              }`}>
+                                {item?.status === 'done' ? 'Done' : 'Ready'}
+                              </span>
 
                               {activeRelease.status !== 'released' && (
                                 <button
+                                  type="button"
                                   onClick={() => handleToggleTaskInRelease(code)}
-                                  className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                                  className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                                   title="Desvincular del release"
                                 >
                                   <X className="w-3.5 h-3.5" />
@@ -858,38 +927,54 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                   </div>
 
                   {/* Add Unassigned Finished Tasks (only if unreleased) */}
-                  {activeRelease.status !== 'released' && availableDoneTasks.length > 0 && (
-                    <div className="pt-4 border-t border-white/[0.06] space-y-3">
-                      <h4 className="text-xs font-semibold text-slate-200 flex items-center justify-between">
-                        <span>Tareas Terminadas Disponibles para Vincular</span>
-                        <span className="text-[10px] font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                          {availableDoneTasks.length} disponibles
-                        </span>
-                      </h4>
-
-                      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                        {availableDoneTasks.map((it) => (
-                          <div
-                            key={it.code}
-                            onClick={() => handleToggleTaskInRelease(it.code)}
-                            className="flex items-center justify-between p-2.5 rounded-lg bg-black/20 hover:bg-indigo-500/10 border border-white/[0.04] hover:border-indigo-500/30 cursor-pointer transition-all"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span className="font-mono text-xs font-semibold text-slate-300">
-                                {it.code}
-                              </span>
-                              <span className="text-xs text-slate-300 truncate">
-                                {it.title}
-                              </span>
-                            </div>
-
-                            <button className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Vincular</span>
-                            </button>
-                          </div>
-                        ))}
+                  {activeRelease.status !== 'released' && (
+                    <div className="pt-5 border-t border-white/[0.08] space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                            <span>Tareas Terminadas Disponibles para Vincular</span>
+                            <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                              {availableDoneTasks.length} disponibles
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Tareas en estado Ready o Done que aún no están asignadas a otro release.
+                          </p>
+                        </div>
                       </div>
+
+                      {availableDoneTasks.length === 0 ? (
+                        <div className="py-4 text-center rounded-xl bg-white/[0.01] border border-white/[0.05] text-xs text-slate-500">
+                          Todas las tareas terminadas ya están vinculadas.
+                        </div>
+                      ) : (
+                        <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1.5">
+                          {availableDoneTasks.map((it) => (
+                            <div
+                              key={it.code}
+                              onClick={() => handleToggleTaskInRelease(it.code)}
+                              className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-black/20 hover:bg-indigo-500/10 border border-white/[0.04] hover:border-indigo-500/30 cursor-pointer transition-all group"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="font-mono text-xs font-semibold text-slate-300 group-hover:text-indigo-300">
+                                  {it.code}
+                                </span>
+                                <span className="text-xs text-slate-300 truncate">
+                                  {it.title}
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white border border-indigo-500/20 transition-all shrink-0"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Vincular</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -899,15 +984,20 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
               {drawerTab === 'changelog' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold text-slate-200">
-                      Markdown Oficial del Changelog
-                    </h4>
+                    <div>
+                      <h4 className="text-xs font-semibold text-slate-200">
+                        Markdown Oficial del Changelog
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Documento generado automáticamente a partir de las tareas vinculadas al paquete.
+                      </p>
+                    </div>
 
                     <div className="flex items-center gap-2">
                       {activeRelease.status !== 'released' && (
                         <button
                           onClick={handleRegenerateMarkdown}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-medium border border-indigo-500/20 transition-all"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs font-medium border border-indigo-500/20 transition-all"
                           title="Regenera el markdown a partir de las tareas vinculadas"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
@@ -917,7 +1007,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
 
                       <button
                         onClick={() => handleQuickCopyMarkdown(editMarkdown, activeRelease.version)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-xs font-medium border border-white/[0.08] transition-all"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-xs font-medium border border-white/[0.08] transition-all"
                       >
                         <Copy className="w-3.5 h-3.5" />
                         <span>Copiar</span>
@@ -938,7 +1028,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
             </div>
 
             {/* Drawer Footer */}
-            <div className="p-4 border-t border-white/[0.08] bg-slate-900/60 flex items-center justify-between gap-3">
+            <div className="p-4 px-6 border-t border-white/[0.08] bg-slate-900/80 backdrop-blur-sm flex items-center justify-between gap-3 shrink-0">
               {activeRelease.status === 'released' ? (
                 <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
@@ -956,22 +1046,26 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
 
               <button
                 onClick={() => setActiveReleaseId(null)}
-                className="px-3.5 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] text-slate-300 text-xs font-medium border border-white/[0.08] transition-all"
+                className="px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 hover:text-white text-xs font-medium border border-white/[0.08] transition-all"
               >
                 Cerrar
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: NUEVA VERSIÓN (EN PREPARACIÓN)                                     */}
+      {/* MODAL: NUEVA VERSIÓN (EN PREPARACIÓN) via Portal                          */}
       {/* ========================================================================= */}
-      {newReleaseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      {newReleaseModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in"
+          onClick={() => setNewReleaseModalOpen(false)}
+        >
           <div
-            className="w-full max-w-lg bg-slate-950 border border-white/[0.1] rounded-2xl p-6 shadow-2xl space-y-5"
+            className="w-full max-w-lg bg-[#0c121e] border border-white/[0.1] rounded-2xl p-6 shadow-2xl space-y-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
@@ -985,7 +1079,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
               </div>
               <button
                 onClick={() => setNewReleaseModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05]"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1001,7 +1095,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                     type="text"
                     value={newVersion}
                     onChange={(e) => setNewVersion(e.target.value)}
-                    placeholder="Ej: 0.4.0"
+                    placeholder="Ej: 0.6.0"
                     className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
                   />
                 </div>
@@ -1027,7 +1121,7 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
                   type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Ej: Sprint Lifecycle & Epics Support"
+                  placeholder="Ej: Next Generation Views & Integrations"
                   className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/[0.08] text-xs text-white focus:outline-none focus:border-indigo-500"
                 />
               </div>
@@ -1063,7 +1157,8 @@ export const ReleaseAssembler: FC<ReleaseAssemblerProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

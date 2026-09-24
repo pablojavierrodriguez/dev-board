@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     @apply antialiased font-sans overflow-x-hidden;
   }

@@ -129,7 +129,9 @@ export function App() {
       types: [],
       priority: 'all',
       priorities: [],
-      statuses: ['draft', 'doing', 'review', 'ready', 'done'],
+      statuses: initialIdeas
+        ? ['ideas', 'draft', 'doing', 'review', 'ready', 'done']
+        : ['draft', 'doing', 'review', 'ready', 'done'],
       includeIdeas: initialIdeas,
       includePreviousDone: false,
       includeDismissedCancelled: false,
@@ -1065,7 +1067,11 @@ export function App() {
         : item.status;
 
       // In non-archive tabs, verify if item's status is selected
-      if (filters.statuses && filters.statuses.length > 0) {
+      if (canonicalStatus === 'ideas') {
+        if (!filters.includeIdeas && !filters.statuses?.includes('ideas')) {
+          return false;
+        }
+      } else if (filters.statuses && filters.statuses.length > 0) {
         if (!filters.statuses.includes(canonicalStatus) && !filters.statuses.includes(item.status)) {
           return false;
         }
@@ -1211,6 +1217,7 @@ export function App() {
         {activeTab === 'kanban' && (
           <KanbanBoard
             items={visibleItems}
+            allItems={allProjectItems}
             viewMode={viewMode}
             onChangeViewMode={setViewMode}
             config={config}
@@ -1220,7 +1227,13 @@ export function App() {
             onTogglePreviousDone={(val) => setFilters((prev) => ({ ...prev, includePreviousDone: val }))}
             includeDismissedCancelled={filters.includeDismissedCancelled}
             includeIdeas={filters.includeIdeas}
-            onToggleIdeas={(val) => setFilters((prev) => ({ ...prev, includeIdeas: val }))}
+            onToggleIdeas={(val) => setFilters((prev) => ({
+              ...prev,
+              includeIdeas: val,
+              statuses: val
+                ? Array.from(new Set([...(prev.statuses || []), 'ideas' as ItemStatus]))
+                : (prev.statuses || []).filter((s) => s !== 'ideas')
+            }))}
             onNavigateToTab={setActiveTab}
             onUpdateColumnTitle={handleUpdateColumnTitle}
             onUpdateStatus={(id, status, targetColId, targetIndex, calculatedOrder) => handleUpdateStatus(id, status, false, targetColId, targetIndex, calculatedOrder)}

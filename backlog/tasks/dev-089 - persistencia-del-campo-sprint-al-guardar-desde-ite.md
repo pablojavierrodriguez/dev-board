@@ -3,21 +3,20 @@ id: DEV-089
 title: "Persistencia del campo sprint al guardar desde ItemModal"
 status: Ready
 created_date: '2026-09-24'
-updated_date: '2026-09-24 14:56'
+updated_date: '2026-09-24 18:49'
 labels: []
 dependencies: []
 priority: high
 type: bug
 milestone: "0.5.0"
-sprint: "Sprint 5"
-targetSprint: "Sprint 5"
 sprints:
   - "Sprint 5"
 releases:
   - "0.5.0"
+sprint: "Sprint 5"
 release: "0.5.0"
 targetRelease: "0.5.0"
-order: "1"
+order: 10
 ---
 
 ## Description

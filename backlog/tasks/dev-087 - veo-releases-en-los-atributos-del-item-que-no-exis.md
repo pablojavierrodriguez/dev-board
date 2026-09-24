@@ -3,7 +3,7 @@ id: DEV-087
 title: "veo releases en los atributos del item que no existen en la tab release"
 status: Ready
 created_date: '2026-09-24T13:08:33.316Z'
-updated_date: '2026-09-24 14:56'
+updated_date: '2026-09-24 18:49'
 labels: []
 dependencies: []
 priority: medium
@@ -14,8 +14,7 @@ sprints:
 releases:
   - "0.5.0"
 sprint: "Sprint 5"
-targetSprint: "Sprint 5"
-order: "85"
+order: 110
 release: "0.5.0"
 targetRelease: "0.5.0"
 ---

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Lightbulb, AlertTriangle, Layers, Target, CheckCircle2, Clock, ChevronDown, Pencil, History } from 'lucide-react';
 import type { BacklogItem, ItemStatus, ViewMode, ColumnConfig, DevBoardConfig, ActiveTab, Sprint } from '../types';
 import { ItemCard } from './ItemCard';
 
 interface KanbanBoardProps {
   items: BacklogItem[];
+  allItems?: BacklogItem[];
   viewMode: ViewMode;
   onChangeViewMode?: (mode: ViewMode) => void;
   onUpdateStatus: (id: string, newStatus: ItemStatus, targetColId?: string, targetIndex?: number, calculatedOrder?: number) => void;
@@ -144,6 +145,7 @@ export const EXPANDED_COLUMNS: ColumnConfig[] = [
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   items,
+  allItems,
   viewMode,
   onChangeViewMode,
   onUpdateStatus,
@@ -279,10 +281,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     );
   }, [items, assignedStatuses]);
 
-  const ideasCount = useMemo(() => {
-    return items.filter(i => i.status === 'ideas' || i.labels?.includes('idea')).length;
-  }, [items]);
-
   // Sprint options for Scrumban (DEV-033 & DEV-038: desacople estricto de sprints y releases)
   const availableSprintsList = useMemo(() => {
     const set = new Set<string>();
@@ -301,6 +299,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const saved = localStorage.getItem('devboard_kanban_sprint');
       if (saved) return saved;
     } catch {}
+    if (config?.methodology !== 'kanban' && sprints && sprints.length > 0) {
+      const active = sprints.find((s) => s.status === 'active');
+      if (active) return active.name;
+    }
     return 'all';
   });
 
@@ -316,22 +318,28 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return sprints?.find((s) => s.status === 'active');
   }, [sprints]);
 
-  // Auto-filtrar al Sprint Activo en modo Scrumban (DEV-055 AC #4)
+  const hasInitializedSprintRef = useRef(false);
+  // Auto-filtrar al Sprint Activo en modo Scrumban solo en el primer render si no había preferencia previa
   useEffect(() => {
-    if (config?.methodology !== 'kanban') {
-      const saved = localStorage.getItem('devboard_kanban_sprint');
-      if (activeSprintEntity) {
-        // Si no hay selección previa, o era 'all', o el guardado ya no existe, autofiltrar al sprint activo
-        if (!saved || saved === 'all' || !availableSprintsList.includes(saved)) {
-          setActiveSprint(activeSprintEntity.name);
-        }
-      } else if (!activeSprint) {
-        setActiveSprint('all');
-      } else if (activeSprint !== 'all' && activeSprint !== 'backlog' && !availableSprintsList.includes(activeSprint)) {
-        setActiveSprint('all');
+    if (hasInitializedSprintRef.current) return;
+    if (config?.methodology !== 'kanban' && activeSprintEntity) {
+      let saved: string | null = null;
+      try {
+        saved = localStorage.getItem('devboard_kanban_sprint');
+      } catch {}
+      if (saved === null) {
+        setActiveSprint(activeSprintEntity.name);
       }
+      hasInitializedSprintRef.current = true;
     }
-  }, [config?.methodology, availableSprintsList, activeSprintEntity]);
+  }, [config?.methodology, activeSprintEntity]);
+
+  // Si el sprint específico seleccionado deja de existir en el proyecto (y no es 'all' ni 'backlog')
+  useEffect(() => {
+    if (activeSprint !== 'all' && activeSprint !== 'backlog' && availableSprintsList.length > 0 && !availableSprintsList.includes(activeSprint)) {
+      setActiveSprint(activeSprintEntity?.name || 'all');
+    }
+  }, [activeSprint, availableSprintsList, activeSprintEntity]);
 
   // In pure Kanban: shows all items continuously.
   // In Scrumban: board can show all items or focus on a specific Sprint Goal.
@@ -347,12 +355,22 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     );
   }, [items, activeSprint, config?.methodology]);
 
+  const ideasCount = useMemo(() => {
+    const sourceItems = allItems && allItems.length > 0 ? allItems : items;
+    const scopedSource = (config?.methodology === 'kanban' || !activeSprint || activeSprint === 'all')
+      ? sourceItems
+      : activeSprint === 'backlog'
+        ? sourceItems.filter((i) => !i.sprint && !i.targetSprint)
+        : sourceItems.filter((i) => i.sprint === activeSprint || i.targetSprint === activeSprint);
+    return scopedSource.filter((i) => (i.status === 'ideas' || i.labels?.includes('idea')) && !i.isDeleted).length;
+  }, [allItems, items, activeSprint, config?.methodology]);
+
   const sprintStats = useMemo(() => {
     if (config?.methodology === 'kanban' || !activeSprint || activeSprint === 'all') return null;
     const total = scopedItems.length;
-    const done = scopedItems.filter((i) => i.status === 'done').length;
+    const done = scopedItems.filter((i) => i.status === 'ready' || i.status === 'done' || i.status === 'finish').length;
     const inProgress = scopedItems.filter((i) =>
-      ['doing', 'in_progress', 'review', 'testing_qa', 'ready'].includes(i.status)
+      ['doing', 'in_progress', 'review', 'testing_qa'].includes(i.status)
     ).length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, done, inProgress, pct };
@@ -805,9 +823,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="w-full flex-1 overflow-x-auto p-4 sm:p-6">
+    <div className="w-full flex-1 flex flex-col p-4 sm:p-6 min-w-0 max-w-[1680px] mx-auto">
       {/* Workflow Toolbar: Cleaned up for Kanban Continuo vs Sprint Board for Scrumban */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 md:min-w-[960px] border-b border-slate-200/60 dark:border-white/[0.06]">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 w-full border-b border-slate-200/60 dark:border-white/[0.06]">
         <div className="flex items-center gap-2">
           {config?.methodology === 'kanban' ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-xs font-semibold text-slate-800 dark:text-slate-200">
@@ -943,7 +961,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Sprint Goal Progress Indicator in Scrumban */}
       {config?.methodology !== 'kanban' && activeSprint && activeSprint !== 'all' && sprintStats && sprintStats.total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 mb-4 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.04] text-xs md:min-w-[960px] animate-fade-in">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 mb-4 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.04] text-xs w-full animate-fade-in">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-500 font-bold shrink-0">
               <Target className="w-4 h-4" />
@@ -994,7 +1012,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Empty State when Sprint Goal has no items */}
       {config?.methodology !== 'kanban' && scopedItems.length === 0 && (
-        <div className="flex flex-col items-center justify-center p-8 mb-4 rounded-xl border border-dashed border-slate-300 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-center md:min-w-[960px] animate-fade-in">
+        <div className="flex flex-col items-center justify-center p-8 mb-4 rounded-xl border border-dashed border-slate-300 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] text-center w-full animate-fade-in">
           <Target className="w-8 h-8 text-indigo-400 mb-2 opacity-80" />
           <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
             El Sprint Goal "{activeSprint === 'backlog' ? 'Sin Sprint' : activeSprint || 'actual'}" no tiene tareas asignadas
@@ -1032,7 +1050,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Orphan items warning banner (DEV-009) */}
       {orphanItems.length > 0 && (
-        <div className="flex items-center gap-3 p-3 mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs md:min-w-[960px] animate-fade-in">
+        <div className="flex items-center gap-3 p-3 mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs w-full animate-fade-in">
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
           <div className="flex-1 text-slate-700 dark:text-slate-200">
             <span className="font-semibold text-amber-600 dark:text-amber-400">Atención:</span> Existen{' '}
@@ -1120,14 +1138,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         </div>
       </div>
 
-      {/* Desktop Multi-column Grid */}
-      <div 
-        className="hidden md:grid gap-4 min-w-[960px] pb-6"
-        style={{
-          gridTemplateColumns: `repeat(${columns.length}, minmax(280px, 1fr))`
-        }}
-      >
-        {columns.map((col) => renderColumn(col, false))}
+      {/* Desktop Multi-column Grid with horizontal scroll */}
+      <div className="hidden md:block w-full flex-1 overflow-x-auto pb-6">
+        <div 
+          className="grid gap-4 min-w-[960px]"
+          style={{
+            gridTemplateColumns: `repeat(${columns.length}, minmax(280px, 1fr))`
+          }}
+        >
+          {columns.map((col) => renderColumn(col, false))}
+        </div>
       </div>
     </div>
   );

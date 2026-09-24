@@ -3,7 +3,7 @@ id: DEV-086
 title: "Visibilidad de Sprints planificados vacíos en vista de Sprint & Priorización"
 status: Ready
 created_date: '2026-09-24'
-updated_date: '2026-09-24 14:56'
+updated_date: '2026-09-24 18:49'
 labels: []
 dependencies: []
 priority: urgent
@@ -14,8 +14,7 @@ sprints:
 releases:
   - "0.5.0"
 sprint: "Sprint 5"
-targetSprint: "Sprint 5"
-order: "20"
+order: 40
 release: "0.5.0"
 targetRelease: "0.5.0"
 ---

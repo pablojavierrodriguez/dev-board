@@ -3,7 +3,7 @@ id: DEV-083
 title: "backlog no es un sprint"
 status: Ready
 created_date: '2026-09-24T12:13:06.693Z'
-updated_date: '2026-09-24 14:56'
+updated_date: '2026-09-24 18:49'
 labels: []
 dependencies: []
 priority: medium
@@ -13,9 +13,8 @@ sprints:
   - "Sprint 5"
 releases:
   - "0.5.0"
-order: "30"
 sprint: "Sprint 5"
-targetSprint: "Sprint 5"
+order: 50
 release: "0.5.0"
 targetRelease: "0.5.0"
 ---

@@ -92,7 +92,8 @@ export const ItemModal: FC<ItemModalProps> = ({
   const [riskFixExpanded, setRiskFixExpanded] = useState(false);
   const [relationsExpanded, setRelationsExpanded] = useState(false);
   const [customSprintMode, setCustomSprintMode] = useState(false);
-  const [showHistoricalReleases, setShowHistoricalReleases] = useState(false);
+  const [customReleaseMode, setCustomReleaseMode] = useState(false);
+  const [customReleaseInput, setCustomReleaseInput] = useState('');
 
   const currentId = item?.id || '';
   const currentCode = item?.code || '';
@@ -114,6 +115,8 @@ export const ItemModal: FC<ItemModalProps> = ({
     setRelease(rVal);
     const rels = source.releases && source.releases.length > 0 ? source.releases : (rVal ? [rVal] : []);
     setSelectedReleases(rels);
+    setCustomReleaseMode(false);
+    setCustomReleaseInput('');
     setParentId(source.parentId || '');
     setBlocks(source.blocks || []);
     setBlockedBy(source.blockedBy || []);
@@ -166,6 +169,8 @@ export const ItemModal: FC<ItemModalProps> = ({
         setSprint(defaultSprint || '');
         setRelease('');
         setSelectedReleases([]);
+        setCustomReleaseMode(false);
+        setCustomReleaseInput('');
         setParentId('');
         setBlocks([]);
         setBlockedBy([]);
@@ -219,10 +224,11 @@ export const ItemModal: FC<ItemModalProps> = ({
         module: module.trim() || undefined,
         impactedFile: impactedFile.trim() || undefined,
         sprint: sprint.trim(),
-        release: selectedReleases[0] || release.trim() || undefined,
+        release: selectedReleases[0] ? selectedReleases[0].trim() : (release.trim() || ''),
         targetSprint: sprint.trim(),
-        targetRelease: selectedReleases[0] || release.trim() || undefined,
-        releases: selectedReleases.length > 0 ? selectedReleases : (release.trim() ? [release.trim()] : undefined),
+        targetRelease: selectedReleases[0] ? selectedReleases[0].trim() : (release.trim() || ''),
+        releases: selectedReleases.length > 0 ? selectedReleases : (release.trim() ? [release.trim()] : []),
+        milestone: selectedReleases[0] ? selectedReleases[0].trim() : (release.trim() || ''),
         sprints: sprint.trim() ? [sprint.trim()] : [],
         parentId: parentId.trim() || undefined,
         blocks: blocks.length > 0 ? blocks : undefined,
@@ -968,140 +974,197 @@ export const ItemModal: FC<ItemModalProps> = ({
                     </div>
                   )}
 
-                  {/* Multi-version Releases (DEV-056, DEV-077, DEV-087) */}
+                  {/* Multi-version Releases (DEV-056, DEV-077, DEV-087, DEV-091) */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-[11px] font-medium text-emerald-400">Releases / Versiones</label>
                       {selectedReleases.length > 1 && (
-                        <span className="text-[10px] text-emerald-400/80 font-mono">Multi-versión</span>
+                        <span className="text-[10px] text-emerald-400/80 font-mono">Multi-versión ({selectedReleases.length})</span>
                       )}
                     </div>
-                    <div className="space-y-1.5">
-                      <input
-                        type="text"
-                        value={release}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setRelease(val);
-                          if (val && !selectedReleases.includes(val)) {
-                            setSelectedReleases([...selectedReleases, val]);
-                          }
-                        }}
-                        placeholder="Ej: 0.5.0 (escribe o selecciona sugerencias abajo)"
-                        className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500/50"
-                      />
+                    <div>
+                      {customReleaseMode ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={customReleaseInput}
+                            onChange={(e) => setCustomReleaseInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const val = customReleaseInput.trim().replace(/^v/i, '');
+                                if (val) {
+                                  if (!selectedReleases.includes(val)) {
+                                    setSelectedReleases([...selectedReleases, val]);
+                                  }
+                                  setRelease(val);
+                                  setCustomReleaseInput('');
+                                  setCustomReleaseMode(false);
+                                }
+                              }
+                            }}
+                            placeholder="Ej: 0.6.0 (Enter para aplicar)"
+                            className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-emerald-500/30 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500/60"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const val = customReleaseInput.trim().replace(/^v/i, '');
+                              if (val) {
+                                if (!selectedReleases.includes(val)) {
+                                  setSelectedReleases([...selectedReleases, val]);
+                                }
+                                setRelease(val);
+                                setCustomReleaseInput('');
+                              }
+                              setCustomReleaseMode(false);
+                            }}
+                            className="px-2 py-1.5 rounded-lg text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 font-medium font-mono"
+                          >
+                            Aplicar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomReleaseMode(false);
+                              setCustomReleaseInput('');
+                            }}
+                            className="px-2 py-1.5 rounded-lg text-[10px] text-slate-400 hover:text-slate-200 border border-white/[0.06] hover:bg-white/[0.05]"
+                            title="Volver a lista"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <select
+                            value={release || (selectedReleases.length > 0 ? selectedReleases[0] : '')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '__custom__') {
+                                setCustomReleaseMode(true);
+                                setCustomReleaseInput('');
+                              } else if (!val) {
+                                setRelease('');
+                                setSelectedReleases([]);
+                              } else {
+                                setRelease(val);
+                                if (!selectedReleases.includes(val)) {
+                                  setSelectedReleases([val]);
+                                }
+                              }
+                            }}
+                            className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 cursor-pointer font-medium font-mono"
+                          >
+                            <option value="" className="bg-[#0e1626] text-slate-400 font-sans">Sin Release (No planificado)</option>
+                            {(() => {
+                              const officialUnrel = releases.filter(r => r.status === 'unreleased');
+                              const officialRel = releases.filter(r => r.status === 'released');
+                              const customRels = selectedReleases.filter(sr => !releases.some(r => r.version === sr) && !availableReleases.includes(sr));
+                              return (
+                                <>
+                                  {officialUnrel.length > 0 && (
+                                    <optgroup label="Versiones Planificadas / En Curso">
+                                      {officialUnrel.map(r => (
+                                        <option key={r.id || r.version} value={r.version} className="bg-[#0e1626]">
+                                          v{r.version} 🟡 (En curso)
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {officialRel.length > 0 && (
+                                    <optgroup label="Versiones Liberadas (Históricas)">
+                                      {officialRel.map(r => (
+                                        <option key={r.id || r.version} value={r.version} className="bg-[#0e1626]">
+                                          v{r.version} 🟢 (Liberado)
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  {releases.length === 0 && availableReleases.map(r => (
+                                    <option key={r} value={r} className="bg-[#0e1626]">
+                                      v{r}
+                                    </option>
+                                  ))}
+                                  {customRels.length > 0 && (
+                                    <optgroup label="Versión actual del ítem">
+                                      {customRels.map(sr => (
+                                        <option key={sr} value={sr} className="bg-[#0e1626] text-amber-300">
+                                          v{sr} (Personalizada)
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                </>
+                              );
+                            })()}
+                            <option value="__custom__" className="bg-[#0e1626] text-emerald-400 font-sans">
+                              + Otra versión manual...
+                            </option>
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      )}
 
-                      {/* Sugerencias de Releases: Solo oficiales, priorizando Unreleased (DEV-077 AC #2 & DEV-087) */}
-                      {(() => {
-                        const officialUnreleased = releases.filter(r => r.status === 'unreleased').map(r => r.version);
-                        const officialReleased = releases.filter(r => r.status === 'released').map(r => r.version);
-                        
-                        const defaultChips = officialUnreleased.length > 0 
-                          ? officialUnreleased 
-                          : (availableReleases.length > 0 ? [availableReleases[0]] : []);
-                        
-                        const visibleVersions = Array.from(new Set([
-                          ...defaultChips,
-                          ...selectedReleases
-                        ])).filter(Boolean);
+                      {/* Quick assignment chips and active chips */}
+                      <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                        {selectedReleases.map((rel) => (
+                          <span
+                            key={rel}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40"
+                          >
+                            v{rel}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = selectedReleases.filter(r => r !== rel);
+                                setSelectedReleases(next);
+                                if (release === rel) setRelease(next[0] || '');
+                              }}
+                              className="hover:text-red-300 transition-colors ml-0.5"
+                              title={`Quitar v${rel}`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
 
-                        const hiddenReleased = officialReleased.filter(r => !visibleVersions.includes(r));
+                        {/* Chips rápidos de versiones oficiales en curso */}
+                        {(() => {
+                          const officialUnrel = releases.filter(r => r.status === 'unreleased');
+                          return officialUnrel
+                            .filter(r => !selectedReleases.includes(r.version))
+                            .map(r => (
+                              <button
+                                key={r.id || r.version}
+                                type="button"
+                                onClick={() => {
+                                  setRelease(r.version);
+                                  setSelectedReleases([r.version]);
+                                  setCustomReleaseMode(false);
+                                }}
+                                className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors font-mono"
+                              >
+                                + v{r.version}
+                              </button>
+                            ));
+                        })()}
 
-                        return (
-                          <div className="space-y-1.5 pt-1">
-                            <div className="flex flex-wrap gap-1">
-                              {visibleVersions.map(rel => {
-                                const isSelected = selectedReleases.includes(rel);
-                                const isUnrel = officialUnreleased.includes(rel);
-                                return (
-                                  <button
-                                    type="button"
-                                    key={rel}
-                                    onClick={() => {
-                                      if (isSelected) {
-                                        const next = selectedReleases.filter(r => r !== rel);
-                                        setSelectedReleases(next);
-                                        if (release === rel) setRelease(next[0] || '');
-                                      } else {
-                                        const next = [...selectedReleases, rel];
-                                        setSelectedReleases(next);
-                                        setRelease(rel);
-                                      }
-                                    }}
-                                    className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                                      isSelected
-                                        ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-semibold'
-                                        : isUnrel
-                                        ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20'
-                                        : 'bg-white/[0.03] text-slate-400 hover:bg-white/[0.07] border border-white/[0.06]'
-                                    }`}
-                                  >
-                                    {isSelected ? '✓ ' : '+ '}v{rel}
-                                    {isUnrel && <span className="ml-1 text-[9px] text-emerald-500/80">●</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* DEV-077 AC #3: Acceso a versiones históricas (released) bajo demanda */}
-                            {hiddenReleased.length > 0 && (
-                              <div className="pt-0.5">
-                                {!showHistoricalReleases ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowHistoricalReleases(true)}
-                                    className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
-                                  >
-                                    <span>+ Ver versiones anteriores ({hiddenReleased.length})</span>
-                                  </button>
-                                ) : (
-                                  <div className="space-y-1 p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                                      <span>Versiones anteriores (released):</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setShowHistoricalReleases(false)}
-                                        className="text-slate-500 hover:text-slate-300"
-                                      >
-                                        Ocultar
-                                      </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                      {hiddenReleased.map(rel => {
-                                        const isSelected = selectedReleases.includes(rel);
-                                        return (
-                                          <button
-                                            type="button"
-                                            key={rel}
-                                            onClick={() => {
-                                              if (isSelected) {
-                                                const next = selectedReleases.filter(r => r !== rel);
-                                                setSelectedReleases(next);
-                                                if (release === rel) setRelease(next[0] || '');
-                                              } else {
-                                                const next = [...selectedReleases, rel];
-                                                setSelectedReleases(next);
-                                                setRelease(rel);
-                                              }
-                                            }}
-                                            className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                                              isSelected
-                                                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 font-semibold'
-                                                : 'bg-white/[0.03] text-slate-400 hover:bg-white/[0.07] border border-white/[0.06]'
-                                            }`}
-                                          >
-                                            {isSelected ? '✓ ' : '+ '}v{rel}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                        {(release || selectedReleases.length > 0) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRelease('');
+                              setSelectedReleases([]);
+                              setCustomReleaseMode(false);
+                            }}
+                            className="px-1.5 py-0.5 rounded text-[10px] text-slate-400 hover:text-slate-200 border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
+                          >
+                            Sin Release
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

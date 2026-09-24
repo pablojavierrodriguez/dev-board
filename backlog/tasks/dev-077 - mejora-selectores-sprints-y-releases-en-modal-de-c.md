@@ -3,7 +3,7 @@ id: DEV-077
 title: "Mejora selectores sprints y releases en modal de card"
 status: Ready
 created_date: '2026-09-23'
-updated_date: '2026-09-24 14:56'
+updated_date: '2026-09-24 18:49'
 labels: []
 dependencies: []
 priority: low
@@ -14,8 +14,7 @@ sprints:
 releases:
   - "0.5.0"
 sprint: "Sprint 5"
-targetSprint: "Sprint 5"
-order: "50"
+order: 70
 release: "0.5.0"
 targetRelease: "0.5.0"
 ---

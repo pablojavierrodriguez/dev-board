@@ -3,7 +3,31 @@
 
 ## Resumen de Estados
 
-### 🚀 Ready for Deploy (12)
+### 💡 Ideas / Discovery (1)
+
+#### [DEV-061] Monitoreo y Telemetría de Agent Skills: Métricas de Uso, Frecuencia, Última Invocación y Auditoría
+- **Prioridad**: `low` | **Tipo**: `feature`
+
+Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Agent Skills (`.agents/skills/`):
+1. **Telemetría de Skills:** Monitorear de forma local y no invasiva la interacción de agentes de IA con las skills del proyecto:
+   - Cuándo fue la última invocación o lectura de cada `SKILL.md`.
+   - Contador acumulado de accesos / usos por proyecto.
+   - Duración o pasos asociados si aplica.
+2. **Métricas y Diagnóstico de Salud:** Proveer un panel visual dentro de Ajustes o Diagnóstico que permita:
+   - Detectar qué skills son las más utilizadas y críticas para el flujo de trabajo.
+   - Identificar skills inactivas, desactualizadas o nunca utilizadas para sugerir su depuración, actualización o archivado.
+3. **Persistencia Segura:** Registro de telemetría en `.devboard/skills-telemetry.json` (aislado y con actualización silenciosa sin interferir con Git ni ensuciar diffs de código).
+
+**Criterios de Aceptación:**
+- [ ] #1 Registro no invasivo de accesos a skills (fecha/hora de última invocación y conteo) en .devboard/skills-telemetry.json
+- [ ] #2 Panel visual de métricas de Agent Skills en SettingsView o vista de Diagnóstico
+- [ ] #3 Tabla con listado de skills, última invocación y frecuencia de uso
+- [ ] #4 Sugerencias automáticas de depuración para skills obsoletas o nunca consultadas
+- [ ] #5 Integración opcional con comando CLI npm run skills --stats
+
+---
+
+### 🚀 Ready for Deploy (18)
 
 #### [DEV-077] Mejora selectores sprints y releases en modal de card
 - **Prioridad**: `low` | **Tipo**: `ux`
@@ -174,7 +198,87 @@ Al seleccionar un sprint y guardar desde el modal de edición de tarea (ItemModa
 
 ---
 
-### 📋 Backlog / Draft (5)
+#### [DEV-090] Sincronización bidireccional de tareas en releases y rediseño UX/UI del drawer
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Inconsistencia entre tareas con release asignado en Sprint/Backlog y el panel de releases (se mostraba 0 tareas asociadas en el drawer y métrica divergente en la tarjeta). Adicionalmente, el popup/drawer de releases presenta deficiencias graves de UX/UI: el desenfoque de fondo no cubre el 100% de la pantalla (deja la barra de navegación expuesta) y la disposición/alineación de elementos dentro del drawer es deficiente.
+
+**Criterios de Aceptación:**
+- [x] #1 Sincronización bidireccional estricta de tareas asociadas a releases: tareas con release/targetRelease v0.5.0 se reflejan inmediatamente en la pestaña de Tareas del drawer y en rel.itemCodes.
+- [x] #2 Consistencia en métricas de alcance y progreso del release card con las tareas realmente asociadas al paquete en el drawer y sprint backlog.
+- [x] #3 Rediseño UX/UI del drawer de releases: overlay con backdrop-blur 100% viewport (createPortal), cabecera estilizada, tabs modernas y ergonomía refinada de tarjetas y botones de vinculación.
+
+---
+
+#### [DEV-091] Control formal de versiones en ItemModal y persistencia simétrica al desasignar releases
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Bug en ItemModal: el input de releases agregaba cada prefijo intermedio a selectedReleases en cada pulsación de tecla ('v0', 'v0.', 'v0.6', etc.), inventando versiones que persistían en la UI. Además, al intentar remover un release de una tarea y guardar, el backend restauraba el valor previo ignorando la modificación debido a fallbacks que no contemplaban la desasignación explícita, y existían versiones fantasma (0.6.0) no dadas de alta en releases.json.
+
+**Criterios de Aceptación:**
+- [x] #1 Selector de releases controlado en ItemModal: Dropdown y chips basados estrictamente en el registro oficial de versiones (releases.json), eliminando la generación de versiones intermedias por cada tecla pulsada.
+- [x] #2 Persistencia simétrica al desasignar: al remover el release de un ítem, el guardado limpia explícitamente release, targetRelease, releases y milestone sin restaurar valores anteriores desde existingTask.
+- [x] #3 Sanitización de tareas: eliminación de versiones fantasma no registradas (ej. 0.6.0 en DEV-043, DEV-057, DEV-060, DEV-061), garantizando que solo existan releases formalmente registrados en el Centro de Releases.
+
+---
+
+#### [DEV-092] Alineación de métricas de progreso de Sprint: Ready como estado terminal del desarrollo en KanbanBoard
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+En KanbanBoard.tsx, el banner de Sprint Goal calculaba el progreso considerando únicamente status === 'done' y clasificaba erróneamente 'ready' como 'inProgress', arrojando 0/14 (0%) de progreso y 14 en curso cuando todas las tareas estaban terminadas en 'ready'. En la metodología ágil de DevBoard, 'ready' es el estado terminal del desarrollo en el sprint (Ready for Release), mientras que 'done' pertenece exclusivamente a las tareas ya liberadas en producción.
+
+**Criterios de Aceptación:**
+- [x] #1 sprintStats en KanbanBoard.tsx contabiliza como terminadas las tareas con estado ready, done o finish (alineado con App.tsx y SprintView.tsx).
+- [x] #2 Tareas en estado ready son excluidas de inProgress en el banner de Sprint Goal, reflejando exclusivamente el trabajo activo en doing o review.
+- [x] #3 El indicador porcentual, la barra de progreso y la insignia Objetivo cumplido reflejan fielmente el 100% al alcanzarse el desarrollo completo en ready.
+
+---
+
+#### [DEV-093] Desacople de scroll horizontal en columnas y preservación de sprint al togglear Ideas en KanbanBoard
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Dos defectos de UX en KanbanBoard: 1) El contenedor principal con overflow-x-auto arrastraba la barra de herramientas, selector de sprint, toggle de vistas y banner de progreso al hacer scroll horizontal para ver columnas derechas (ej. Ready y Done). 2) Al encender o apagar la columna de Ideas, un useEffect con dependencias inestables sobreescribía la selección del usuario (ej. 'all') forzando la vuelta al sprint activo.
+
+**Criterios de Aceptación:**
+- [x] #1 El scroll horizontal del tablero Kanban queda encapsulado exclusivamente en el contenedor de columnas, manteniendo fija la barra superior (Sprint Goal, selector de sprint, vista Simple/Ampliada, toggle Ideas) y el banner de progreso sin desplazarse con el scroll.
+- [x] #2 La selección del selector de sprint (ej. 'all' / Todos los ítems) se preserva estrictamente al activar o desactivar la columna de ideas, eliminando el re-filtrado forzado al sprint activo.
+- [x] #3 Eliminación de anchos mínimos artificiales (md:min-w-[960px]) en la barra superior y banner para que ocupen fluidamente el 100% del ancho del viewport.
+
+---
+
+#### [DEV-094] Estabilización de layout, scrollbar-gutter y alineación de márgenes al alternar Ideas y filtros
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Eliminación de saltos visuales de layout (jank) al activar/desactivar Ideas o aplicar filtros: 1) Scrollbar layout shift solucionado con scrollbar-gutter: stable en html. 2) Contenedor KanbanBoard alineado con max-w-[1680px] mx-auto. 3) FilterBar desacoplada para no contabilizar includeIdeas como filtro activo. 4) Ancho estable del botón Ideas en la barra de herramientas.
+
+**Criterios de Aceptación:**
+- [x] #1 Estabilidad global de scrollbar: incorporar scrollbar-gutter: stable en html para evitar el salto de layout (15px) al filtrar o variar la altura de las tarjetas.
+- [x] #2 Alineación de contenedor en KanbanBoard: agregar max-w-[1680px] mx-auto para que coincida exactamente con Header, FilterBar y SprintView, eliminando desfasajes de márgenes en pantallas medianas y anchas.
+- [x] #3 Eliminación de sobrecarga semántica en FilterBar: aislar includeIdeas para que no altere hasCustomStatuses ni inserte el botón Limpiar (1) que desplazaba la fila de filtros rápidos.
+- [x] #4 Dimensionado estable del botón Ideas en el toolbar de KanbanBoard mediante conteo independiente de ideas disponibles, evitando cambios de ancho y saltos de controles adyacentes.
+
+---
+
+#### [DEV-095] Solución integral de estabilidad de layout en FilterBar ante activación de filtros (Zero-CLS)
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.5.0
+
+Eliminación integral de desplazamientos de controles en FilterBar al activar cualquier filtro: 1) Badge numérico de filtros activos desacoplado con position: absolute en la esquina superior derecha del botón Filtros, manteniendo su ancho estrictamente constante y evitando empujar la botonera de filtros rápidos (Todos, Bug, Feature, etc.). 2) Supresión de saltos de ancho por cambio de font-weight en píldoras rápidas de tipo y prioridad (uso de font-medium uniforme). 3) Prevención de salto vertical de FilterBar mediante contenedor nowrap con control de overflow horizontal.
+
+**Criterios de Aceptación:**
+- [x] #1 Badge absoluto en botón Filtros: posicionar el contador de filtros activos con position: absolute (-top-1.5 -right-1.5) para que el botón mantenga un ancho idéntico (cero píxeles de desplazamiento hacia los controles de la derecha).
+- [x] #2 Estabilidad métrica en píldoras de tipo y prioridad: mantener font-medium tanto en estado activo como inactivo, diferenciando la selección mediante fondo, borde y sombra sin alterar el ancho del texto ni desfasar botones adyacentes.
+- [x] #3 Prevención de wrap vertical en FilterBar: contenedor de barra configurado para prevenir que la aparición de Limpiar fuerce salto a una segunda línea o altere la altura del toolbar.
+- [x] #4 Botón Limpiar desacoplado: asegurar que el botón Limpiar no altere el alineamiento de los filtros rápidos a su izquierda al montarse o desmontarse.
+
+---
+
+### 📋 Backlog / Draft (4)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -192,7 +296,6 @@ Inspección de solo lectura del árbol Git local (commits, ramas, tags) para cor
 
 #### [DEV-043] Evolutivo de Marca e Identidad: Cockpit Ágil Multidisciplinario (Naming Simple y Disponibilidad)
 - **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
 
 Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una plataforma integral de gestión ágil para equipos multidisciplinarios (producto, diseño, arquitectura, Scrum Masters y desarrolladores) y agentes de IA:
 1. Trascender la denominación "dev-board" hacia un nombre simple, distintivo, con personalidad y agradable al oído, lejos de clichés corporativos o compuestos que terminen en "Board" o "App".
@@ -210,7 +313,6 @@ Evolucionar la identidad y el nombre del proyecto y de la aplicación hacia una 
 
 #### [DEV-057] Centro de Gestión de Releases: Inspección de Release Notes, Conjunto de Cards y Sincronización con Git
 - **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
 
 Evolución integral del módulo de Releases hacia un centro de control y auditoría de entregas:
 1. **Inspección de Releases:** Permitir visualizar en la aplicación la lista completa de releases gestionados con DevBoard, incluyendo:
@@ -232,7 +334,6 @@ Evolución integral del módulo de Releases hacia un centro de control y auditor
 
 #### [DEV-060] Internacionalización Total (i18n): Cobertura 100% en Inglés y Español sin Textos Hardcodeados y Selector en Settings
 - **Prioridad**: `high` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
 
 Infraestructura completa de internacionalización (i18n) para soportar navegación fluida en Español e Inglés con cobertura total de la interfaz:
 1. **Cero Textos Hardcodeados:** Extracción sistemática de todos los textos presentes en componentes, cabeceras, botones, badges, modales, tooltips, toasts de feedback, empty states y páginas de ajustes hacia archivos de localización estructurados (`locales/es.json` y `locales/en.json`).
@@ -246,29 +347,6 @@ Infraestructura completa de internacionalización (i18n) para soportar navegaci�
 - [ ] #3 Selector interactivo de idioma en SettingsView con persistencia en .devboard/config.json
 - [ ] #4 Detección automática inicial del idioma del navegador
 - [ ] #5 Auditoría estricta de código para validar ausencia de strings de texto visibles hardcodeadas
-
----
-
-#### [DEV-061] Monitoreo y Telemetría de Agent Skills: Métricas de Uso, Frecuencia, Última Invocación y Auditoría
-- **Prioridad**: `low` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
-
-Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Agent Skills (`.agents/skills/`):
-1. **Telemetría de Skills:** Monitorear de forma local y no invasiva la interacción de agentes de IA con las skills del proyecto:
-   - Cuándo fue la última invocación o lectura de cada `SKILL.md`.
-   - Contador acumulado de accesos / usos por proyecto.
-   - Duración o pasos asociados si aplica.
-2. **Métricas y Diagnóstico de Salud:** Proveer un panel visual dentro de Ajustes o Diagnóstico que permita:
-   - Detectar qué skills son las más utilizadas y críticas para el flujo de trabajo.
-   - Identificar skills inactivas, desactualizadas o nunca utilizadas para sugerir su depuración, actualización o archivado.
-3. **Persistencia Segura:** Registro de telemetría en `.devboard/skills-telemetry.json` (aislado y con actualización silenciosa sin interferir con Git ni ensuciar diffs de código).
-
-**Criterios de Aceptación:**
-- [ ] #1 Registro no invasivo de accesos a skills (fecha/hora de última invocación y conteo) en .devboard/skills-telemetry.json
-- [ ] #2 Panel visual de métricas de Agent Skills en SettingsView o vista de Diagnóstico
-- [ ] #3 Tabla con listado de skills, última invocación y frecuencia de uso
-- [ ] #4 Sugerencias automáticas de depuración para skills obsoletas o nunca consultadas
-- [ ] #5 Integración opcional con comando CLI npm run skills --stats
 
 ---
 
@@ -1215,7 +1293,7 @@ Optimización de la visualización de tareas finalizadas en el tablero Kanban (e
 
 #### [DEV-059] Administración y Personalización de Tipos de Cards y Flujos de Trabajo por el Usuario (Admin Soberano)
 - **Prioridad**: `medium` | **Tipo**: `feature`
-- **Sprint / Milestone**: 0.5.0
+- **Sprint / Milestone**: 0.4.0
 
 Otorgar soberanía total y personalización al usuario/admin para definir y gestionar la taxonomía de tipos de tarjeta y flujos de trabajo de su proyecto:
 1. **Soberanía Administrativa:** Aunque DevBoard incluye tipos predeterminados (`feature`, `bug`, `tech_debt`, `ux`, etc.), el usuario es el dueño de su proyecto y flujo. Debe poder crear nuevos tipos personalizados (ej. `spike`, `research`, `design`, `meeting`, `infra`), editar los existentes (nombre, color semántico, icono) o eliminar los que no utilice.

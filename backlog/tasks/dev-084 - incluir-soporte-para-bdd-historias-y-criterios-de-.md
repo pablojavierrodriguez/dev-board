@@ -3,7 +3,7 @@ id: DEV-084
 title: "incluir soporte para BDD (historias y criterios de aceptacion)"
 status: Ready
 created_date: '2026-09-24T12:21:25.797Z'
-updated_date: '2026-09-24 14:56'
+updated_date: '2026-09-24 18:49'
 labels: []
 dependencies: []
 priority: medium
@@ -13,9 +13,8 @@ sprints:
   - "Sprint 5"
 releases:
   - "0.5.0"
-order: "80"
 sprint: "Sprint 5"
-targetSprint: "Sprint 5"
+order: 100
 release: "0.5.0"
 targetRelease: "0.5.0"
 ---

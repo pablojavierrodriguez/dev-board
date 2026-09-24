@@ -12,13 +12,13 @@ labels:
 dependencies: []
 priority: medium
 type: feature
-milestone: "0.5.0"
+milestone: "0.4.0"
 sprints:
   - "Sprint 4"
 releases:
-  - "0.5.0"
-release: "0.5.0"
-targetRelease: "0.5.0"
+  - "0.4.0"
+release: "0.4.0"
+targetRelease: "0.4.0"
 order: 100
 sprint: "Sprint 4"
 targetSprint: "Sprint 4"

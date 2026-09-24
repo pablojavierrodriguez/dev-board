@@ -11,9 +11,6 @@ labels:
 dependencies: []
 priority: medium
 type: feature
-milestone: "0.5.0"
-release: "0.5.0"
-targetRelease: "0.5.0"
 order: 200
 ---
 

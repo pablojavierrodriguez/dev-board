@@ -1,9 +1,9 @@
 ---
 id: DEV-061
 title: "Monitoreo y Telemetría de Agent Skills: Métricas de Uso, Frecuencia, Última Invocación y Auditoría"
-status: Draft
+status: Ideas
 created_date: '2026-09-18'
-updated_date: '2026-09-24 13:59'
+updated_date: '2026-09-24 17:14'
 labels:
   - "telemetry"
   - "skills"
@@ -12,11 +12,6 @@ labels:
 dependencies: []
 priority: low
 type: feature
-milestone: "0.5.0"
-releases:
-  - "0.5.0"
-release: "0.5.0"
-targetRelease: "0.5.0"
 order: 220
 ---
 

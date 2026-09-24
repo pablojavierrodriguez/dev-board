@@ -3,7 +3,7 @@ id: DEV-081
 title: "cambios pendientes apenas al entrar a config"
 status: Ready
 created_date: '2026-09-23T23:16:34.944Z'
-updated_date: '2026-09-24 14:56'
+updated_date: '2026-09-24 18:49'
 labels: []
 dependencies: []
 priority: medium
@@ -13,9 +13,8 @@ sprints:
   - "Sprint 5"
 releases:
   - "0.5.0"
-order: "40"
 sprint: "Sprint 5"
-targetSprint: "Sprint 5"
+order: 60
 release: "0.5.0"
 targetRelease: "0.5.0"
 ---

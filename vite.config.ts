@@ -458,8 +458,25 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
         }
       }
 
-      // Asignar targetRelease a tareas de releases, y releasedAt ÚNICAMENTE si el release está liberado (released) a producción
+      // Sincronización bidireccional estricta: rel.itemCodes <-> tareas con release/targetRelease
       if (releases.length > 0) {
+        for (const rel of releases) {
+          const vClean = (rel.version || '').replace(/^v/i, '');
+          const existingCodes = new Set<string>((rel.itemCodes || []).map((c: string) => c.toUpperCase()));
+          for (const it of items) {
+            const itRel = (it.release || it.targetRelease || '').replace(/^v/i, '');
+            const inReleases = (it.releases || []).some((r: string) => r.replace(/^v/i, '') === vClean);
+            if (itRel === vClean || inReleases) {
+              const codeUpper = (it.code || it.id).toUpperCase();
+              if (!existingCodes.has(codeUpper)) {
+                existingCodes.add(codeUpper);
+                if (!rel.itemCodes) rel.itemCodes = [];
+                rel.itemCodes.push(it.code || it.id);
+              }
+            }
+          }
+        }
+
         const releaseByCode = new Map<string, { version: string; date: string; isReleased: boolean }>();
         for (const rel of releases) {
           const isReleased = rel.status === 'released';
@@ -475,6 +492,7 @@ function readProjectBacklog(project: ProjectMeta): ProjectBacklog {
           if (releaseByCode.has(key)) {
             const rInfo = releaseByCode.get(key)!;
             it.targetRelease = it.targetRelease || rInfo.version;
+            it.release = it.release || rInfo.version;
             if (rInfo.isReleased) {
               it.releasedAt = it.releasedAt || (rInfo.date ? new Date(rInfo.date).toISOString() : undefined);
             }
@@ -652,8 +670,12 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
     blockedBy: item.blockedBy !== undefined ? item.blockedBy : existingTask.blockedBy,
     relatedTo: item.relatedTo !== undefined ? item.relatedTo : existingTask.relatedTo,
     sprints: item.sprints !== undefined ? item.sprints : existingTask.sprints,
-    releases: item.releases !== undefined ? item.releases : existingTask.releases,
-    milestone: item.release || item.targetRelease || item.milestone || existingTask.milestone,
+    releases: (item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined || item.releases !== undefined)
+      ? (Array.isArray(item.releases) ? item.releases.filter(Boolean) : (item.release ? [item.release] : []))
+      : existingTask.releases,
+    milestone: (item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined)
+      ? (item.release || item.targetRelease || item.milestone || undefined)
+      : existingTask.milestone,
     createdDate: item.createdAt || existingTask.createdDate,
     updatedDate: item.updatedAt || new Date().toISOString(),
     description: item.description !== undefined ? item.description : (existingTask.description || ''),
@@ -677,6 +699,32 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
       taskData.sprints = Array.from(new Set([...(taskData.sprints || []), sVal]));
       taskData.rawExtraFrontmatter!.sprint = sVal;
       taskData.rawExtraFrontmatter!.targetSprint = sVal;
+
+      // Auto-registrar en sprints.json si es un sprint nuevo creado manualmente
+      if (project.repoPath) {
+        const sprintsPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'sprints.json');
+        if (fs.existsSync(sprintsPath)) {
+          try {
+            const spsData = JSON.parse(fs.readFileSync(sprintsPath, 'utf8'));
+            const sClean = sVal.trim();
+            const exists = spsData.some((s: any) => s.name && s.name.trim().toLowerCase() === sClean.toLowerCase());
+            if (!exists) {
+              const num = parseInt(sClean.replace(/\D/g, ''), 10) || 0;
+              spsData.push({
+                id: `sprint-${num || sClean.toLowerCase().replace(/\s+/g, '-')}`,
+                projectId: project.id,
+                name: sClean,
+                goal: '',
+                status: 'planned',
+                createdAt: new Date().toISOString()
+              });
+              fs.writeFileSync(sprintsPath, JSON.stringify(spsData, null, 2), 'utf8');
+            }
+          } catch (spErr: any) {
+            console.warn('[DevBoard API] Error sincronizando sprints.json al guardar tarea:', spErr.message);
+          }
+        }
+      }
     } else {
       taskData.sprint = undefined;
       taskData.targetSprint = undefined;
@@ -697,16 +745,80 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
       }
     }
   }
-  if (item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined) {
-    const rVal = item.release || item.targetRelease || item.milestone || '';
-    if (rVal) {
-      taskData.rawExtraFrontmatter!.release = rVal;
-      taskData.rawExtraFrontmatter!.targetRelease = rVal;
-      taskData.milestone = rVal;
+  const isReleaseProvided = item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined || item.releases !== undefined;
+  if (isReleaseProvided) {
+    const rVal = (item.release || item.targetRelease || item.milestone || (item.releases && item.releases.length > 0 ? item.releases[0] : '') || '').trim();
+    const relArray = Array.isArray(item.releases) ? item.releases.filter(Boolean) : (rVal ? [rVal] : []);
+
+    if (rVal || relArray.length > 0) {
+      taskData.rawExtraFrontmatter!.release = rVal || relArray[0];
+      taskData.rawExtraFrontmatter!.targetRelease = rVal || relArray[0];
+      taskData.milestone = rVal || relArray[0];
+      taskData.releases = relArray;
     } else {
       delete taskData.rawExtraFrontmatter!.release;
       delete taskData.rawExtraFrontmatter!.targetRelease;
+      delete taskData.rawExtraFrontmatter!.releases;
       taskData.milestone = undefined;
+      taskData.releases = [];
+    }
+
+    // Sincronización bidireccional inmediata en releases.json
+    if (project.repoPath) {
+      const releasesPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'releases.json');
+      if (fs.existsSync(releasesPath)) {
+        try {
+          const relsData = JSON.parse(fs.readFileSync(releasesPath, 'utf8'));
+          const taskCode = (taskData.id || '').toUpperCase();
+          let changed = false;
+          const targetVersion = (rVal || (relArray[0] || '')).replace(/^v/i, '');
+
+          let versionFound = false;
+          for (const rel of relsData) {
+            const vClean = (rel.version || '').replace(/^v/i, '');
+            if (!rel.itemCodes) rel.itemCodes = [];
+            const idx = rel.itemCodes.findIndex((c: string) => c.toUpperCase() === taskCode);
+
+            if (targetVersion && vClean === targetVersion) {
+              versionFound = true;
+              if (idx < 0) {
+                rel.itemCodes.push(taskData.id);
+                changed = true;
+              }
+            } else if (idx >= 0 && !relArray.some((rv: string) => rv.replace(/^v/i, '') === vClean)) {
+              rel.itemCodes.splice(idx, 1);
+              changed = true;
+            }
+          }
+
+          // Si el usuario asignó una versión nueva que aún no existía en releases.json, darla de alta como unreleased
+          if (targetVersion && !versionFound) {
+            const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10);
+            const targetDate = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            relsData.unshift({
+              id: `rel-${targetVersion.replace(/\./g, '-')}`,
+              projectId: project.id,
+              version: targetVersion,
+              date: todayStr,
+              targetDate: targetDate,
+              status: 'unreleased',
+              title: `v${targetVersion}`,
+              summary: `Versión ${targetVersion} creada para planificación.`,
+              itemCodes: [taskData.id],
+              markdownContent: `## [${targetVersion}] — Unreleased\n\n### 🎯 Resumen\n*Versión ${targetVersion} en planificación.*`,
+              createdAt: now.toISOString()
+            });
+            changed = true;
+          }
+
+          if (changed) {
+            fs.writeFileSync(releasesPath, JSON.stringify(relsData, null, 2), 'utf8');
+          }
+        } catch (syncErr: any) {
+          console.warn('[DevBoard API] Error sincronizando releases.json al guardar tarea:', syncErr.message);
+        }
+      }
     }
   }
   if (item.order !== undefined) taskData.rawExtraFrontmatter!.order = item.order;
@@ -1190,10 +1302,13 @@ function devBoardApi(): PluginOption {
                   if (body.sprints !== undefined) {
                     updatedItem.sprints = body.sprints;
                   }
-                  if (body.release !== undefined) {
-                    updatedItem.release = body.release || undefined;
-                    updatedItem.targetRelease = body.release || undefined;
-                    updatedItem.milestone = body.release || undefined;
+                  if (body.release !== undefined || body.targetRelease !== undefined || body.milestone !== undefined || body.releases !== undefined) {
+                    const rVal = (body.release || body.targetRelease || body.milestone || (body.releases && body.releases.length > 0 ? body.releases[0] : '') || '').trim();
+                    const relArr = Array.isArray(body.releases) ? body.releases.filter(Boolean) : (rVal ? [rVal] : []);
+                    updatedItem.release = rVal || undefined;
+                    updatedItem.targetRelease = rVal || undefined;
+                    updatedItem.milestone = rVal || undefined;
+                    updatedItem.releases = relArr;
                   }
 
                   if (isBacklogMdProject(p)) {
@@ -1719,14 +1834,21 @@ function devBoardApi(): PluginOption {
                 scopeNotes: body.scopeNotes || undefined
               };
 
-              const itemCodeSet = new Set(release.itemCodes);
-              if (isReleased) {
-                // When officially publishing/releasing to production: mark releasedAt and complete ready/finish tasks
-                backlog.items = backlog.items.map((it: any) => {
-                  if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
+              const itemCodeSet = new Set((release.itemCodes || []).map((c: string) => c.toUpperCase()));
+              const relVCLean = (release.version || '').replace(/^v/i, '');
+
+              backlog.items = backlog.items.map((it: any) => {
+                const codeUpper = (it.code || it.id || '').toUpperCase();
+                const isItemInRelease = itemCodeSet.has(codeUpper);
+                const prevRel = (it.targetRelease || it.release || '').replace(/^v/i, '');
+
+                if (isReleased) {
+                  // When officially publishing/releasing to production: mark releasedAt and complete ready/finish tasks
+                  if (isItemInRelease) {
                     const updated = {
                       ...it,
                       targetRelease: release.version,
+                      release: release.version,
                       releasedAt: now,
                       status: it.status === 'ready' || it.status === 'finish' ? 'done' : it.status,
                       completedAt: it.completedAt || now,
@@ -1737,16 +1859,14 @@ function devBoardApi(): PluginOption {
                     }
                     return updated;
                   }
-                  return it;
-                });
-              } else {
-                // When unreleased (dev) or planning: associate targetRelease without marking releasedAt or closing tasks
-                backlog.items = backlog.items.map((it: any) => {
-                  if (itemCodeSet.has(it.code) || itemCodeSet.has(it.id)) {
-                    if (it.targetRelease !== release.version || (isUnreleased && it.milestone !== release.version)) {
+                } else {
+                  // When unreleased (dev) or planning: associate targetRelease/release
+                  if (isItemInRelease) {
+                    if (it.targetRelease !== release.version || it.release !== release.version) {
                       const updated = {
                         ...it,
                         targetRelease: release.version,
+                        release: release.version,
                         milestone: it.milestone || release.version,
                         updatedAt: now
                       };
@@ -1755,10 +1875,23 @@ function devBoardApi(): PluginOption {
                       }
                       return updated;
                     }
+                  } else if (prevRel === relVCLean) {
+                    // Item was unlinked from this release! Clear release associations
+                    const updated = {
+                      ...it,
+                      targetRelease: undefined,
+                      release: undefined,
+                      milestone: it.milestone && it.milestone.replace(/^v/i, '') === relVCLean ? undefined : it.milestone,
+                      updatedAt: now
+                    };
+                    if (isBacklogMdProject(project)) {
+                      saveBacklogMdItem(project, updated);
+                    }
+                    return updated;
                   }
-                  return it;
-                });
-              }
+                }
+                return it;
+              });
 
               const existingIdx = backlog.releases.findIndex((r: any) => r.id === release.id || r.version === release.version);
               if (existingIdx >= 0) {
