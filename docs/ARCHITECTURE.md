@@ -49,14 +49,13 @@ DevBoard es un cockpit ágil *embedded-first* y orientado a la colaboración ent
                                     │ I/O Archivos
 ┌───────────────────────────────────▼────────────────────────────────────┐
 │                    PERSISTENCIA & SISTEMA DE ARCHIVOS                  │
-│                                                                        │
 │  backlog/tasks/*.md (Tareas individuales con YAML frontmatter)         │
 │  backlog/releases.json (Registro histórico y versiones activas)        │
 │  backlog/sprints.json (Ciclo de vida y balance de sprints)             │
 │  backlog/retros/*.md (Retrospectivas de sprint)                        │
 │  BACKLOG.md (Backlog monolítico compilado)                             │
-│  data/projects-registry.json (Registro local de proyectos)             │
-│  .devboard/ (Configuraciones locales de proyecto)                      │
+│  ~/.devboard/registry.json (Registro global XDG Multi-Proyecto)        │
+│  .devboard/config.json (Configuración local de proyecto)               │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -81,14 +80,18 @@ DevBoard es un cockpit ágil *embedded-first* y orientado a la colaboración ent
 | [src/api.ts](file:///Users/adrisol/Pablo/code/dev-board/src/api.ts) | Capa de abstracción cliente con llamadas `fetch` tipadas a los endpoints del servidor embebido. |
 | [src/types.ts](file:///Users/adrisol/Pablo/code/dev-board/src/types.ts) | Definiciones de tipos TypeScript: `Project`, `Item` / `Task`, `AcceptanceCriterion`, `Release`, `Sprint`, `FilterState`. |
 
-### Backend Embebido & Scripts (`vite.config.ts`, `scripts/`, `bin/`)
+### Backend Embebido, Scripts & CLI (`vite.config.ts`, `scripts/`, `bin/`)
 
 | Archivo | Responsabilidad Principal |
 | :--- | :--- |
+| [bin/devboard.js](file:///Users/adrisol/Pablo/code/dev-board/bin/devboard.js) | CLI binario principal (`devboard`). Inicializa servidor Vite embebido con opciones `--single`, `--hub`, `--port`, `--init`, comprobación de actualizaciones y resolución absoluta de rutas. |
+| [bin/devboard-mcp.js](file:///Users/adrisol/Pablo/code/dev-board/bin/devboard-mcp.js) | Servidor MCP que expone las 12 herramientas de DevBoard (`devboard_list_tasks`, `devboard_sync_backlog`, `devboard_create_retro`, etc.) a agentes de IA. |
 | [vite.config.ts](file:///Users/adrisol/Pablo/code/dev-board/vite.config.ts) | Configuración de Vite y plugin de middleware que implementa los endpoints `/api/*` para lectura/escritura de tareas, proyectos y sincronización. |
 | [scripts/backlogMdParser.ts](file:///Users/adrisol/Pablo/code/dev-board/scripts/backlogMdParser.ts) | Motor de parsing y serialización bidireccional entre archivos Markdown individuales (`backlog/tasks/*.md`), `BACKLOG.md` y objetos JSON en memoria. |
+| [scripts/initScaffold.js](file:///Users/adrisol/Pablo/code/dev-board/scripts/initScaffold.js) | Asistente interactivo de inicialización y onboarding (`devboard --init`), con soporte de modo silencioso `-y` y scaffolding no destructivo. |
+| [scripts/registryConfig.js](file:///Users/adrisol/Pablo/code/dev-board/scripts/registryConfig.js) | Manejo canónico del registro de proyectos multi-repositorio bajo el estándar XDG en `~/.devboard/registry.json` con migración transparente. |
+| [scripts/updateChecker.js](file:///Users/adrisol/Pablo/code/dev-board/scripts/updateChecker.js) | Verificador no bloqueante de actualizaciones contra GitHub Releases con caché de 24 horas y notificaciones en CLI y UI. |
 | [scripts/verify-backlog-sync.js](file:///Users/adrisol/Pablo/code/dev-board/scripts/verify-backlog-sync.js) | Auditor de coherencia entre criterios de aceptación, estados de tareas y código fuente. Se ejecuta en `.githooks/pre-commit`. |
-| [bin/devboard-mcp.js](file:///Users/adrisol/Pablo/code/dev-board/bin/devboard-mcp.js) | Servidor MCP que expone las 12 herramientas de DevBoard (`devboard_list_tasks`, `devboard_sync_backlog`, `devboard_create_retro`, etc.) a agentes de IA. |
 
 ---
 
@@ -114,3 +117,48 @@ Para evitar la sobrecarga de lectura en archivos de gran volumen:
 | **Filtrado y búsqueda** | [src/components/FilterBar.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/FilterBar.tsx), [src/components/AdvancedFiltersPopover.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/AdvancedFiltersPopover.tsx), [src/App.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/App.tsx) | Filtrado reactivo en vistas de Kanban y Sprints. |
 | **Endpoints API locales** | [vite.config.ts](file:///Users/adrisol/Pablo/code/dev-board/vite.config.ts), [src/api.ts](file:///Users/adrisol/Pablo/code/dev-board/src/api.ts) | Contratos de respuesta JSON y persistencia en disco. |
 | **Herramientas MCP** | [scripts/mcp-server.ts](file:///Users/adrisol/Pablo/code/dev-board/scripts/mcp-server.ts), [bin/devboard-mcp.js](file:///Users/adrisol/Pablo/code/dev-board/bin/devboard-mcp.js) | Compatibilidad de parámetros con `AGENTS.md`. |
+
+---
+
+## 6. Modelo de Datos Canónico de Tareas (Task Data Specification)
+
+Cada tarea en DevBoard cuando se almacena en modo `backlog-md` reside en `backlog/tasks/<ID> - <slug>.md`. Se compone de metadatos estructurados en YAML frontmatter y secciones de contenido delimitadas por comentarios HTML.
+
+### A. Metadatos de YAML Frontmatter
+
+| Campo Frontmatter | Tipo TypeScript / Valores | Semántica y Propósito | Ámbito de Interfaz |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` (ej. `DEV-110`) | Identificador canónico e inmutable. | ItemModal, Cards, Tablas |
+| `title` | `string` | Título del requerimiento o bug. | ItemModal, Cards, Tablas |
+| `status` | `CanonicalStatus` (`ideas`, `draft`, `doing`, `review`, `ready`, `done`, `dismissed`, `cancelled`) | Estado en el flujo de valor normalizado. | ItemModal, Columnas Kanban, Filtros |
+| `type` | `ItemType` (`feature`, `bug`, `tech_debt`, `ux`, `epic`, `initiative` + personalizados) | Taxonomía del ítem. Soporta tipos dinámicos. | ItemModal, Badges, Filtros |
+| `priority` | `Priority` (`p0`/`urgent`, `p1`/`high`, `p2`/`medium`, `p3`/`low`) | Nivel de urgencia o severidad. | ItemModal, Badges, Filtros |
+| `assignee` / `assignees` | `string[]` o `string` | Agentes o desarrolladores asignados. | Tabla SprintView / Backlog |
+| `labels` | `string[]` | Etiquetas transversales libres. | Tabla SprintView / Backlog |
+| `sprint` / `targetSprint` | `string` (ej. `"Sprint 6"`) | Sprint de trabajo actual. | ItemModal, Sprints Hub |
+| `sprints` | `string[]` | Historial multi-sprint (sprints cerrados + actual). | ItemModal (historial) |
+| `release` / `targetRelease` | `string` (ej. `"0.6.0"`) | Versión formal planificada o entregada. | ItemModal, Releases Hub |
+| `releases` | `string[]` | Array multi-versión asignado. | ItemModal (multi-versión) |
+| `parent` / `parentId` | `string` (ej. `"DEV-040"`) | Padre único 1-a-N (Épica / Historia contenedora). | ItemModal (relaciones) |
+| `blocks` | `string[]` | Códigos de tareas que dependen de esta tarea. | ItemModal (relaciones) |
+| `blocked_by` / `blockedBy` | `string[]` | Tareas que bloquean el inicio de esta tarea. | ItemModal (relaciones) |
+| `related_to` / `relatedTo` | `string[]` | Vínculos conceptuales horizontales. | ItemModal (relaciones) |
+| `dependencies` | `string[]` | Lista de dependencias funcionales (MrLesk alias). | Persistencia / MCP |
+| `created_date` | `string` (datetime/ISO) | Fecha de creación del archivo. | Auditoría / Orden |
+| `updated_date` | `string` (datetime/ISO) | Última modificación en disco. | Concurrencia / Sincronización |
+| `order` | `number` | Orden relativo en columnas. | D&D Kanban |
+| `isDeleted` | `boolean` | Flag de borrado lógico (Papelera). | TrashView |
+| `deletedAt` | `string` (ISO) | Fecha de envío a papelera. | TrashView |
+| `previousStatus` | `string` | Estado previo para restauración limpia. | TrashView |
+| *Arbitrarios* (`rawExtraFrontmatter`) | `Record<string, string>` | Claves YAML adicionales preservadas en round-trip. | Persistencia sin pérdida |
+
+### B. Secciones Delimitadas en el Cuerpo Markdown
+
+| Sección | Delimitador Canónico | Propósito |
+| :--- | :--- | :--- |
+| `## Description` | `<!-- SECTION:DESCRIPTION:BEGIN -->` ... `<!-- SECTION:DESCRIPTION:END -->` | Requerimiento detallado, contexto o Historia BDD (`COMO/QUIERO/PARA`). |
+| `## Acceptance Criteria` | `<!-- AC:BEGIN -->` ... `<!-- AC:END -->` | Criterios de aceptación con checklist `- [x] #1` o `- [ ] #1` y BDD Scenarios. |
+| `## Implementation Plan` | `<!-- SECTION:PLAN:BEGIN -->` ... `<!-- SECTION:PLAN:END -->` | Plan de ingeniería paso a paso (Plan Guard). |
+| `## Implementation Notes` | `<!-- SECTION:NOTES:BEGIN -->` ... `<!-- SECTION:NOTES:END -->` | Notas técnicas de desarrollo, fixes y riesgos aplicados. |
+| `## Final Summary` | `<!-- SECTION:FINAL_SUMMARY:BEGIN -->` ... `<!-- SECTION:FINAL_SUMMARY:END -->` | Resumen de cierre o entrega de la tarea. |
+

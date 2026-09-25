@@ -16,12 +16,19 @@ import {
   type BacklogMdTask
 } from './scripts/backlogMdParser.ts';
 import { parseLegacyMarkdown, type ParsedLegacyItem } from './src/utils/legacyParser.ts';
+import { loadRegistryFile, saveRegistryFile } from './scripts/registryConfig.js';
+import { getCachedUpdateInfo, checkForUpdates } from './scripts/updateChecker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const REGISTRY_FILE = path.resolve(__dirname, 'data/projects-registry.json');
 const DEMO_FILE = path.resolve(__dirname, 'data/demo-backlog.json');
+
+let appVersion = '0.5.0';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'));
+  if (pkg.version) appVersion = pkg.version;
+} catch {}
 
 interface ProjectMeta {
   id: string;
@@ -123,18 +130,9 @@ function getSafeInitialBrowseDir(): string {
 }
 
 function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
-  let reg: { activeProjectId: string; projects: ProjectMeta[] };
-  if (!fs.existsSync(REGISTRY_FILE)) {
-    reg = {
-      activeProjectId: '',
-      projects: []
-    };
-  } else {
-    try {
-      reg = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
-    } catch {
-      reg = { activeProjectId: '', projects: [] };
-    }
+  let reg = loadRegistryFile(__dirname);
+  if (!reg || !Array.isArray(reg.projects)) {
+    reg = { activeProjectId: '', projects: [] };
   }
 
   // DEV-040: Auto-discover local repo if running inside a repo with .devboard/ or backlog/
@@ -168,9 +166,7 @@ function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
         reg.activeProjectId = localId;
       }
     } else {
-      if (!reg.activeProjectId) {
-        reg.activeProjectId = existingLocal.id;
-      }
+      reg.activeProjectId = existingLocal.id;
     }
   }
 
@@ -203,9 +199,6 @@ function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
 }
 
 function saveRegistry(registry: { activeProjectId: string; projects: ProjectMeta[] }) {
-  if (!fs.existsSync(path.dirname(REGISTRY_FILE))) {
-    fs.mkdirSync(path.dirname(REGISTRY_FILE), { recursive: true });
-  }
   const sanitized = {
     ...registry,
     projects: registry.projects.map(p => {
@@ -216,7 +209,7 @@ function saveRegistry(registry: { activeProjectId: string; projects: ProjectMeta
       return clean;
     })
   };
-  fs.writeFileSync(REGISTRY_FILE, JSON.stringify(sanitized, null, 2), 'utf8');
+  saveRegistryFile(sanitized, __dirname);
 }
 
 function getProjectBacklogPath(project: ProjectMeta): string {
@@ -672,8 +665,8 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
     status: normalizeStatus(item.status),
     type: normalizeType(item.type || existingTask.type) || 'feature',
     priority: item.priority || existingTask.priority || 'p2',
-    assignees: item.assignees || existingTask.assignees || [],
-    labels: item.labels || existingTask.labels || [],
+    assignees: item.assignees !== undefined ? item.assignees : (existingTask.assignees || []),
+    labels: item.labels !== undefined ? item.labels : (existingTask.labels || []),
     dependencies: item.dependencies || existingTask.dependencies || [],
     parentId: item.parentId !== undefined ? item.parentId : existingTask.parentId,
     blocks: item.blocks !== undefined ? item.blocks : existingTask.blocks,
@@ -977,11 +970,6 @@ function purgeBacklogMdItem(project: ProjectMeta, id: string): boolean {
   return true;
 }
 
-// DEV-049 legacy: kept for compat - now delegates to softDeleteBacklogMdItem
-function deleteBacklogMdItem(project: ProjectMeta, id: string): boolean {
-  return softDeleteBacklogMdItem(project, id);
-}
-
 function writeProjectBacklog(project: ProjectMeta, data: ProjectBacklog) {
   if (isBacklogMdProject(project)) {
     // In backlog-md mode, save releases into backlog/releases.json and sprints into backlog/sprints.json
@@ -1087,7 +1075,7 @@ function devBoardApi(): PluginOption {
 
     for (const dir of dirsToWatch) {
       try {
-        const watcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+        const watcher = fs.watch(dir, { recursive: true }, (_eventType, filename) => {
           if (filename && (filename.endsWith('.log') || filename.endsWith('.tmp') || filename.includes('.git') || (filename.startsWith('.') && !filename.includes('devboard') && !filename.includes('backlog')))) {
             return;
           }
@@ -1199,7 +1187,22 @@ function devBoardApi(): PluginOption {
               const allSprints: any[] = [];
               const resolvedProjects: ProjectMeta[] = [];
 
-              for (const p of registry.projects) {
+              const isMultiMode = process.env.DEVBOARD_MODE === 'multi';
+              const targetRepoEnv = process.env.DEVBOARD_TARGET_REPO;
+
+              // In single-project mode: resolve strictly the targeted or active project
+              const targetRepo = targetRepoEnv ? path.resolve(targetRepoEnv) : path.resolve(process.cwd());
+              const activeProject = registry.projects.find(p => {
+                if (p.repoPath && path.resolve(p.repoPath) === targetRepo) {
+                  return true;
+                }
+                return false;
+              }) || registry.projects.find(p => p.id === registry.activeProjectId) || registry.projects[0];
+
+              const isSingleMode = process.env.DEVBOARD_MODE === 'single' || (!isMultiMode && registry.projects.length <= 1) || !isMultiMode;
+              const projectsToProcess = (isSingleMode && activeProject) ? [activeProject] : registry.projects;
+
+              for (const p of projectsToProcess) {
                 const backlog = readProjectBacklog(p);
                 const proj = backlog.project || p;
                 const docsPath = getProjectDocsPath(proj);
@@ -1213,17 +1216,29 @@ function devBoardApi(): PluginOption {
                 allSprints.push(...(backlog.sprints || []));
               }
 
-              const isMultiMode = process.env.DEVBOARD_MODE === 'multi';
-              const isSingleMode = process.env.DEVBOARD_MODE === 'single' || (!isMultiMode && resolvedProjects.length <= 1);
+              const resolvedActiveId = activeProject?.id || registry.activeProjectId || resolvedProjects[0]?.id || '';
+              const updateInfo = getCachedUpdateInfo(appVersion);
+              // Trigger non-blocking background update check
+              checkForUpdates(appVersion).catch(() => {});
 
               return sendJson(200, {
                 projects: resolvedProjects,
-                activeProjectId: registry.activeProjectId,
+                activeProjectId: resolvedActiveId,
                 singleProject: isSingleMode,
                 items: allItems,
                 releases: allReleases,
                 sprints: allSprints,
+                updateAvailable: updateInfo || null,
                 lastUpdated: new Date().toISOString()
+              });
+            }
+
+            // GET /api/updates
+            if (req.method === 'GET' && url === '/api/updates') {
+              const cached = getCachedUpdateInfo(appVersion);
+              return sendJson(200, {
+                currentVersion: appVersion,
+                update: cached || null
               });
             }
 

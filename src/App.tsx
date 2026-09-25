@@ -60,7 +60,7 @@ export function App() {
       const saved = localStorage.getItem('devboard_active_project_id');
       if (saved) return saved;
     } catch {}
-    return 'dev-board';
+    return '';
   });
 
   useEffect(() => {
@@ -257,15 +257,23 @@ export function App() {
       if (!silent) setLoading(true);
       const data = await fetchBoardData();
       setBoardData(data);
-      if (data.projects.length > 0 && selectedProjectId !== 'all') {
-        const exists = data.projects.some((p) => p.id === selectedProjectId);
-        if (!exists) {
-          const serverActive = data.activeProjectId && data.projects.some(p => p.id === data.activeProjectId) ? data.activeProjectId : null;
-          const fallback = serverActive || data.projects.find(p => p.id === 'dev-board')?.id || data.projects[0].id;
-          setSelectedProjectId(fallback);
+      if (data.projects.length > 0) {
+        if (data.singleProject) {
+          const activeId = data.activeProjectId || data.projects[0].id;
+          setSelectedProjectId(activeId);
           try {
-            localStorage.setItem('devboard_active_project_id', fallback);
+            localStorage.setItem('devboard_active_project_id', activeId);
           } catch {}
+        } else if (selectedProjectId !== 'all') {
+          const exists = selectedProjectId && data.projects.some((p) => p.id === selectedProjectId);
+          if (!exists) {
+            const serverActive = data.activeProjectId && data.projects.some(p => p.id === data.activeProjectId) ? data.activeProjectId : null;
+            const fallback = serverActive || data.projects[0]?.id || '';
+            setSelectedProjectId(fallback);
+            try {
+              localStorage.setItem('devboard_active_project_id', fallback);
+            } catch {}
+          }
         }
       }
     } catch (err: any) {
@@ -774,7 +782,7 @@ export function App() {
       // Create
       const created = await createItem({
         ...itemData,
-        projectId: itemData.projectId || (selectedProjectId === 'all' ? 'dom' : selectedProjectId)
+        projectId: itemData.projectId || (selectedProjectId === 'all' ? (boardData?.projects[0]?.id || '') : selectedProjectId)
       });
       setBoardData({
         ...boardData,
@@ -1155,6 +1163,7 @@ export function App() {
         liveConnected={liveConnected}
         config={config}
         singleProject={boardData?.singleProject}
+        updateAvailable={boardData?.updateAvailable}
       />
 
       {/* Filter Bar (Active in Kanban and Sprint tabs) */}
@@ -1364,7 +1373,7 @@ export function App() {
         isOpen={importWizardOpen}
         onClose={() => setImportWizardOpen(false)}
         projects={boardData?.projects || []}
-        activeProjectId={selectedProjectId === 'all' ? (boardData?.projects[0]?.id || 'dom') : selectedProjectId}
+        activeProjectId={selectedProjectId === 'all' ? (boardData?.projects[0]?.id || '') : selectedProjectId}
         onImportComplete={() => {
           loadData(true);
           showToast('Tareas importadas exitosamente desde archivo legacy', 'success');

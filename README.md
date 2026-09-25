@@ -73,14 +73,43 @@ It replaces chaotic "vibe coding" with strict, transparent engineering guardrail
 
 No complex setups or servers required. Pick the scenario that matches what you want to do:
 
-### 1. Instant Launch in Any Repository (Zero-Install)
+### 1. Interactive Onboarding & Scaffolding Wizard (`devboard --init`)
+Run inside any existing or new repository to initialize DevBoard with complete user sovereignty:
+```bash
+npx devboard --init
+```
+The step-by-step interactive wizard lets you customize the exact installation scope:
+- **Operating Mode**: Choose between **Single-Project Mode** (`singleProject: true`, isolated to this repository with zero external dependencies) or **Multi-Project Hub** (registered in `~/.devboard/registry.json` under the XDG standard).
+- **AI Agent Skill**: Installs `.agents/skills/devboard/SKILL.md` so Antigravity, Cursor, and Claude Code know how to manage tasks via MCP or Markdown.
+- **Agent Governance Guide**: Generates `AGENTS.md` with best practices, dogfooding rules, and pre-commit guardrails.
+- **Convenience Scripts**: Adds `"board": "devboard"` and `"mcp": "devboard-mcp"` to your `package.json`.
+- **Git Ignore**: Adds recommended exclusions (`.devboard/update-cache.json`, etc.) to `.gitignore`.
+
+*Non-interactive mode (for CI, containers, or automatic setups):*
+```bash
+npx devboard --init -y
+```
+
+### 2. Instant Launch in Any Repository (Zero-Install)
 Run inside any repository folder:
 ```bash
 npx devboard
 ```
 *DevBoard automatically detects the repository in your working directory, verifies storage engine (`backlog/tasks` or `.devboard`), and launches the Kanban UI in your default browser at `http://localhost:4100`.*
 
-### 2. Use the AI Agent MCP Server in any project
+**Available CLI Flags:**
+- `--single` / `--mono`: Force isolated single-project mode (ignores other repositories and locks active context).
+- `--hub`: Force multi-project hub mode (loads and manages all registered projects in `~/.devboard/registry.json`).
+- `--port <number>`: Specify a custom port (e.g. `npx devboard --port 4200`).
+- `--repo <path>`: Target an explicit repository path instead of the current working directory.
+
+**Automatic Version & Update Notifications:**
+Like Supabase CLI, DevBoard performs a non-blocking check against GitHub Releases once every 24 hours. When a newer version is available, a subtle terminal banner appears on startup and a notification badge is displayed in the web UI. To disable:
+```bash
+DEVBOARD_NO_UPDATE_CHECK=1 npx devboard
+```
+
+### 3. Use the AI Agent MCP Server in any project
 Add this to your IDE's MCP configuration (`.cursor/mcp.json`, Claude Desktop, or Antigravity):
 
 ```json
@@ -95,7 +124,7 @@ Add this to your IDE's MCP configuration (`.cursor/mcp.json`, Claude Desktop, or
 ```
 *Your AI agent (Cursor, Claude Code, Antigravity) will automatically detect `backlog/tasks/` in your repository and manage tasks through 12 dedicated tools.*
 
-### 3. Run the Visual Kanban Cockpit from Source
+### 4. Run the Visual Kanban Cockpit from Source
 Clone this repository and launch the local dashboard:
 ```bash
 git clone https://github.com/pablojavierrodriguez/dev-board.git
@@ -105,7 +134,7 @@ npm run dev
 ```
 *Open `http://localhost:4100`. Pre-commit verification hooks configure automatically via `npm install`.*
 
-### 4. Local Developer Link (`npm link`)
+### 5. Local Developer Link (`npm link`)
 If you cloned the repo and want `devboard` and `devboard-mcp` globally available in your terminal:
 ```bash
 npm link

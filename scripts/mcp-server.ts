@@ -18,12 +18,32 @@ import {
   generateMonolithicBacklogMd,
   type BacklogMdTask
 } from './backlogMdParser.ts';
+import { loadRegistryFile } from './registryConfig.js';
+import { formatUpdateBanner, checkForUpdates, getCachedUpdateInfo } from './updateChecker.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-const REGISTRY_FILE = path.join(ROOT_DIR, 'data/projects-registry.json');
 const DEMO_FILE = path.join(ROOT_DIR, 'data/demo-backlog.json');
+
+let currentVersion = '0.5.0';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8'));
+  if (pkg.version) currentVersion = pkg.version;
+} catch {}
+
+// Non-blocking update check for MCP server (outputs to stderr to keep stdout JSON-RPC clean)
+try {
+  const cached = getCachedUpdateInfo(currentVersion);
+  if (cached && cached.hasUpdate) {
+    process.stderr.write('\n' + formatUpdateBanner(currentVersion, cached.latestVersion) + '\n\n');
+  }
+  checkForUpdates(currentVersion).then((res) => {
+    if (res.hasUpdate && !cached?.hasUpdate) {
+      process.stderr.write('\n' + formatUpdateBanner(currentVersion, res.latestVersion) + '\n\n');
+    }
+  }).catch(() => {});
+} catch {}
 
 interface ProjectMeta {
   id: string;
@@ -39,11 +59,9 @@ interface ProjectMeta {
 }
 
 function getRegistry(): { activeProjectId: string; projects: ProjectMeta[] } {
-  let reg: { activeProjectId: string; projects: ProjectMeta[] } = { activeProjectId: '', projects: [] };
-  if (fs.existsSync(REGISTRY_FILE)) {
-    try {
-      reg = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
-    } catch {}
+  let reg: { activeProjectId: string; projects: ProjectMeta[] } = loadRegistryFile(ROOT_DIR);
+  if (!reg || !Array.isArray(reg.projects)) {
+    reg = { activeProjectId: '', projects: [] };
   }
 
   // CLI arg support: --repo <dir> or -p <dir>

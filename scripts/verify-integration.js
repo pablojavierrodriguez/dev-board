@@ -9,6 +9,21 @@ import {
   generateTaskFilename,
   generateMonolithicBacklogMd
 } from './backlogMdParser.ts';
+import {
+  getDevBoardHomeDir,
+  getRegistryPath,
+  loadRegistryFile,
+  saveRegistryFile
+} from './registryConfig.js';
+import {
+  semverGreaterThan,
+  formatUpdateBanner,
+  writeUpdateCache,
+  readUpdateCache,
+  getCachedUpdateInfo,
+  isUpdateCheckDisabled
+} from './updateChecker.js';
+import { runInitWizard } from './initScaffold.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -257,6 +272,160 @@ assert.strictEqual(parsedConfig.customItemTypes.length, 1);
 assert.strictEqual(parsedConfig.customItemTypes[0].key, 'spike');
 assert.strictEqual(parsedConfig.customItemTypes[0].label, 'Spike Técnico');
 console.log('✅ DEV-059 & DEV-074: Custom item types taxonomy config persistence verified');
+
+// 11. Test DEV-104: XDG and Home Directory Registry Resolution and Migration
+const tempHome = path.join(__dirname, '../data/test-temp-home');
+const tempLegacyPkg = path.join(__dirname, '../data/test-temp-pkg');
+
+try {
+  if (fs.existsSync(tempHome)) fs.rmSync(tempHome, { recursive: true, force: true });
+  if (fs.existsSync(tempLegacyPkg)) fs.rmSync(tempLegacyPkg, { recursive: true, force: true });
+
+  process.env.DEVBOARD_HOME = tempHome;
+  assert.strictEqual(getDevBoardHomeDir(), tempHome, 'Should resolve DEVBOARD_HOME when set');
+  const userRegistryFile = getRegistryPath(tempLegacyPkg);
+  assert.strictEqual(userRegistryFile, path.join(tempHome, 'registry.json'), 'Registry path should be in home dir');
+
+  // Create legacy registry mock
+  const legacyDataDir = path.join(tempLegacyPkg, 'data');
+  fs.mkdirSync(legacyDataDir, { recursive: true });
+  const legacyFile = path.join(legacyDataDir, 'projects-registry.json');
+  fs.writeFileSync(legacyFile, JSON.stringify({
+    activeProjectId: 'migrated-proj',
+    projects: [{ id: 'migrated-proj', name: 'Migrated Project', codePrefix: 'MIG', repoPath: '/tmp/mig' }]
+  }, null, 2), 'utf8');
+
+  // Load should transparently migrate to tempHome
+  assert.strictEqual(fs.existsSync(userRegistryFile), false, 'User registry should not exist before load');
+  const loaded = loadRegistryFile(tempLegacyPkg);
+  assert.strictEqual(loaded.activeProjectId, 'migrated-proj', 'Should load legacy project');
+  assert.strictEqual(fs.existsSync(userRegistryFile), true, 'User registry should be automatically created upon migration');
+
+  // Mutating and saving should write to userRegistryFile and NOT modify legacy file
+  loaded.projects.push({ id: 'new-proj', name: 'New Project', codePrefix: 'NEW' });
+  saveRegistryFile(loaded, tempLegacyPkg);
+
+  const updatedUserReg = JSON.parse(fs.readFileSync(userRegistryFile, 'utf8'));
+  assert.strictEqual(updatedUserReg.projects.length, 2, 'User registry should have 2 projects');
+
+  const legacyUnchanged = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
+  assert.strictEqual(legacyUnchanged.projects.length, 1, 'Legacy registry must remain untouched');
+  console.log('✅ DEV-104: XDG/Home directory registry resolution, automatic migration, and isolation verified');
+} finally {
+  delete process.env.DEVBOARD_HOME;
+  if (fs.existsSync(tempHome)) fs.rmSync(tempHome, { recursive: true, force: true });
+  if (fs.existsSync(tempLegacyPkg)) fs.rmSync(tempLegacyPkg, { recursive: true, force: true });
+}
+
+// 12. Test DEV-107: Update Checker, Semver comparison, 24h Caching & Banners
+assert.strictEqual(semverGreaterThan('0.6.0', '0.5.0'), true, '0.6.0 should be greater than 0.5.0');
+assert.strictEqual(semverGreaterThan('1.0.0', '0.9.9'), true, '1.0.0 should be greater than 0.9.9');
+assert.strictEqual(semverGreaterThan('0.5.1', '0.5.0'), true, '0.5.1 should be greater than 0.5.0');
+assert.strictEqual(semverGreaterThan('0.5.0', '0.5.0'), false, 'Equal versions should not be greater');
+assert.strictEqual(semverGreaterThan('0.4.9', '0.5.0'), false, 'Older version should not be greater');
+assert.strictEqual(semverGreaterThan('v0.6.0', '0.5.0'), true, 'Should handle v prefix in target');
+assert.strictEqual(semverGreaterThan('0.6.0', 'v0.5.0'), true, 'Should handle v prefix in current');
+
+const banner = formatUpdateBanner('0.5.0', '0.6.0');
+assert.ok(banner.includes('0.5.0 → v0.6.0'), 'Banner should display version diff');
+assert.ok(banner.includes('git pull'), 'Banner should include git instructions');
+assert.ok(banner.includes('npm i -g dev-board@latest'), 'Banner should include npm instructions');
+
+// Test update cache reading and writing
+const tempCacheDir = path.join(__dirname, '../data/test-temp-cache');
+const tempCacheFile = path.join(tempCacheDir, 'update-cache.json');
+try {
+  if (fs.existsSync(tempCacheDir)) fs.rmSync(tempCacheDir, { recursive: true, force: true });
+  process.env.DEVBOARD_UPDATE_CACHE_PATH = tempCacheFile;
+
+  assert.strictEqual(readUpdateCache(), null, 'Should return null when cache does not exist');
+
+  writeUpdateCache({
+    lastCheck: Date.now(),
+    currentVersion: '0.5.0',
+    latestVersion: '0.6.0',
+    hasUpdate: true
+  });
+
+  const readBack = readUpdateCache();
+  assert.strictEqual(readBack?.hasUpdate, true, 'Cache should persist and read hasUpdate: true');
+  assert.strictEqual(readBack?.latestVersion, '0.6.0', 'Cache should persist latestVersion');
+
+  // getCachedUpdateInfo test
+  const cachedInfo = getCachedUpdateInfo('0.5.0');
+  assert.strictEqual(cachedInfo?.hasUpdate, true, 'Cached info should report hasUpdate');
+  assert.strictEqual(cachedInfo?.latestVersion, '0.6.0');
+
+  // Silencing via DEVBOARD_NO_UPDATE_CHECK
+  process.env.DEVBOARD_NO_UPDATE_CHECK = '1';
+  assert.strictEqual(isUpdateCheckDisabled(), true, 'Should detect DEVBOARD_NO_UPDATE_CHECK=1');
+  assert.strictEqual(getCachedUpdateInfo('0.5.0'), null, 'Should return null when silenced');
+  delete process.env.DEVBOARD_NO_UPDATE_CHECK;
+
+  console.log('✅ DEV-107: Update checker semver, 24h cache persistence, silencing, and banners verified');
+} finally {
+  delete process.env.DEVBOARD_UPDATE_CACHE_PATH;
+  delete process.env.DEVBOARD_NO_UPDATE_CHECK;
+  if (fs.existsSync(tempCacheDir)) fs.rmSync(tempCacheDir, { recursive: true, force: true });
+}
+
+// 13. Test DEV-109: Interactive / Non-interactive Init Scaffolding Wizard
+const testInitRepo = path.join(__dirname, '../data/test-repo-init');
+try {
+  if (fs.existsSync(testInitRepo)) fs.rmSync(testInitRepo, { recursive: true, force: true });
+  fs.mkdirSync(testInitRepo, { recursive: true });
+
+  // Create mock package.json
+  const mockPkg = { name: 'sample-project', version: '1.0.0', scripts: { test: 'vitest' } };
+  fs.writeFileSync(path.join(testInitRepo, 'package.json'), JSON.stringify(mockPkg, null, 2), 'utf8');
+
+  // Test 13.1: Single-project scaffolding
+  const resSingle = await runInitWizard(testInitRepo, {
+    isInteractive: false,
+    mode: 'single',
+    skill: true,
+    agentsMd: true,
+    packageJson: true,
+    gitignore: true
+  });
+
+  assert.strictEqual(resSingle.mode, 'single', 'Should configure single mode');
+  assert.strictEqual(resSingle.registeredInHub, false, 'Single mode should not register in global Hub');
+  assert.strictEqual(fs.existsSync(path.join(testInitRepo, '.devboard/config.json')), true, 'Config should exist');
+  assert.strictEqual(fs.existsSync(path.join(testInitRepo, 'backlog/tasks')), true, 'Tasks dir should exist');
+  assert.strictEqual(fs.existsSync(path.join(testInitRepo, '.agents/skills/devboard/SKILL.md')), true, 'SKILL.md should be created');
+  assert.strictEqual(fs.existsSync(path.join(testInitRepo, 'AGENTS.md')), true, 'AGENTS.md should be created');
+
+  const updatedPkg = JSON.parse(fs.readFileSync(path.join(testInitRepo, 'package.json'), 'utf8'));
+  assert.strictEqual(updatedPkg.scripts.board, 'devboard', 'Should add board script');
+  assert.strictEqual(updatedPkg.scripts.mcp, 'devboard-mcp', 'Should add mcp script');
+  assert.strictEqual(updatedPkg.scripts.test, 'vitest', 'Should preserve existing scripts');
+
+  const gitignoreContent = fs.readFileSync(path.join(testInitRepo, '.gitignore'), 'utf8');
+  assert.ok(gitignoreContent.includes('.devboard/update-cache.json'), '.gitignore should contain devboard ignores');
+
+  // Test 13.2: Idempotence & Non-destructivity (create a task and re-run with options)
+  const sampleTaskFile = path.join(testInitRepo, 'backlog/tasks/DEV-001 - Test Task.md');
+  fs.writeFileSync(sampleTaskFile, '# Task DEV-001', 'utf8');
+
+  // Re-run with Hub mode
+  const resReRun = await runInitWizard(testInitRepo, {
+    isInteractive: false,
+    mode: 'multi',
+    skill: true,
+    agentsMd: true,
+    packageJson: true,
+    gitignore: true
+  });
+
+  assert.strictEqual(resReRun.mode, 'multi', 'Re-run should allow changing mode');
+  assert.strictEqual(fs.existsSync(sampleTaskFile), true, 'Existing tasks MUST NOT be deleted upon re-initialization');
+  assert.strictEqual(fs.readFileSync(sampleTaskFile, 'utf8'), '# Task DEV-001', 'Task content must remain untouched');
+
+  console.log('✅ DEV-109: Interactive and customizable scaffolding wizard verified');
+} finally {
+  if (fs.existsSync(testInitRepo)) fs.rmSync(testInitRepo, { recursive: true, force: true });
+}
 
 // Clean up test files
 fs.rmSync(testRepoDir, { recursive: true, force: true });

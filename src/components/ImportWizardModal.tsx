@@ -43,7 +43,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   activeProjectId,
   onImportComplete
 }) => {
-  const [selectedProjectId, setSelectedProjectId] = useState(activeProjectId || projects[0]?.id || 'dom');
+  const [selectedProjectId, setSelectedProjectId] = useState(activeProjectId || projects[0]?.id || '');
   const [rawText, setRawText] = useState(SAMPLE_MARKDOWN);
   const [defaultMilestone, setDefaultMilestone] = useState('');
   const [items, setItems] = useState<ParsedLegacyItem[]>(() => parseLegacyMarkdown(SAMPLE_MARKDOWN));

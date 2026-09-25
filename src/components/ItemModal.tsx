@@ -17,7 +17,9 @@ import {
   Layers,
   Link,
   ShieldAlert,
-  History
+  History,
+  Tag,
+  User
 } from 'lucide-react';
 import type { BacklogItem, ItemStatus, ItemType, Priority, Project, AcceptanceCriterion, DevBoardConfig, Sprint, Release } from '../types';
 import { ConfirmModal } from './ConfirmModal';
@@ -63,7 +65,7 @@ export const ItemModal: FC<ItemModalProps> = ({
 
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
-  const [projectId, setProjectId] = useState(activeProjectId || 'dom');
+  const [projectId, setProjectId] = useState(activeProjectId || projects[0]?.id || '');
   const [type, setType] = useState<ItemType>('feature');
   const [priority, setPriority] = useState<Priority>('p2');
   const [status, setStatus] = useState<ItemStatus>(defaultStatus);
@@ -81,6 +83,10 @@ export const ItemModal: FC<ItemModalProps> = ({
   const [fix, setFix] = useState('');
   const [implementationPlan, setImplementationPlan] = useState('');
   const [acceptanceCriteriaList, setAcceptanceCriteriaList] = useState<AcceptanceCriterion[]>([]);
+  const [labels, setLabels] = useState<string[]>([]);
+  const [labelInput, setLabelInput] = useState('');
+  const [assignees, setAssignees] = useState<string[]>([]);
+  const [assigneeInput, setAssigneeInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [conflictItem, setConflictItem] = useState<BacklogItem | null>(null);
@@ -99,11 +105,13 @@ export const ItemModal: FC<ItemModalProps> = ({
   const currentCode = item?.code || '';
   const otherItems = (allItems || []).filter(it => it.id !== currentId && it.code !== currentCode);
   const candidateParents = otherItems.filter(it => it.type === 'epic' || it.type === 'initiative' || it.type === 'feature');
+  const availableLabels = Array.from(new Set(allItems.flatMap(it => it.labels || []))).filter(Boolean);
+  const availableAssignees = Array.from(new Set(allItems.flatMap(it => it.assignees || []))).filter(Boolean);
 
   const populateFromItem = (source: BacklogItem) => {
     setTitle(source.title || '');
     setCode(source.code || '');
-    setProjectId(source.projectId || activeProjectId || projects[0]?.id || 'dom');
+    setProjectId(source.projectId || activeProjectId || projects[0]?.id || '');
     setType(source.type || 'feature');
     setPriority(source.priority || 'p2');
     setStatus(source.status || 'draft');
@@ -127,6 +135,10 @@ export const ItemModal: FC<ItemModalProps> = ({
     setFix(source.fix || '');
     setImplementationPlan(source.implementationPlan || '');
     setAcceptanceCriteriaList(source.acceptanceCriteriaList || []);
+    setLabels(source.labels || []);
+    setLabelInput('');
+    setAssignees(source.assignees || []);
+    setAssigneeInput('');
     setAcExpanded(true);
     setPlanExpanded(Boolean(source.implementationPlan?.trim()));
     setRiskFixExpanded(Boolean(source.risk?.trim() || source.fix?.trim()));
@@ -161,7 +173,7 @@ export const ItemModal: FC<ItemModalProps> = ({
         // New item defaults
         setTitle('');
         setCode('');
-        setProjectId(activeProjectId || projects[0]?.id || 'dom');
+        setProjectId(activeProjectId || projects[0]?.id || '');
         setType('feature');
         setPriority('p2');
         setStatus(defaultStatus);
@@ -181,6 +193,10 @@ export const ItemModal: FC<ItemModalProps> = ({
         setFix('');
         setImplementationPlan('');
         setAcceptanceCriteriaList([]);
+        setLabels([]);
+        setLabelInput('');
+        setAssignees([]);
+        setAssigneeInput('');
         setAcExpanded(true);
         setPlanExpanded(false);
         setRiskFixExpanded(false);
@@ -203,7 +219,33 @@ export const ItemModal: FC<ItemModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, title, code, projectId, type, priority, status, module, impactedFile, sprint, release, description, risk, fix, implementationPlan, acceptanceCriteriaList, showDeleteConfirm]);
+  }, [isOpen, title, code, projectId, type, priority, status, module, impactedFile, sprint, release, description, risk, fix, implementationPlan, acceptanceCriteriaList, labels, assignees, showDeleteConfirm]);
+
+  const handleAddLabel = (val?: string) => {
+    const raw = (val !== undefined ? val : labelInput).trim();
+    if (!raw) return;
+    const parts = raw.split(',').map(s => s.trim().toLowerCase().replace(/^#/, '')).filter(Boolean);
+    const newLabels = Array.from(new Set([...labels, ...parts]));
+    setLabels(newLabels);
+    setLabelInput('');
+  };
+
+  const handleRemoveLabel = (labelToRemove: string) => {
+    setLabels(labels.filter(l => l !== labelToRemove));
+  };
+
+  const handleAddAssignee = (val?: string) => {
+    const raw = (val !== undefined ? val : assigneeInput).trim();
+    if (!raw) return;
+    const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+    const newAssignees = Array.from(new Set([...assignees, ...parts]));
+    setAssignees(newAssignees);
+    setAssigneeInput('');
+  };
+
+  const handleRemoveAssignee = (assigneeToRemove: string) => {
+    setAssignees(assignees.filter(a => a !== assigneeToRemove));
+  };
 
   const handleFormSubmit = async (force = false) => {
     if (!title.trim()) {
@@ -240,6 +282,8 @@ export const ItemModal: FC<ItemModalProps> = ({
         fix: fix.trim() || undefined,
         implementationPlan: implementationPlan.trim() || undefined,
         acceptanceCriteriaList,
+        labels: labels.filter(Boolean),
+        assignees: assignees.filter(Boolean),
         expectedMtime: item?.mtime,
         force
       });
@@ -289,7 +333,16 @@ export const ItemModal: FC<ItemModalProps> = ({
 
   const acChecked = acceptanceCriteriaList.filter(c => c.checked).length;
   const acTotal = acceptanceCriteriaList.length;
-  const contextCount = [module, impactedFile, sprint, release, risk, fix].filter(v => Boolean(v?.trim())).length;
+  const contextCount = [
+    module,
+    impactedFile,
+    sprint,
+    release,
+    risk,
+    fix,
+    labels.length > 0 ? 'labels' : '',
+    assignees.length > 0 ? 'assignees' : ''
+  ].filter(v => Boolean(v?.trim())).length;
 
   return (
     <div 
@@ -1168,6 +1221,134 @@ export const ItemModal: FC<ItemModalProps> = ({
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* Assignees (Asignados) - DEV-111 */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Asignados</span>
+                    </label>
+                    {assignees.length > 0 && (
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {assignees.length} {assignees.length === 1 ? 'persona' : 'personas'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={assigneeInput}
+                      onChange={(e) => setAssigneeInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddAssignee();
+                        }
+                      }}
+                      placeholder="Ej: Antigravity, Pablo..."
+                      list="assignees-autocomplete-list"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                    />
+                    <datalist id="assignees-autocomplete-list">
+                      {availableAssignees.filter(a => !assignees.includes(a)).map(a => (
+                        <option key={a} value={a} />
+                      ))}
+                    </datalist>
+                    <button
+                      type="button"
+                      onClick={() => handleAddAssignee()}
+                      className="px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-xs text-slate-300 hover:text-white font-medium transition-colors"
+                      title="Agregar asignado"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {assignees.length > 0 && (
+                    <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                      {assignees.map((a) => (
+                        <span
+                          key={a}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
+                        >
+                          <span>👤 {a}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAssignee(a)}
+                            className="hover:text-rose-400 transition-colors ml-0.5 text-xs leading-none"
+                            title={`Quitar ${a}`}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Labels (Etiquetas) - DEV-111 */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Etiquetas</span>
+                    </label>
+                    {labels.length > 0 && (
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {labels.length} {labels.length === 1 ? 'tag' : 'tags'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={labelInput}
+                      onChange={(e) => setLabelInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault();
+                          handleAddLabel();
+                        }
+                      }}
+                      placeholder="Ej: cli, frontend, bugfix... (Enter o coma)"
+                      list="labels-autocomplete-list"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-200 focus:outline-none focus:border-indigo-500/50"
+                    />
+                    <datalist id="labels-autocomplete-list">
+                      {availableLabels.filter(l => !labels.includes(l)).map(l => (
+                        <option key={l} value={l} />
+                      ))}
+                    </datalist>
+                    <button
+                      type="button"
+                      onClick={() => handleAddLabel()}
+                      className="px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-xs text-slate-300 hover:text-white font-medium transition-colors"
+                      title="Agregar etiqueta"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {labels.length > 0 && (
+                    <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                      {labels.map((l) => (
+                        <span
+                          key={l}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                        >
+                          <span>🏷️ {l}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLabel(l)}
+                            className="hover:text-rose-400 transition-colors ml-0.5 text-xs leading-none"
+                            title={`Quitar ${l}`}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Module & Code */}

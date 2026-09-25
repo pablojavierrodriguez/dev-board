@@ -33,10 +33,10 @@ export type ActiveTab = 'kanban' | 'sprint' | 'release' | 'trash' | 'archive' | 
 export type StorageType = "json" | "markdown";
 
 export interface Project {
-  id: string; // "dom", "project-2"
-  name: string; // "DOM (Personal Finances)"
-  codePrefix: string; // "DOM"
-  repoPath?: string; // "/Users/adrisol/Pablo/code/m3"
+  id: string; // "project-1", "project-2"
+  name: string; // "My App"
+  codePrefix: string; // "APP"
+  repoPath?: string; // "/path/to/repo"
   description?: string;
   isDemo?: boolean;
   storageType?: StorageType;
@@ -55,8 +55,8 @@ export interface AcceptanceCriterion {
 
 export interface BacklogItem {
   id: string;
-  code: string; // "DOM-BUG-001", "BACK-355", etc.
-  projectId: string; // "dom"
+  code: string; // "APP-001", "TASK-010", etc.
+  projectId: string; // "project-1"
   title: string;
   description: string;
   type: ItemType;
@@ -138,6 +138,7 @@ export interface BoardData {
   items: BacklogItem[];
   releases: Release[];
   sprints?: Sprint[];
+  updateAvailable?: UpdateInfo | null;
   lastUpdated: string;
 }
 
@@ -198,3 +199,11 @@ export interface FilterState {
   release?: string | "all";
   releases?: string[];
 }
+
+export interface UpdateInfo {
+  hasUpdate: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  url?: string;
+}
+

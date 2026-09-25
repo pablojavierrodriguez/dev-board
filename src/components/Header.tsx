@@ -18,9 +18,10 @@ import {
   Upload,
   Settings,
   Menu,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
-import type { Project, DevBoardConfig, ActiveTab } from '../types';
+import type { Project, DevBoardConfig, ActiveTab, UpdateInfo } from '../types';
 import { ConfirmModal } from './ConfirmModal';
 
 interface HeaderProps {
@@ -45,6 +46,7 @@ interface HeaderProps {
   liveConnected?: boolean;
   config?: DevBoardConfig;
   singleProject?: boolean;
+  updateAvailable?: UpdateInfo | null;
 }
 
 export const Header: FC<HeaderProps> = ({
@@ -68,7 +70,8 @@ export const Header: FC<HeaderProps> = ({
   onOpenImportWizard,
   liveConnected = false,
   config,
-  singleProject = false
+  singleProject = false,
+  updateAvailable
 }) => {
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -370,6 +373,20 @@ export const Header: FC<HeaderProps> = ({
 
           {/* Right: Actions, Live Sync, Archive, Theme Switcher & Settings */}
           <div className="flex items-center gap-2.5 justify-self-end">
+            {/* Update available badge (DEV-107) */}
+            {updateAvailable?.hasUpdate && (
+              <a
+                href={updateAvailable.url || 'https://github.com/pablojavierrodriguez/dev-board/releases'}
+                target="_blank"
+                rel="noreferrer"
+                title={`Nueva versión disponible: v${updateAvailable.latestVersion} (actual: v${updateAvailable.currentVersion})`}
+                className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-medium transition-all group shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-500 animate-pulse group-hover:rotate-12 transition-transform" />
+                <span className="font-mono text-[11px] font-semibold">v{updateAvailable.latestVersion}</span>
+              </a>
+            )}
+
             {/* Live Sync Status Indicator (DEV-014) */}
             <div 
               title={liveConnected ? 'Sincronización en vivo activa (SSE conectado al backend)' : 'Reconectando con el servidor local...'}
@@ -593,13 +610,26 @@ export const Header: FC<HeaderProps> = ({
               </div>
             </div>
 
-            {/* Live Sync Footer */}
+            {/* Live Sync & Version Footer */}
             <div className="pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${liveConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                 <span>{liveConnected ? 'Live Sync Activo' : 'Reconectando...'}</span>
               </div>
-              <span className="text-[10px] font-mono opacity-60">v0.3.0</span>
+              <div className="flex items-center gap-2">
+                {updateAvailable?.hasUpdate && (
+                  <a
+                    href={updateAvailable.url || 'https://github.com/pablojavierrodriguez/dev-board/releases'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20"
+                  >
+                    <Sparkles className="w-3 h-3 animate-pulse" />
+                    <span>v{updateAvailable.latestVersion}</span>
+                  </a>
+                )}
+                <span className="text-[10px] font-mono opacity-60">v{updateAvailable?.currentVersion || '0.5.0'}</span>
+              </div>
             </div>
           </div>
         </div>

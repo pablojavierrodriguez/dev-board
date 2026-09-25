@@ -9,10 +9,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
+import { loadRegistryFile, saveRegistryFile, getRegistryPath } from '../scripts/registryConfig.js';
+import { formatUpdateBanner, checkForUpdates, getCachedUpdateInfo } from '../scripts/updateChecker.js';
+import { runInitWizard } from '../scripts/initScaffold.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PKG_ROOT = path.resolve(__dirname, '..');
+const pkgJson = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8'));
+const currentVersion = pkgJson.version || '0.5.0';
 
 const args = process.argv.slice(2);
 
@@ -29,7 +34,8 @@ if (args.includes('--help') || args.includes('-h')) {
     --host <host>         Host de enlace (por defecto: localhost)
     --repo, -r <ruta>     Ruta del repositorio a gestionar (por defecto: process.cwd())
     --no-open             No abrir el navegador automáticamente
-    --init                Inicializar estructura de backlog en el repositorio actual
+    --init                Iniciar asistente interactivo de configuración y scaffolding
+    --yes, -y             Aceptar opciones por defecto sin preguntas (para CI / no interactivo)
     --help, -h            Muestra esta ayuda
   `);
   process.exit(0);
@@ -59,68 +65,23 @@ const shouldOpen = !args.includes('--no-open');
 // Set Single-Project or Multi-Project mode (DEV-041)
 const isHub = args.includes('--hub') || args.includes('--multi');
 process.env.DEVBOARD_MODE = isHub ? 'multi' : 'single';
+process.env.DEVBOARD_TARGET_REPO = targetRepo;
 
-// DEV-042: Handle --init flag to bootstrap .devboard/ and backlog/
+// DEV-042 & DEV-109: Handle --init flag to bootstrap .devboard/, backlog/, skills, AGENTS.md, gitignore
 if (args.includes('--init')) {
-  console.log(`\n  🚀 Inicializando DevBoard en: ${targetRepo}\n`);
+  const isYes = args.includes('--yes') || args.includes('-y') || args.includes('--defaults');
+  const isHubInit = args.includes('--hub') || args.includes('--multi');
+  const isSingleInit = args.includes('--single');
   
-  // 1. Create .devboard directory
-  const devboardDir = path.join(targetRepo, '.devboard');
-  if (!fs.existsSync(devboardDir)) {
-    fs.mkdirSync(devboardDir, { recursive: true });
-    console.log('  📁 Creado directorio .devboard/');
-  }
-
-  // 2. Create .devboard/config.json if not present
-  const configFile = path.join(devboardDir, 'config.json');
-  if (!fs.existsSync(configFile)) {
-    const defaultConfig = {
-      theme: 'dark',
-      density: 'comfortable',
-      autoSave: true,
-      kanban: {
-        showIdeasByDefault: false,
-        showDoneHistoryByDefault: false,
-        wipLimits: {
-          'col-doing': 0,
-          'col-review': 0,
-          'col-ready': 0
-        }
-      },
-      version: '1.0.0'
-    };
-    fs.writeFileSync(configFile, JSON.stringify(defaultConfig, null, 2), 'utf8');
-    console.log('  ⚙️  Creado archivo de configuración .devboard/config.json');
-  }
-
-  // 3. Create backlog/tasks directory if not present
-  const tasksDir = path.join(targetRepo, 'backlog/tasks');
-  if (!fs.existsSync(tasksDir)) {
-    fs.mkdirSync(tasksDir, { recursive: true });
-    console.log('  📋 Creado directorio backlog/tasks/ para tareas distribuidas en Markdown');
-  }
-
-  // 4. Update host package.json if present
-  const hostPkgJson = path.join(targetRepo, 'package.json');
-  if (fs.existsSync(hostPkgJson)) {
-    try {
-      const pkgRaw = fs.readFileSync(hostPkgJson, 'utf8');
-      const pkg = JSON.parse(pkgRaw);
-      pkg.scripts = pkg.scripts || {};
-      if (!pkg.scripts.board && !pkg.scripts.devboard) {
-        pkg.scripts.board = 'devboard';
-        fs.writeFileSync(hostPkgJson, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
-        console.log('  ✨ Añadido script "board": "devboard" en package.json');
-      } else {
-        console.log('  ℹ️  Script de inicio ya configurado en package.json');
-      }
-    } catch (err) {
-      console.warn('  ⚠️  No se pudo actualizar package.json automáticamente:', err.message);
-    }
-  }
-
-  console.log(`\n  ✅ Inicialización completada con éxito.`);
-  console.log(`  💡 Para iniciar el cockpit, ejecuta: npm run board (o npx devboard)\n`);
+  await runInitWizard(targetRepo, {
+    yes: isYes,
+    mode: isHubInit ? 'multi' : (isSingleInit ? 'single' : undefined),
+    skill: args.includes('--no-skill') ? false : (args.includes('--skill') ? true : undefined),
+    agentsMd: args.includes('--no-agents') ? false : (args.includes('--agents') ? true : undefined),
+    packageJson: args.includes('--no-scripts') ? false : (args.includes('--scripts') ? true : undefined),
+    gitignore: args.includes('--no-gitignore') ? false : (args.includes('--gitignore') ? true : undefined),
+    force: args.includes('--force')
+  });
   process.exit(0);
 }
 
@@ -143,13 +104,9 @@ if (fs.existsSync(tasksDir)) {
   }
 }
 
-// Register project in projects-registry.json dynamically
-const registryFile = path.join(PKG_ROOT, 'data/projects-registry.json');
+// Register project in ~/.devboard/registry.json dynamically (DEV-104)
 try {
-  let registry = { activeProjectId: '', projects: [] };
-  if (fs.existsSync(registryFile)) {
-    registry = JSON.parse(fs.readFileSync(registryFile, 'utf8'));
-  }
+  const registry = loadRegistryFile(PKG_ROOT);
   
   const projectName = path.basename(targetRepo);
   const projectId = projectName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
@@ -173,10 +130,7 @@ try {
   }
   registry.activeProjectId = projectId;
   
-  if (!fs.existsSync(path.dirname(registryFile))) {
-    fs.mkdirSync(path.dirname(registryFile), { recursive: true });
-  }
-  fs.writeFileSync(registryFile, JSON.stringify(registry, null, 2), 'utf8');
+  saveRegistryFile(registry, PKG_ROOT);
 } catch (err) {
   // Gracefully continue
 }
@@ -195,6 +149,7 @@ async function start() {
   
   const server = await createServer({
     root: PKG_ROOT,
+    configFile: path.resolve(PKG_ROOT, 'vite.config.ts'),
     server: {
       port,
       host,
@@ -217,6 +172,18 @@ async function start() {
 │  ⚡ Live Sync:    Activa (SSE & Watcher en tiempo real)    │
 └────────────────────────────────────────────────────────────┘
   `);
+
+  const cachedUpdate = getCachedUpdateInfo(currentVersion);
+  if (cachedUpdate && cachedUpdate.hasUpdate) {
+    console.log(formatUpdateBanner(currentVersion, cachedUpdate.latestVersion) + '\n');
+  }
+
+  // Non-blocking background check for newer releases (cached for 24h)
+  checkForUpdates(currentVersion).then((res) => {
+    if (res.hasUpdate && !cachedUpdate?.hasUpdate) {
+      console.log('\n' + formatUpdateBanner(currentVersion, res.latestVersion) + '\n');
+    }
+  }).catch(() => {});
 
   if (shouldOpen) {
     openBrowser(url);

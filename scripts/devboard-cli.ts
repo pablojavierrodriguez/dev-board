@@ -9,22 +9,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseBacklogMd, serializeBacklogMd, generateTaskFilename, normalizeStatus, normalizePriority, generateMonolithicBacklogMd } from './backlogMdParser.ts';
+import { loadRegistryFile } from './registryConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
-const REGISTRY_FILE = path.join(ROOT_DIR, 'data/projects-registry.json');
 const DEMO_FILE = path.join(ROOT_DIR, 'data/demo-backlog.json');
 
 function getRegistry(): { activeProjectId: string; projects: any[] } {
-  if (!fs.existsSync(REGISTRY_FILE)) {
+  const reg = loadRegistryFile(ROOT_DIR);
+  if (!reg || !Array.isArray(reg.projects)) {
     return { activeProjectId: '', projects: [] };
   }
-  try {
-    return JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));
-  } catch {
-    return { activeProjectId: '', projects: [] };
-  }
+  return reg;
 }
 
 function getProject(projectId?: string) {

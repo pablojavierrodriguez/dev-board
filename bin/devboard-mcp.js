@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 // scripts/mcp-server.ts
-import fs from "node:fs";
-import path from "node:path";
+import fs3 from "node:fs";
+import path3 from "node:path";
 import readline from "node:readline";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // scripts/backlogMdParser.ts
 function normalizeStatus(raw) {
@@ -523,35 +523,280 @@ ${item.description}
   return lines.join("\n");
 }
 
-// scripts/mcp-server.ts
+// scripts/registryConfig.js
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import { fileURLToPath } from "node:url";
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path.dirname(__filename);
-var ROOT_DIR = path.resolve(__dirname, "..");
-var REGISTRY_FILE = path.join(ROOT_DIR, "data/projects-registry.json");
-var DEMO_FILE = path.join(ROOT_DIR, "data/demo-backlog.json");
-function getRegistry() {
-  let reg = { activeProjectId: "", projects: [] };
-  if (fs.existsSync(REGISTRY_FILE)) {
+var DEFAULT_PKG_ROOT = path.resolve(__dirname, "..");
+function getDevBoardHomeDir() {
+  if (process.env.DEVBOARD_HOME) {
+    return path.resolve(process.env.DEVBOARD_HOME);
+  }
+  if (process.env.XDG_CONFIG_HOME) {
+    return path.join(process.env.XDG_CONFIG_HOME, "devboard");
+  }
+  return path.join(os.homedir(), ".devboard");
+}
+function getRegistryPath(pkgRoot = DEFAULT_PKG_ROOT) {
+  if (process.env.DEVBOARD_REGISTRY_PATH) {
+    return path.resolve(process.env.DEVBOARD_REGISTRY_PATH);
+  }
+  return path.join(getDevBoardHomeDir(), "registry.json");
+}
+function getLegacyRegistryPath(pkgRoot = DEFAULT_PKG_ROOT) {
+  if (!pkgRoot) return null;
+  return path.join(pkgRoot, "data/projects-registry.json");
+}
+function loadRegistryFile(pkgRoot = DEFAULT_PKG_ROOT) {
+  const primaryPath = getRegistryPath(pkgRoot);
+  const legacyPath = getLegacyRegistryPath(pkgRoot);
+  try {
+    if (primaryPath && fs.existsSync(primaryPath)) {
+      const content = fs.readFileSync(primaryPath, "utf8");
+      const data = JSON.parse(content);
+      if (data && Array.isArray(data.projects) && data.projects.length > 0) {
+        return data;
+      }
+    }
+  } catch {
+  }
+  if (legacyPath) {
     try {
-      reg = JSON.parse(fs.readFileSync(REGISTRY_FILE, "utf8"));
+      if (fs.existsSync(legacyPath)) {
+        const data = JSON.parse(fs.readFileSync(legacyPath, "utf8"));
+        if (data && Array.isArray(data.projects)) {
+          try {
+            saveRegistryFile(data, pkgRoot);
+          } catch {
+          }
+          return data;
+        }
+      }
     } catch {
     }
+  }
+  return { activeProjectId: "", projects: [] };
+}
+function saveRegistryFile(registry, pkgRoot = DEFAULT_PKG_ROOT) {
+  const targetPath = getRegistryPath(pkgRoot);
+  const legacyPath = getLegacyRegistryPath(pkgRoot);
+  let saved = false;
+  try {
+    const targetDir = path.dirname(targetPath);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    fs.writeFileSync(targetPath, JSON.stringify(registry, null, 2), "utf8");
+    saved = true;
+  } catch {
+  }
+  if (!saved && legacyPath) {
+    try {
+      const legacyDir = path.dirname(legacyPath);
+      if (!fs.existsSync(legacyDir)) {
+        fs.mkdirSync(legacyDir, { recursive: true });
+      }
+      fs.writeFileSync(legacyPath, JSON.stringify(registry, null, 2), "utf8");
+    } catch {
+    }
+  }
+}
+
+// scripts/updateChecker.js
+import fs2 from "node:fs";
+import path2 from "node:path";
+var CACHE_FILE_NAME = "update-cache.json";
+var CACHE_TTL_MS = 24 * 60 * 60 * 1e3;
+var GITHUB_REPO = "pablojavierrodriguez/dev-board";
+function semverGreaterThan(target, current) {
+  if (!target || !current) return false;
+  const cleanT = target.replace(/^v/, "").trim().split(".").map((n) => parseInt(n, 10) || 0);
+  const cleanC = current.replace(/^v/, "").trim().split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const partT = cleanT[i] || 0;
+    const partC = cleanC[i] || 0;
+    if (partT > partC) return true;
+    if (partT < partC) return false;
+  }
+  return false;
+}
+function getUpdateCachePath() {
+  if (process.env.DEVBOARD_UPDATE_CACHE_PATH) {
+    return path2.resolve(process.env.DEVBOARD_UPDATE_CACHE_PATH);
+  }
+  return path2.join(getDevBoardHomeDir(), CACHE_FILE_NAME);
+}
+function readUpdateCache() {
+  try {
+    const cachePath = getUpdateCachePath();
+    if (!fs2.existsSync(cachePath)) return null;
+    const content = fs2.readFileSync(cachePath, "utf8");
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+function writeUpdateCache(data) {
+  const cachePath = getUpdateCachePath();
+  try {
+    const dir = path2.dirname(cachePath);
+    if (!fs2.existsSync(dir)) {
+      fs2.mkdirSync(dir, { recursive: true });
+    }
+    fs2.writeFileSync(cachePath, JSON.stringify(data, null, 2), "utf8");
+  } catch {
+  }
+}
+function isUpdateCheckDisabled() {
+  const env = process.env.DEVBOARD_NO_UPDATE_CHECK;
+  return env === "1" || env === "true";
+}
+function formatUpdateBanner(currentVersion2, latestVersion) {
+  const cleanCurrent = currentVersion2.replace(/^v/, "");
+  const cleanLatest = latestVersion.replace(/^v/, "");
+  const versionLine = `  \u2728 \xA1Nueva versi\xF3n disponible!  v${cleanCurrent} \u2192 v${cleanLatest}`;
+  return [
+    "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510",
+    `\u2502${versionLine.padEnd(60)}\u2502`,
+    "\u2502                                                            \u2502",
+    "\u2502  Instrucciones para actualizar:                            \u2502",
+    "\u2502  \u2022 Con git: cd <repo> && git pull && npm run build         \u2502",
+    "\u2502  \u2022 Con npm: npm i -g dev-board@latest                      \u2502",
+    "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518"
+  ].join("\n");
+}
+function getCachedUpdateInfo(currentVersion2) {
+  if (isUpdateCheckDisabled()) return null;
+  const cached = readUpdateCache();
+  if (cached && cached.hasUpdate && cached.latestVersion) {
+    if (semverGreaterThan(cached.latestVersion, currentVersion2)) {
+      return {
+        hasUpdate: true,
+        currentVersion: currentVersion2,
+        latestVersion: cached.latestVersion,
+        url: cached.url || `https://github.com/${GITHUB_REPO}/releases/latest`
+      };
+    }
+  }
+  return null;
+}
+async function checkForUpdates(currentVersion2, { force = false, timeoutMs = 2e3 } = {}) {
+  if (isUpdateCheckDisabled()) {
+    return { hasUpdate: false, currentVersion: currentVersion2, latestVersion: currentVersion2, disabled: true };
+  }
+  const cached = readUpdateCache();
+  const now = Date.now();
+  if (!force && cached && cached.lastCheck && now - cached.lastCheck < CACHE_TTL_MS) {
+    const hasUpdate = semverGreaterThan(cached.latestVersion, currentVersion2);
+    return {
+      hasUpdate,
+      currentVersion: currentVersion2,
+      latestVersion: cached.latestVersion || currentVersion2,
+      url: cached.url || `https://github.com/${GITHUB_REPO}/releases/latest`,
+      fromCache: true
+    };
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "DevBoard-CLI",
+        "Accept": "application/vnd.github.v3+json"
+      }
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      const rawTag = data.tag_name || data.name || "";
+      const latestVersion = rawTag.replace(/^v/, "").trim();
+      const hasUpdate = semverGreaterThan(latestVersion, currentVersion2);
+      const url = data.html_url || `https://github.com/${GITHUB_REPO}/releases/latest`;
+      const cacheData = {
+        lastCheck: now,
+        currentVersion: currentVersion2,
+        latestVersion,
+        hasUpdate,
+        url
+      };
+      writeUpdateCache(cacheData);
+      return {
+        hasUpdate,
+        currentVersion: currentVersion2,
+        latestVersion,
+        url,
+        fromCache: false
+      };
+    } else {
+      if (cached) {
+        writeUpdateCache({ ...cached, lastCheck: now });
+      } else {
+        writeUpdateCache({ lastCheck: now, currentVersion: currentVersion2, latestVersion: currentVersion2, hasUpdate: false });
+      }
+    }
+  } catch {
+    if (cached) {
+      writeUpdateCache({ ...cached, lastCheck: now });
+    } else {
+      writeUpdateCache({ lastCheck: now, currentVersion: currentVersion2, latestVersion: currentVersion2, hasUpdate: false });
+    }
+  }
+  return {
+    hasUpdate: cached ? semverGreaterThan(cached.latestVersion, currentVersion2) : false,
+    currentVersion: currentVersion2,
+    latestVersion: cached?.latestVersion || currentVersion2,
+    fromCache: true
+  };
+}
+
+// scripts/mcp-server.ts
+var __filename2 = fileURLToPath2(import.meta.url);
+var __dirname2 = path3.dirname(__filename2);
+var ROOT_DIR = path3.resolve(__dirname2, "..");
+var DEMO_FILE = path3.join(ROOT_DIR, "data/demo-backlog.json");
+var currentVersion = "0.5.0";
+try {
+  const pkg = JSON.parse(fs3.readFileSync(path3.join(ROOT_DIR, "package.json"), "utf8"));
+  if (pkg.version) currentVersion = pkg.version;
+} catch {
+}
+try {
+  const cached = getCachedUpdateInfo(currentVersion);
+  if (cached && cached.hasUpdate) {
+    process.stderr.write("\n" + formatUpdateBanner(currentVersion, cached.latestVersion) + "\n\n");
+  }
+  checkForUpdates(currentVersion).then((res) => {
+    if (res.hasUpdate && !cached?.hasUpdate) {
+      process.stderr.write("\n" + formatUpdateBanner(currentVersion, res.latestVersion) + "\n\n");
+    }
+  }).catch(() => {
+  });
+} catch {
+}
+function getRegistry() {
+  let reg = loadRegistryFile(ROOT_DIR);
+  if (!reg || !Array.isArray(reg.projects)) {
+    reg = { activeProjectId: "", projects: [] };
   }
   const args = process.argv.slice(2);
   let cliRepo = null;
   const repoIdx = args.findIndex((a) => a === "--repo" || a === "-p");
   if (repoIdx !== -1 && args[repoIdx + 1]) {
-    cliRepo = path.resolve(args[repoIdx + 1]);
+    cliRepo = path3.resolve(args[repoIdx + 1]);
   }
   const targetRepo = cliRepo || process.cwd();
-  const hasMdBacklog = fs.existsSync(path.join(targetRepo, "backlog/tasks"));
-  const hasJsonBacklog = fs.existsSync(path.join(targetRepo, ".devboard/backlog.json"));
+  const hasMdBacklog = fs3.existsSync(path3.join(targetRepo, "backlog/tasks"));
+  const hasJsonBacklog = fs3.existsSync(path3.join(targetRepo, ".devboard/backlog.json"));
   if (hasMdBacklog || hasJsonBacklog || cliRepo) {
-    const existing = reg.projects.find((p) => p.repoPath && path.resolve(p.repoPath) === targetRepo);
+    const existing = reg.projects.find((p) => p.repoPath && path3.resolve(p.repoPath) === targetRepo);
     if (existing) {
       reg.activeProjectId = existing.id;
     } else {
-      const folderName = path.basename(targetRepo);
+      const folderName = path3.basename(targetRepo);
       const synthId = folderName.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
       const synthProject = {
         id: synthId,
@@ -570,7 +815,7 @@ function getRegistry() {
 }
 function getTasksDir(project) {
   const dir = project.backlogDir || "backlog";
-  return path.join(project.repoPath || ROOT_DIR, dir, "tasks");
+  return path3.join(project.repoPath || ROOT_DIR, dir, "tasks");
 }
 function resolveLegibleSprint(project, val) {
   if (!val) return void 0;
@@ -581,10 +826,10 @@ function resolveLegibleSprint(project, val) {
     return void 0;
   }
   if (!project.repoPath) return clean;
-  const sprintsPath = path.join(project.repoPath, project.backlogDir || "backlog", "sprints.json");
-  if (fs.existsSync(sprintsPath)) {
+  const sprintsPath = path3.join(project.repoPath, project.backlogDir || "backlog", "sprints.json");
+  if (fs3.existsSync(sprintsPath)) {
     try {
-      const registeredSprints = JSON.parse(fs.readFileSync(sprintsPath, "utf8"));
+      const registeredSprints = JSON.parse(fs3.readFileSync(sprintsPath, "utf8"));
       if (Array.isArray(registeredSprints) && registeredSprints.length > 0) {
         const matched = registeredSprints.find(
           (s) => s.id && s.id.toLowerCase() === lower || s.name && s.name.trim().toLowerCase() === lower
@@ -605,13 +850,13 @@ function resolveLegibleSprint(project, val) {
 function readTasksForProject(project) {
   if (project.storageType === "markdown" && project.repoPath) {
     const tasksDir = getTasksDir(project);
-    if (!fs.existsSync(tasksDir)) return [];
-    const files = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
+    if (!fs3.existsSync(tasksDir)) return [];
+    const files = fs3.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
     files.sort((a, b) => a.localeCompare(b, void 0, { numeric: true }));
     const items = [];
     for (const file of files) {
       try {
-        const raw = fs.readFileSync(path.join(tasksDir, file), "utf8");
+        const raw = fs3.readFileSync(path3.join(tasksDir, file), "utf8");
         const fallbackId = file.split(" - ")[0] || file.replace(/\.md$/, "");
         const task = parseBacklogMd(raw, fallbackId);
         items.push({
@@ -639,10 +884,10 @@ function readTasksForProject(project) {
     }
     return items;
   }
-  const filePath = project.isDemo ? DEMO_FILE : project.repoPath ? path.join(project.repoPath, ".devboard/backlog.json") : path.join(ROOT_DIR, `data/${project.id}-backlog.json`);
-  if (fs.existsSync(filePath)) {
+  const filePath = project.isDemo ? DEMO_FILE : project.repoPath ? path3.join(project.repoPath, ".devboard/backlog.json") : path3.join(ROOT_DIR, `data/${project.id}-backlog.json`);
+  if (fs3.existsSync(filePath)) {
     try {
-      const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      const data = JSON.parse(fs3.readFileSync(filePath, "utf8"));
       return data.items || [];
     } catch {
     }
@@ -1032,12 +1277,12 @@ async function handleToolCall(name, args) {
     const updatedIds = [];
     if (targetProject.storageType === "markdown" && targetProject.repoPath) {
       const tasksDir = getTasksDir(targetProject);
-      if (!fs.existsSync(tasksDir)) throw new Error("Carpeta de tareas no encontrada.");
-      const files = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
+      if (!fs3.existsSync(tasksDir)) throw new Error("Carpeta de tareas no encontrada.");
+      const files = fs3.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
       for (const file of files) {
         try {
-          const fullPath = path.join(tasksDir, file);
-          const raw = fs.readFileSync(fullPath, "utf8");
+          const fullPath = path3.join(tasksDir, file);
+          const raw = fs3.readFileSync(fullPath, "utf8");
           const fallbackId = file.split(" - ")[0] || file.replace(/\.md$/, "");
           const current = parseBacklogMd(raw, fallbackId);
           const taskId = String(current.id || fallbackId).toLowerCase();
@@ -1079,7 +1324,7 @@ async function handleToolCall(name, args) {
             if (Array.isArray(updates.labels)) current.labels = updates.labels;
             current.updatedDate = today;
             const serialized = serializeBacklogMd(current);
-            fs.writeFileSync(fullPath, serialized, "utf8");
+            fs3.writeFileSync(fullPath, serialized, "utf8");
             updatedCount++;
             updatedIds.push(current.id);
           }
@@ -1094,9 +1339,9 @@ async function handleToolCall(name, args) {
         updatedIds
       };
     }
-    const filePath = targetProject.isDemo ? DEMO_FILE : targetProject.repoPath ? path.join(targetProject.repoPath, ".devboard/backlog.json") : path.join(ROOT_DIR, `data/${targetProject.id}-backlog.json`);
-    if (fs.existsSync(filePath)) {
-      const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const filePath = targetProject.isDemo ? DEMO_FILE : targetProject.repoPath ? path3.join(targetProject.repoPath, ".devboard/backlog.json") : path3.join(ROOT_DIR, `data/${targetProject.id}-backlog.json`);
+    if (fs3.existsSync(filePath)) {
+      const data = JSON.parse(fs3.readFileSync(filePath, "utf8"));
       const items = data.items || [];
       for (let i = 0; i < items.length; i++) {
         const current = items[i];
@@ -1138,7 +1383,7 @@ async function handleToolCall(name, args) {
       }
       data.items = items;
       data.lastUpdated = now;
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+      fs3.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
       return {
         ok: true,
         projectId: targetProject.id,
@@ -1204,13 +1449,13 @@ async function handleToolCall(name, args) {
     };
     if (project.storageType === "markdown" && project.repoPath) {
       const tasksDir = getTasksDir(project);
-      if (!fs.existsSync(tasksDir)) fs.mkdirSync(tasksDir, { recursive: true });
+      if (!fs3.existsSync(tasksDir)) fs3.mkdirSync(tasksDir, { recursive: true });
       const filename = generateTaskFilename(code, args.title);
-      const filepath = path.join(tasksDir, filename);
-      fs.writeFileSync(filepath, serializeBacklogMd(taskData), "utf8");
+      const filepath = path3.join(tasksDir, filename);
+      fs3.writeFileSync(filepath, serializeBacklogMd(taskData), "utf8");
       return { ok: true, task: taskData, savedFile: filepath };
     }
-    const filePath = project.isDemo ? DEMO_FILE : project.repoPath ? path.join(project.repoPath, ".devboard/backlog.json") : path.join(ROOT_DIR, `data/${project.id}-backlog.json`);
+    const filePath = project.isDemo ? DEMO_FILE : project.repoPath ? path3.join(project.repoPath, ".devboard/backlog.json") : path3.join(ROOT_DIR, `data/${project.id}-backlog.json`);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const newItem = {
       ...taskData,
@@ -1221,11 +1466,11 @@ async function handleToolCall(name, args) {
       updatedAt: now
     };
     let existingData = { project, items: [], releases: [] };
-    if (fs.existsSync(filePath)) {
-      existingData = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    if (fs3.existsSync(filePath)) {
+      existingData = JSON.parse(fs3.readFileSync(filePath, "utf8"));
     }
     existingData.items.push(newItem);
-    fs.writeFileSync(filePath, JSON.stringify(existingData, null, 2), "utf8");
+    fs3.writeFileSync(filePath, JSON.stringify(existingData, null, 2), "utf8");
     return { ok: true, task: newItem, savedFile: filePath };
   }
   if (name === "devboard_update_task") {
@@ -1235,8 +1480,8 @@ async function handleToolCall(name, args) {
       if (args.projectId && project.id !== args.projectId) continue;
       if (project.storageType === "markdown" && project.repoPath) {
         const tasksDir = getTasksDir(project);
-        if (!fs.existsSync(tasksDir)) continue;
-        const files = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
+        if (!fs3.existsSync(tasksDir)) continue;
+        const files = fs3.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
         const cleanId = String(args.taskId).toLowerCase();
         let resolvedFile = files.find((f) => {
           const fLower = f.toLowerCase();
@@ -1245,7 +1490,7 @@ async function handleToolCall(name, args) {
         if (!resolvedFile) {
           for (const f of files) {
             try {
-              const raw = fs.readFileSync(path.join(tasksDir, f), "utf8");
+              const raw = fs3.readFileSync(path3.join(tasksDir, f), "utf8");
               const fallbackId = f.split(" - ")[0] || f.replace(/\.md$/, "");
               const task = parseBacklogMd(raw, fallbackId);
               if (task.id && task.id.toLowerCase() === cleanId) {
@@ -1257,8 +1502,8 @@ async function handleToolCall(name, args) {
           }
         }
         if (resolvedFile) {
-          const fullPath = path.join(tasksDir, resolvedFile);
-          const raw = fs.readFileSync(fullPath, "utf8");
+          const fullPath = path3.join(tasksDir, resolvedFile);
+          const raw = fs3.readFileSync(fullPath, "utf8");
           const current = parseBacklogMd(raw, args.taskId);
           const effectiveStatus = args.status || args.updates?.status;
           const effectiveTitle = args.title || args.updates?.title;
@@ -1306,7 +1551,7 @@ async function handleToolCall(name, args) {
             );
           }
           const serialized = serializeBacklogMd(current);
-          fs.writeFileSync(fullPath, serialized, "utf8");
+          fs3.writeFileSync(fullPath, serialized, "utf8");
           const resp = { ok: true, updatedTask: current, filePath: fullPath };
           if (usedUpdatesObject) {
             resp.warning = "Aviso: Se aplic\xF3 'status' recibido dentro del objeto 'updates'. Para m\xE1xima compatibilidad con AGENTS.md se recomienda pasar 'status' como campo top-level.";
@@ -1314,9 +1559,9 @@ async function handleToolCall(name, args) {
           return resp;
         }
       } else {
-        const filePath = project.isDemo ? DEMO_FILE : project.repoPath ? path.join(project.repoPath, ".devboard/backlog.json") : path.join(ROOT_DIR, `data/${project.id}-backlog.json`);
-        if (fs.existsSync(filePath)) {
-          const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+        const filePath = project.isDemo ? DEMO_FILE : project.repoPath ? path3.join(project.repoPath, ".devboard/backlog.json") : path3.join(ROOT_DIR, `data/${project.id}-backlog.json`);
+        if (fs3.existsSync(filePath)) {
+          const data = JSON.parse(fs3.readFileSync(filePath, "utf8"));
           const cleanId = String(args.taskId).toLowerCase();
           const idx = data.items.findIndex(
             (i) => i.id && String(i.id).toLowerCase() === cleanId || i.code && String(i.code).toLowerCase() === cleanId
@@ -1356,7 +1601,7 @@ async function handleToolCall(name, args) {
               );
             }
             data.items[idx] = current;
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+            fs3.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
             const resp = { ok: true, updatedTask: current, filePath };
             if (usedUpdatesObject) {
               resp.warning = "Aviso: Se aplic\xF3 'status' recibido dentro del objeto 'updates'. Para m\xE1xima compatibilidad con AGENTS.md se recomienda pasar 'status' como campo top-level.";
@@ -1385,8 +1630,8 @@ async function handleToolCall(name, args) {
     const content = generateMonolithicBacklogMd(project.name, mdTasks);
     let savedPath = null;
     if (project.repoPath) {
-      savedPath = path.join(project.repoPath, "BACKLOG.md");
-      fs.writeFileSync(savedPath, content, "utf8");
+      savedPath = path3.join(project.repoPath, "BACKLOG.md");
+      fs3.writeFileSync(savedPath, content, "utf8");
     }
     return {
       ok: true,
@@ -1402,11 +1647,11 @@ async function handleToolCall(name, args) {
     const autoFix = args.autoFix !== false;
     if (targetProject.storageType === "markdown" && targetProject.repoPath) {
       const tasksDir = getTasksDir(targetProject);
-      if (fs.existsSync(tasksDir)) {
-        const files = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
+      if (fs3.existsSync(tasksDir)) {
+        const files = fs3.readdirSync(tasksDir).filter((f) => f.endsWith(".md"));
         for (const file of files) {
-          const filePath = path.join(tasksDir, file);
-          const content2 = fs.readFileSync(filePath, "utf8");
+          const filePath = path3.join(tasksDir, file);
+          const content2 = fs3.readFileSync(filePath, "utf8");
           const fmMatch = content2.match(/^---\r?\n([\s\S]*?)\r?\n---/);
           if (!fmMatch) continue;
           const fm = fmMatch[1];
@@ -1427,7 +1672,7 @@ async function handleToolCall(name, args) {
               const updatedContent = content2.replace(fmMatch[0], `---
 ${updatedFm}
 ---`);
-              fs.writeFileSync(filePath, updatedContent, "utf8");
+              fs3.writeFileSync(filePath, updatedContent, "utf8");
               fixedCount++;
             } else {
               errors.push(`${taskId}: Todos los AC completados (${totalChecked}/${totalAcs}) pero status es '${rawStatus}'`);
@@ -1437,7 +1682,7 @@ ${updatedFm}
             if (autoFix) {
               const fixedAcBlock = acBlock.replace(/-\s*\[ \]/g, "- [x]");
               const updatedContent = content2.replace(acBlock, fixedAcBlock);
-              fs.writeFileSync(filePath, updatedContent, "utf8");
+              fs3.writeFileSync(filePath, updatedContent, "utf8");
               fixedCount++;
             } else {
               errors.push(`${taskId}: Status es 'done' pero solo tiene ${totalChecked}/${totalAcs} ACs marcados`);
@@ -1460,8 +1705,8 @@ ${updatedFm}
     const content = generateMonolithicBacklogMd(targetProject.name, mdTasks);
     let backlogPath = null;
     if (targetProject.repoPath) {
-      backlogPath = path.join(targetProject.repoPath, "BACKLOG.md");
-      fs.writeFileSync(backlogPath, content, "utf8");
+      backlogPath = path3.join(targetProject.repoPath, "BACKLOG.md");
+      fs3.writeFileSync(backlogPath, content, "utf8");
     }
     return {
       ok: true,
@@ -1477,22 +1722,22 @@ ${updatedFm}
     if (!targetProject) throw new Error("No hay proyectos registrados en DevBoard.");
     let releases = [];
     const repoPath = targetProject.repoPath || ROOT_DIR;
-    const releasesJsonPath = path.join(repoPath, targetProject.backlogDir || "backlog", "releases.json");
-    const legacyReleasesPath = path.join(repoPath, ".devboard/releases.json");
-    const dataReleasesPath = path.join(ROOT_DIR, "data/releases.json");
-    if (fs.existsSync(releasesJsonPath)) {
+    const releasesJsonPath = path3.join(repoPath, targetProject.backlogDir || "backlog", "releases.json");
+    const legacyReleasesPath = path3.join(repoPath, ".devboard/releases.json");
+    const dataReleasesPath = path3.join(ROOT_DIR, "data/releases.json");
+    if (fs3.existsSync(releasesJsonPath)) {
       try {
-        releases = JSON.parse(fs.readFileSync(releasesJsonPath, "utf8"));
+        releases = JSON.parse(fs3.readFileSync(releasesJsonPath, "utf8"));
       } catch {
       }
-    } else if (fs.existsSync(legacyReleasesPath)) {
+    } else if (fs3.existsSync(legacyReleasesPath)) {
       try {
-        releases = JSON.parse(fs.readFileSync(legacyReleasesPath, "utf8"));
+        releases = JSON.parse(fs3.readFileSync(legacyReleasesPath, "utf8"));
       } catch {
       }
-    } else if (fs.existsSync(dataReleasesPath)) {
+    } else if (fs3.existsSync(dataReleasesPath)) {
       try {
-        releases = JSON.parse(fs.readFileSync(dataReleasesPath, "utf8"));
+        releases = JSON.parse(fs3.readFileSync(dataReleasesPath, "utf8"));
       } catch {
       }
     }
@@ -1501,16 +1746,16 @@ ${updatedFm}
     const codePrefix = (targetProject.codePrefix || "").toUpperCase().trim();
     if (releases.length === 0) {
       const notesPaths = [
-        path.join(repoPath, "docs/RELEASE_NOTES.md"),
-        path.join(repoPath, "docs/releasenotes.md"),
-        path.join(repoPath, "RELEASE_NOTES.md"),
-        path.join(repoPath, "releasenotes.md"),
-        path.join(repoPath, "CHANGELOG.md")
+        path3.join(repoPath, "docs/RELEASE_NOTES.md"),
+        path3.join(repoPath, "docs/releasenotes.md"),
+        path3.join(repoPath, "RELEASE_NOTES.md"),
+        path3.join(repoPath, "releasenotes.md"),
+        path3.join(repoPath, "CHANGELOG.md")
       ];
       for (const np of notesPaths) {
-        if (fs.existsSync(np)) {
+        if (fs3.existsSync(np)) {
           try {
-            const content = fs.readFileSync(np, "utf8");
+            const content = fs3.readFileSync(np, "utf8");
             const sections = content.split(/(?=^##\s+)/m);
             for (const section of sections) {
               const trimmed = section.trim();
@@ -1601,13 +1846,13 @@ ${updatedFm}
     const targetProject = registry.projects.find((p) => p.id === args.projectId) || registry.projects.find((p) => p.id === registry.activeProjectId) || registry.projects[0];
     if (!targetProject) throw new Error("Proyecto no encontrado.");
     const sprintKey = String(args.sprintId || args.sprintName || "sprint").toLowerCase().replace(/[^a-z0-9_-]/g, "-");
-    const retrosDir = path.join(targetProject.repoPath || ROOT_DIR, targetProject.backlogDir || "backlog", "retros");
-    if (!fs.existsSync(retrosDir)) {
-      fs.mkdirSync(retrosDir, { recursive: true });
+    const retrosDir = path3.join(targetProject.repoPath || ROOT_DIR, targetProject.backlogDir || "backlog", "retros");
+    if (!fs3.existsSync(retrosDir)) {
+      fs3.mkdirSync(retrosDir, { recursive: true });
     }
     const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
     const sprintTitle = args.sprintName || args.sprintId;
-    const filePath = path.join(retrosDir, `${sprintKey}-retro.md`);
+    const filePath = path3.join(retrosDir, `${sprintKey}-retro.md`);
     const mdContent = `# Retrospectiva \u2014 ${sprintTitle}
 
 **Fecha:** ${today}  
@@ -1628,7 +1873,7 @@ ${args.whatToImprove ? args.whatToImprove.trim() : "Flujo eficiente y directo."}
 ## \u{1F4CC} Acciones Concretas (Compromisos y Mejoras)
 ${Array.isArray(args.actions) && args.actions.length > 0 ? args.actions.map((act) => `- [ ] ${act}`).join("\n") : "- [ ] Continuar aplicando las buenas pr\xE1cticas establecidas."}
 `;
-    fs.writeFileSync(filePath, mdContent, "utf8");
+    fs3.writeFileSync(filePath, mdContent, "utf8");
     return {
       ok: true,
       sprint: sprintTitle,
@@ -1639,16 +1884,16 @@ ${Array.isArray(args.actions) && args.actions.length > 0 ? args.actions.map((act
   if (name === "devboard_list_retros") {
     const targetProject = registry.projects.find((p) => p.id === args.projectId) || registry.projects.find((p) => p.id === registry.activeProjectId) || registry.projects[0];
     if (!targetProject) throw new Error("Proyecto no encontrado.");
-    const retrosDir = path.join(targetProject.repoPath || ROOT_DIR, targetProject.backlogDir || "backlog", "retros");
-    if (!fs.existsSync(retrosDir)) {
+    const retrosDir = path3.join(targetProject.repoPath || ROOT_DIR, targetProject.backlogDir || "backlog", "retros");
+    if (!fs3.existsSync(retrosDir)) {
       return { ok: true, retros: [] };
     }
-    const files = fs.readdirSync(retrosDir).filter((f) => f.endsWith(".md"));
+    const files = fs3.readdirSync(retrosDir).filter((f) => f.endsWith(".md"));
     const retros = [];
     for (const f of files) {
       try {
-        const full = path.join(retrosDir, f);
-        const raw = fs.readFileSync(full, "utf8");
+        const full = path3.join(retrosDir, f);
+        const raw = fs3.readFileSync(full, "utf8");
         const titleMatch = raw.match(/^#\s+(.+)$/m);
         const dateMatch = raw.match(/\*\*Fecha:\*\*\s*([^\n]+)/);
         retros.push({
