@@ -727,60 +727,65 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
   if (item.impactedFile) taskData.rawExtraFrontmatter!.impactedFile = item.impactedFile;
   if (item.risk) taskData.rawExtraFrontmatter!.risk = item.risk;
   if (item.fix) taskData.rawExtraFrontmatter!.fix = item.fix;
-  if (item.sprint !== undefined || item.targetSprint !== undefined || item.sprints !== undefined) {
-    const sVal = item.sprint || item.targetSprint || (item.sprints && item.sprints.length > 0 ? item.sprints[item.sprints.length - 1] : '') || '';
-    if (sVal) {
-      taskData.sprint = sVal;
-      taskData.targetSprint = sVal;
-      taskData.sprints = Array.from(new Set([...(taskData.sprints || []), sVal]));
-      taskData.rawExtraFrontmatter!.sprint = sVal;
-      taskData.rawExtraFrontmatter!.targetSprint = sVal;
-
-      // Auto-registrar en sprints.json si es un sprint nuevo creado manualmente
-      if (project.repoPath) {
-        const sprintsPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'sprints.json');
-        if (fs.existsSync(sprintsPath)) {
-          try {
-            const spsData = JSON.parse(fs.readFileSync(sprintsPath, 'utf8'));
-            const sClean = sVal.trim();
-            const exists = spsData.some((s: any) => s.name && s.name.trim().toLowerCase() === sClean.toLowerCase());
-            if (!exists) {
-              const num = parseInt(sClean.replace(/\D/g, ''), 10) || 0;
-              spsData.push({
-                id: `sprint-${num || sClean.toLowerCase().replace(/\s+/g, '-')}`,
-                projectId: project.id,
-                name: sClean,
-                goal: '',
-                status: 'planned',
-                createdAt: new Date().toISOString()
-              });
-              fs.writeFileSync(sprintsPath, JSON.stringify(spsData, null, 2), 'utf8');
-            }
-          } catch (spErr: any) {
-            console.warn('[DevBoard API] Error sincronizando sprints.json al guardar tarea:', spErr.message);
-          }
-        }
-      }
-    } else {
-      taskData.sprint = undefined;
-      taskData.targetSprint = undefined;
-      taskData.sprints = [];
-      delete taskData.rawExtraFrontmatter!.sprint;
-      delete taskData.rawExtraFrontmatter!.targetSprint;
-      if (taskData.milestone && taskData.milestone.toLowerCase().includes('sprint')) {
-        taskData.milestone = undefined;
-      }
-    }
-  } else if (existingTask.sprint || existingTask.targetSprint || (existingTask.sprints && existingTask.sprints.length > 0)) {
-    const sVal = existingTask.sprint || existingTask.targetSprint || (existingTask.sprints && existingTask.sprints.length > 0 ? existingTask.sprints[existingTask.sprints.length - 1] : '');
-    if (sVal) {
-      taskData.sprint = sVal;
-      taskData.targetSprint = sVal;
-      if (!taskData.sprints || taskData.sprints.length === 0) {
-        taskData.sprints = [sVal];
-      }
+  // Cargar sprints registrados para mapear exclusivamente al nombre canónico
+  let registeredSprints: any[] = [];
+  if (project.repoPath) {
+    const sprintsPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'sprints.json');
+    if (fs.existsSync(sprintsPath)) {
+      try {
+        registeredSprints = JSON.parse(fs.readFileSync(sprintsPath, 'utf8'));
+      } catch {}
     }
   }
+
+  const resolveLegibleSprint = (val: string | undefined | null): string | undefined => {
+    if (!val) return undefined;
+    const clean = String(val).trim();
+    if (!clean) return undefined;
+    const lower = clean.toLowerCase();
+    if (lower === 'backlog-futuro' || lower === 'backlog' || lower === 'sin sprint' || lower === 'sin-sprint' || lower === 'none' || lower === 'null') {
+      return undefined;
+    }
+    if (registeredSprints.length > 0) {
+      const matched = registeredSprints.find((s: any) =>
+        (s.id && s.id.toLowerCase() === lower) ||
+        (s.name && s.name.trim().toLowerCase() === lower)
+      );
+      if (matched && (matched.status === 'active' || matched.status === 'planned' || matched.status === 'open' || !matched.status)) {
+        return matched.name;
+      }
+      return undefined;
+    }
+    if (lower.startsWith('sprint-') || lower.includes('backlog-futuro')) {
+      return undefined;
+    }
+    return clean;
+  };
+
+  const isSprintProvided = item.sprint !== undefined || item.targetSprint !== undefined || item.sprints !== undefined;
+  const rawSVal = isSprintProvided
+    ? (item.sprint || item.targetSprint || (item.sprints && item.sprints.length > 0 ? item.sprints[item.sprints.length - 1] : '') || '')
+    : (existingTask.sprint || existingTask.targetSprint || (existingTask.sprints && existingTask.sprints.length > 0 ? existingTask.sprints[existingTask.sprints.length - 1] : '') || '');
+
+  const resolvedSprint = resolveLegibleSprint(rawSVal);
+
+  if (resolvedSprint) {
+    taskData.sprint = resolvedSprint;
+    taskData.targetSprint = resolvedSprint;
+    taskData.sprints = [resolvedSprint];
+    taskData.rawExtraFrontmatter!.sprint = resolvedSprint;
+    taskData.rawExtraFrontmatter!.targetSprint = resolvedSprint;
+  } else {
+    taskData.sprint = undefined;
+    taskData.targetSprint = undefined;
+    taskData.sprints = [];
+    delete taskData.rawExtraFrontmatter!.sprint;
+    delete taskData.rawExtraFrontmatter!.targetSprint;
+    if (taskData.milestone && taskData.milestone.toLowerCase().includes('sprint')) {
+      taskData.milestone = undefined;
+    }
+  }
+
   const isReleaseProvided = item.release !== undefined || item.targetRelease !== undefined || item.milestone !== undefined || item.releases !== undefined;
   if (isReleaseProvided) {
     const rawRVal = (item.release || item.targetRelease || item.milestone || (item.releases && item.releases.length > 0 ? item.releases[0] : '') || '').trim();
@@ -861,17 +866,12 @@ function saveBacklogMdItem(project: ProjectMeta, item: any) {
   if (item.order !== undefined) taskData.rawExtraFrontmatter!.order = item.order;
 
   const content = serializeBacklogMd(taskData);
-  const newFilename = generateTaskFilename(taskData.id, taskData.title);
-  const newFilePath = path.join(tasksDir, newFilename);
+  // Si ya existe un archivo en backlog/tasks/ que empieza con ${task.id} - ,
+  // se debe sobrescribir ESE archivo existente en lugar de generar un nombre nuevo con slug y borrar el anterior.
+  const targetFilename = existingFile || generateTaskFilename(taskData.id, taskData.title);
+  const targetFilePath = path.join(tasksDir, targetFilename);
 
-  // Si existía un archivo con nombre distinto (o no canónico), eliminar el anterior
-  if (existingFile && existingFile !== newFilename) {
-    try {
-      fs.unlinkSync(path.join(tasksDir, existingFile));
-    } catch {}
-  }
-
-  fs.writeFileSync(newFilePath, content, 'utf8');
+  fs.writeFileSync(targetFilePath, content, 'utf8');
 }
 
 // DEV-049: Find a backlog MD task file by id/code, returns { file, task } or null
@@ -989,7 +989,25 @@ function writeProjectBacklog(project: ProjectMeta, data: ProjectBacklog) {
       try {
         const dir = path.join(project.repoPath, project.backlogDir || 'backlog');
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, 'releases.json'), JSON.stringify(data.releases || [], null, 2), 'utf8');
+        const releasesPath = path.join(dir, 'releases.json');
+        let releasesToWrite = data.releases || [];
+        if (fs.existsSync(releasesPath)) {
+          try {
+            const diskReleases = JSON.parse(fs.readFileSync(releasesPath, 'utf8'));
+            if (Array.isArray(diskReleases)) {
+              releasesToWrite = releasesToWrite.map((rel: any) => {
+                const diskMatch = diskReleases.find((dr: any) => dr.id === rel.id || dr.version === rel.version);
+                if (diskMatch && Array.isArray(diskMatch.itemCodes) && diskMatch.itemCodes.length > 0) {
+                  if (!rel.itemCodes || rel.itemCodes.length === 0) {
+                    return { ...rel, itemCodes: diskMatch.itemCodes };
+                  }
+                }
+                return rel;
+              });
+            }
+          } catch {}
+        }
+        fs.writeFileSync(releasesPath, JSON.stringify(releasesToWrite, null, 2), 'utf8');
         if (data.sprints !== undefined) {
           fs.writeFileSync(path.join(dir, 'sprints.json'), JSON.stringify(data.sprints || [], null, 2), 'utf8');
         }
@@ -1858,19 +1876,31 @@ function devBoardApi(): PluginOption {
               const requestedStatus = body.status === 'released' ? 'released' : 'unreleased';
               const isReleased = requestedStatus === 'released';
               const isUnreleased = requestedStatus === 'unreleased';
+
+              const existingIdx = backlog.releases.findIndex((r: any) => 
+                (body.id && r.id === body.id) || 
+                (body.version && (r.version === body.version || r.version?.replace(/^v/i, '') === body.version?.replace(/^v/i, '')))
+              );
+              const existingRel = existingIdx >= 0 ? backlog.releases[existingIdx] : null;
+
+              let resolvedItemCodes = body.itemCodes;
+              if (resolvedItemCodes === undefined || (Array.isArray(resolvedItemCodes) && resolvedItemCodes.length === 0 && existingRel && Array.isArray(existingRel.itemCodes) && existingRel.itemCodes.length > 0 && body.clearItemCodes !== true)) {
+                resolvedItemCodes = existingRel ? existingRel.itemCodes : [];
+              }
+
               const release = {
-                id: body.id || `rel-${(body.version || '1.0.0').replace(/\./g, '-')}-${Date.now()}`,
+                id: body.id || (existingRel ? existingRel.id : `rel-${(body.version || '1.0.0').replace(/\./g, '-')}-${Date.now()}`),
                 projectId: project.id,
-                version: body.version || '1.0.0',
-                date: body.date || now.split('T')[0],
-                title: body.title || (isUnreleased ? `En Preparación: v${body.version}` : `Release v${body.version}`),
-                summary: body.summary || '',
-                itemCodes: body.itemCodes || [],
-                markdownContent: body.markdownContent || '',
-                createdAt: body.createdAt || now,
+                version: body.version || (existingRel ? existingRel.version : '1.0.0'),
+                date: body.date || (existingRel ? existingRel.date : now.split('T')[0]),
+                title: body.title || (existingRel ? existingRel.title : (isUnreleased ? `En Preparación: v${body.version}` : `Release v${body.version}`)),
+                summary: body.summary !== undefined ? body.summary : (existingRel ? existingRel.summary : ''),
+                itemCodes: resolvedItemCodes || [],
+                markdownContent: body.markdownContent !== undefined ? body.markdownContent : (existingRel ? existingRel.markdownContent : ''),
+                createdAt: body.createdAt || (existingRel ? existingRel.createdAt : now),
                 status: requestedStatus,
-                targetDate: body.targetDate || undefined,
-                scopeNotes: body.scopeNotes || undefined
+                targetDate: body.targetDate !== undefined ? body.targetDate : (existingRel ? existingRel.targetDate : undefined),
+                scopeNotes: body.scopeNotes !== undefined ? body.scopeNotes : (existingRel ? existingRel.scopeNotes : undefined)
               };
 
               const itemCodeSet = new Set((release.itemCodes || []).map((c: string) => c.toUpperCase()));
@@ -1932,9 +1962,9 @@ function devBoardApi(): PluginOption {
                 return it;
               });
 
-              const existingIdx = backlog.releases.findIndex((r: any) => r.id === release.id || r.version === release.version);
-              if (existingIdx >= 0) {
-                backlog.releases[existingIdx] = { ...backlog.releases[existingIdx], ...release };
+              const targetIdx = backlog.releases.findIndex((r: any) => r.id === release.id || r.version === release.version);
+              if (targetIdx >= 0) {
+                backlog.releases[targetIdx] = { ...backlog.releases[targetIdx], ...release };
               } else {
                 backlog.releases.unshift(release);
               }

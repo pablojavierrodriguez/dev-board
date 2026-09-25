@@ -111,17 +111,24 @@ export function normalizeStatus(raw: string | undefined | null): CanonicalStatus
 /**
  * Convierte un estado canónico al formato legible para Backlog.md
  */
-export function formatStatusForMd(status: CanonicalStatus): string {
-  switch (status) {
-    case 'ideas': return 'Ideas';
-    case 'draft': return 'Draft';
-    case 'doing': return 'Doing';
-    case 'review': return 'Review';
-    case 'ready': return 'Ready';
-    case 'done': return 'Done';
-    case 'dismissed': return 'Dismissed';
-    case 'cancelled': return 'Cancelled';
-    default: return 'Draft';
+export function formatStatusForMd(status: CanonicalStatus | string): string {
+  const norm = normalizeStatus(status);
+  switch (norm) {
+    case 'ideas':
+    case 'draft':
+      return 'draft';
+    case 'doing':
+      return 'doing';
+    case 'review':
+      return 'review';
+    case 'ready':
+      return 'ready';
+    case 'done':
+      return 'done';
+    case 'dismissed':
+      return 'dismissed';
+    default:
+      return 'draft';
   }
 }
 
@@ -489,9 +496,18 @@ export function serializeBacklogMd(task: BacklogMdTask): string {
     task.relatedTo.forEach(r => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
   }
 
+  const isInvalidSprint = (s: string | undefined | null) => {
+    if (!s) return true;
+    const clean = s.trim().toLowerCase();
+    return clean === 'backlog-futuro' || clean === 'sin-sprint' || clean === 'sin sprint' || clean === 'backlog' || clean === 'none' || clean === 'null';
+  };
+
   if (task.sprints && task.sprints.length > 0) {
-    frontmatterLines.push('sprints:');
-    task.sprints.forEach(s => frontmatterLines.push(`  - ${JSON.stringify(s)}`));
+    const validSprints = task.sprints.filter(s => !isInvalidSprint(s));
+    if (validSprints.length > 0) {
+      frontmatterLines.push('sprints:');
+      validSprints.forEach(s => frontmatterLines.push(`  - ${JSON.stringify(s)}`));
+    }
   }
 
   if (task.releases && task.releases.length > 0) {
@@ -499,11 +515,11 @@ export function serializeBacklogMd(task: BacklogMdTask): string {
     task.releases.forEach(r => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
   }
 
-  if (task.sprint) {
+  if (task.sprint && !isInvalidSprint(task.sprint)) {
     frontmatterLines.push(`sprint: ${JSON.stringify(task.sprint)}`);
   }
 
-  if (task.targetSprint && task.targetSprint !== task.sprint) {
+  if (task.targetSprint && task.targetSprint !== task.sprint && !isInvalidSprint(task.targetSprint)) {
     frontmatterLines.push(`targetSprint: ${JSON.stringify(task.targetSprint)}`);
   }
 
@@ -581,19 +597,23 @@ export function serializeBacklogMd(task: BacklogMdTask): string {
 }
 
 /**
- * Genera el nombre estándar de archivo para una tarea Backlog.md:
- * e.g. "back-355 - Add-task-type-field.md"
+ * Genera el nombre estándar canónico de archivo para una tarea Backlog.md:
+ * e.g. "DOM-SPEC-001 - SPEC-001 Arquitectura de Persistencia Real & Sincronización con Supabase.md"
+ * El nombre DEBE comenzar con el ID en MAYÚSCULAS seguido de " - " y el título limpio preservando mayúsculas y espacios.
  */
 export function generateTaskFilename(id: string, title: string): string {
-  const cleanTitle = (title || 'task')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .slice(0, 50);
+  const cleanId = (id || 'TASK').trim().toUpperCase().replace(/--+/g, '-');
+  let cleanTitle = (title || 'task')
+    .replace(/[/\\:*?"<>|]/g, '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  const cleanId = id.toLowerCase().replace(/--+/g, '-');
-  return `${cleanId} - ${cleanTitle}.md`;
+  if (cleanTitle.length > 200) {
+    cleanTitle = cleanTitle.slice(0, 200).trim();
+  }
+
+  return `${cleanId} - ${cleanTitle || 'Task'}.md`;
 }
 
 /**

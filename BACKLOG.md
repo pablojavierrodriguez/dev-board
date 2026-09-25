@@ -3,31 +3,7 @@
 
 ## Resumen de Estados
 
-### 💡 Ideas / Discovery (1)
-
-#### [DEV-061] Monitoreo y Telemetría de Agent Skills: Métricas de Uso, Frecuencia, Última Invocación y Auditoría
-- **Prioridad**: `low` | **Tipo**: `feature`
-
-Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Agent Skills (`.agents/skills/`):
-1. **Telemetría de Skills:** Monitorear de forma local y no invasiva la interacción de agentes de IA con las skills del proyecto:
-   - Cuándo fue la última invocación o lectura de cada `SKILL.md`.
-   - Contador acumulado de accesos / usos por proyecto.
-   - Duración o pasos asociados si aplica.
-2. **Métricas y Diagnóstico de Salud:** Proveer un panel visual dentro de Ajustes o Diagnóstico que permita:
-   - Detectar qué skills son las más utilizadas y críticas para el flujo de trabajo.
-   - Identificar skills inactivas, desactualizadas o nunca utilizadas para sugerir su depuración, actualización o archivado.
-3. **Persistencia Segura:** Registro de telemetría en `.devboard/skills-telemetry.json` (aislado y con actualización silenciosa sin interferir con Git ni ensuciar diffs de código).
-
-**Criterios de Aceptación:**
-- [ ] #1 Registro no invasivo de accesos a skills (fecha/hora de última invocación y conteo) en .devboard/skills-telemetry.json
-- [ ] #2 Panel visual de métricas de Agent Skills en SettingsView o vista de Diagnóstico
-- [ ] #3 Tabla con listado de skills, última invocación y frecuencia de uso
-- [ ] #4 Sugerencias automáticas de depuración para skills obsoletas o nunca consultadas
-- [ ] #5 Integración opcional con comando CLI npm run skills --stats
-
----
-
-### 🚀 Ready for Deploy (1)
+### 🚀 Ready for Deploy (2)
 
 #### [DEV-102] Actualización integral de documentación y verificación automatizada de coherencia en releases
 - **Prioridad**: `high` | **Tipo**: `docs`
@@ -43,7 +19,22 @@ Actualización integral de toda la documentación del repositorio dev-board para
 
 ---
 
-### 📋 Backlog / Draft (5)
+#### [DEV-103] Compatibilidad canónica de sincronización y exportación con estándar Backlog.md
+- **Prioridad**: `high` | **Tipo**: `feature`
+
+Adaptar el motor de sincronización y exportación de tareas en dev-board para que sea 100% compatible con el estándar canónico de Backlog.md: nombres de archivo canónicos con ID en mayúsculas y espacios (sin slugify a minúsculas), sobreescritura de archivos existentes por ID, serialización de status estrictamente en minúsculas (sin 'Ideas'), mapeo de sprints exclusivamente a nombres registrados en sprints.json (sin inventar 'backlog-futuro') y preservación absoluta de itemCodes en releases.json.
+
+**Criterios de Aceptación:**
+- [x] #1 Nombres de archivo canónicos en backlogMdParser.ts (${task.id.toUpperCase()} - ${task.title}.md) preservando mayúsculas y espacios sin slugify forzado a minúsculas.
+- [x] #2 Sobreescritura in-place de archivos existentes por ID en vite.config.ts, mcp-server.ts y devboard-cli.ts sin generar nombres slug duplicados ni borrar el archivo previo.
+- [x] #3 Serialización de status estrictamente en minúsculas (draft, doing, review, ready, done, dismissed) mapeando Ideas/Backlog a draft y prohibiendo mayúsculas o 'Ideas' en frontmatter YAML.
+- [x] #4 Mapeo de sprint exclusivamente al name legible registrado en sprints.json (activo/planificado), omitiendo el campo si no pertenece a un sprint válido y eliminando creación de sprints espurios como 'backlog-futuro'.
+- [x] #5 Preservación estricta del array itemCodes en releases.json en lecturas, escrituras y mutaciones de tareas en vite.config.ts.
+- [x] #6 Validación con suite de tests de parser, integración y verificación de coherencia de backlog (npm test, npm run backlog:check).
+
+---
+
+### 📋 Backlog / Draft (6)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -112,6 +103,28 @@ Infraestructura completa de internacionalización (i18n) para soportar navegaci�
 - [ ] #3 Selector interactivo de idioma en SettingsView con persistencia en .devboard/config.json
 - [ ] #4 Detección automática inicial del idioma del navegador
 - [ ] #5 Auditoría estricta de código para validar ausencia de strings de texto visibles hardcodeadas
+
+---
+
+#### [DEV-061] Monitoreo y Telemetría de Agent Skills: Métricas de Uso, Frecuencia, Última Invocación y Auditoría
+- **Prioridad**: `low` | **Tipo**: `feature`
+
+Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Agent Skills (`.agents/skills/`):
+1. **Telemetría de Skills:** Monitorear de forma local y no invasiva la interacción de agentes de IA con las skills del proyecto:
+   - Cuándo fue la última invocación o lectura de cada `SKILL.md`.
+   - Contador acumulado de accesos / usos por proyecto.
+   - Duración o pasos asociados si aplica.
+2. **Métricas y Diagnóstico de Salud:** Proveer un panel visual dentro de Ajustes o Diagnóstico que permita:
+   - Detectar qué skills son las más utilizadas y críticas para el flujo de trabajo.
+   - Identificar skills inactivas, desactualizadas o nunca utilizadas para sugerir su depuración, actualización o archivado.
+3. **Persistencia Segura:** Registro de telemetría en `.devboard/skills-telemetry.json` (aislado y con actualización silenciosa sin interferir con Git ni ensuciar diffs de código).
+
+**Criterios de Aceptación:**
+- [ ] #1 Registro no invasivo de accesos a skills (fecha/hora de última invocación y conteo) en .devboard/skills-telemetry.json
+- [ ] #2 Panel visual de métricas de Agent Skills en SettingsView o vista de Diagnóstico
+- [ ] #3 Tabla con listado de skills, última invocación y frecuencia de uso
+- [ ] #4 Sugerencias automáticas de depuración para skills obsoletas o nunca consultadas
+- [ ] #5 Integración opcional con comando CLI npm run skills --stats
 
 ---
 

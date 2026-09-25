@@ -59,25 +59,23 @@ function normalizeStatus(raw) {
   }
 }
 function formatStatusForMd(status) {
-  switch (status) {
+  const norm = normalizeStatus(status);
+  switch (norm) {
     case "ideas":
-      return "Ideas";
     case "draft":
-      return "Draft";
+      return "draft";
     case "doing":
-      return "Doing";
+      return "doing";
     case "review":
-      return "Review";
+      return "review";
     case "ready":
-      return "Ready";
+      return "ready";
     case "done":
-      return "Done";
+      return "done";
     case "dismissed":
-      return "Dismissed";
-    case "cancelled":
-      return "Cancelled";
+      return "dismissed";
     default:
-      return "Draft";
+      return "draft";
   }
 }
 function normalizePriority(raw) {
@@ -377,18 +375,26 @@ function serializeBacklogMd(task) {
     frontmatterLines.push("related_to:");
     task.relatedTo.forEach((r) => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
   }
+  const isInvalidSprint = (s) => {
+    if (!s) return true;
+    const clean = s.trim().toLowerCase();
+    return clean === "backlog-futuro" || clean === "sin-sprint" || clean === "sin sprint" || clean === "backlog" || clean === "none" || clean === "null";
+  };
   if (task.sprints && task.sprints.length > 0) {
-    frontmatterLines.push("sprints:");
-    task.sprints.forEach((s) => frontmatterLines.push(`  - ${JSON.stringify(s)}`));
+    const validSprints = task.sprints.filter((s) => !isInvalidSprint(s));
+    if (validSprints.length > 0) {
+      frontmatterLines.push("sprints:");
+      validSprints.forEach((s) => frontmatterLines.push(`  - ${JSON.stringify(s)}`));
+    }
   }
   if (task.releases && task.releases.length > 0) {
     frontmatterLines.push("releases:");
     task.releases.forEach((r) => frontmatterLines.push(`  - ${JSON.stringify(r)}`));
   }
-  if (task.sprint) {
+  if (task.sprint && !isInvalidSprint(task.sprint)) {
     frontmatterLines.push(`sprint: ${JSON.stringify(task.sprint)}`);
   }
-  if (task.targetSprint && task.targetSprint !== task.sprint) {
+  if (task.targetSprint && task.targetSprint !== task.sprint && !isInvalidSprint(task.targetSprint)) {
     frontmatterLines.push(`targetSprint: ${JSON.stringify(task.targetSprint)}`);
   }
   if (task.isDeleted) {
@@ -450,9 +456,12 @@ function serializeBacklogMd(task) {
 ${bodySections.join("\n")}`;
 }
 function generateTaskFilename(id, title) {
-  const cleanTitle = (title || "task").toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").slice(0, 50);
-  const cleanId = id.toLowerCase().replace(/--+/g, "-");
-  return `${cleanId} - ${cleanTitle}.md`;
+  const cleanId = (id || "TASK").trim().toUpperCase().replace(/--+/g, "-");
+  let cleanTitle = (title || "task").replace(/[/\\:*?"<>|]/g, "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  if (cleanTitle.length > 200) {
+    cleanTitle = cleanTitle.slice(0, 200).trim();
+  }
+  return `${cleanId} - ${cleanTitle || "Task"}.md`;
 }
 function generateMonolithicBacklogMd(projectName, items) {
   const now = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -562,6 +571,36 @@ function getRegistry() {
 function getTasksDir(project) {
   const dir = project.backlogDir || "backlog";
   return path.join(project.repoPath || ROOT_DIR, dir, "tasks");
+}
+function resolveLegibleSprint(project, val) {
+  if (!val) return void 0;
+  const clean = String(val).trim();
+  if (!clean) return void 0;
+  const lower = clean.toLowerCase();
+  if (["backlog-futuro", "sin-sprint", "sin sprint", "backlog", "none", "null"].includes(lower)) {
+    return void 0;
+  }
+  if (!project.repoPath) return clean;
+  const sprintsPath = path.join(project.repoPath, project.backlogDir || "backlog", "sprints.json");
+  if (fs.existsSync(sprintsPath)) {
+    try {
+      const registeredSprints = JSON.parse(fs.readFileSync(sprintsPath, "utf8"));
+      if (Array.isArray(registeredSprints) && registeredSprints.length > 0) {
+        const matched = registeredSprints.find(
+          (s) => s.id && s.id.toLowerCase() === lower || s.name && s.name.trim().toLowerCase() === lower
+        );
+        if (matched && (matched.status === "active" || matched.status === "planned" || matched.status === "open" || !matched.status)) {
+          return matched.name || clean;
+        }
+        return void 0;
+      }
+    } catch {
+    }
+  }
+  if (lower.startsWith("sprint-") || lower.includes("backlog-futuro")) {
+    return void 0;
+  }
+  return clean;
 }
 function readTasksForProject(project) {
   if (project.storageType === "markdown" && project.repoPath) {
@@ -1018,28 +1057,29 @@ async function handleToolCall(name, args) {
             if (updates.priority) current.priority = normalizePriority(updates.priority);
             if (updates.milestone !== void 0) current.milestone = updates.milestone;
             if (updates.sprint !== void 0) {
-              current.sprint = updates.sprint;
-              current.targetSprint = updates.sprint;
-              if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
-              current.rawExtraFrontmatter.sprint = updates.sprint;
-              current.rawExtraFrontmatter.targetSprint = updates.sprint;
-              if (updates.sprint) {
-                current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], updates.sprint]));
+              const legSprint = resolveLegibleSprint(targetProject, updates.sprint);
+              if (legSprint) {
+                current.sprint = legSprint;
+                current.targetSprint = legSprint;
+                if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+                current.rawExtraFrontmatter.sprint = legSprint;
+                current.rawExtraFrontmatter.targetSprint = legSprint;
+                current.sprints = [legSprint];
+              } else {
+                current.sprint = void 0;
+                current.targetSprint = void 0;
+                current.sprints = [];
+                if (current.rawExtraFrontmatter) {
+                  delete current.rawExtraFrontmatter.sprint;
+                  delete current.rawExtraFrontmatter.targetSprint;
+                }
               }
             }
             if (updates.implementationNotes !== void 0) current.implementationNotes = updates.implementationNotes;
             if (Array.isArray(updates.labels)) current.labels = updates.labels;
             current.updatedDate = today;
             const serialized = serializeBacklogMd(current);
-            const canonicalName = generateTaskFilename(current.id, current.title);
-            const canonicalPath = path.join(tasksDir, canonicalName);
-            if (file !== canonicalName) {
-              try {
-                fs.unlinkSync(fullPath);
-              } catch {
-              }
-            }
-            fs.writeFileSync(canonicalPath, serialized, "utf8");
+            fs.writeFileSync(fullPath, serialized, "utf8");
             updatedCount++;
             updatedIds.push(current.id);
           }
@@ -1080,11 +1120,10 @@ async function handleToolCall(name, args) {
             current.targetSprint = updates.milestone;
           }
           if (updates.sprint !== void 0) {
-            current.sprint = updates.sprint;
-            current.targetSprint = updates.sprint;
-            if (updates.sprint) {
-              current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], updates.sprint]));
-            }
+            const legSprint = resolveLegibleSprint(targetProject, updates.sprint);
+            current.sprint = legSprint;
+            current.targetSprint = legSprint;
+            current.sprints = legSprint ? [legSprint] : [];
           }
           if (updates.implementationNotes !== void 0) {
             current.implementationNotes = updates.implementationNotes;
@@ -1237,13 +1276,22 @@ async function handleToolCall(name, args) {
           if (effectivePlan !== void 0) current.implementationPlan = effectivePlan;
           if (effectiveMilestone !== void 0) current.milestone = effectiveMilestone;
           if (effectiveSprint !== void 0) {
-            current.sprint = effectiveSprint;
-            current.targetSprint = effectiveSprint;
-            if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
-            current.rawExtraFrontmatter.sprint = effectiveSprint;
-            current.rawExtraFrontmatter.targetSprint = effectiveSprint;
-            if (effectiveSprint) {
-              current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], effectiveSprint]));
+            const legSprint = resolveLegibleSprint(project, effectiveSprint);
+            if (legSprint) {
+              current.sprint = legSprint;
+              current.targetSprint = legSprint;
+              if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+              current.rawExtraFrontmatter.sprint = legSprint;
+              current.rawExtraFrontmatter.targetSprint = legSprint;
+              current.sprints = [legSprint];
+            } else {
+              current.sprint = void 0;
+              current.targetSprint = void 0;
+              current.sprints = [];
+              if (current.rawExtraFrontmatter) {
+                delete current.rawExtraFrontmatter.sprint;
+                delete current.rawExtraFrontmatter.targetSprint;
+              }
             }
           }
           current.updatedDate = today;
@@ -1258,16 +1306,8 @@ async function handleToolCall(name, args) {
             );
           }
           const serialized = serializeBacklogMd(current);
-          const canonicalName = generateTaskFilename(current.id, current.title);
-          const canonicalPath = path.join(tasksDir, canonicalName);
-          if (resolvedFile !== canonicalName) {
-            try {
-              fs.unlinkSync(fullPath);
-            } catch {
-            }
-          }
-          fs.writeFileSync(canonicalPath, serialized, "utf8");
-          const resp = { ok: true, updatedTask: current, filePath: canonicalPath };
+          fs.writeFileSync(fullPath, serialized, "utf8");
+          const resp = { ok: true, updatedTask: current, filePath: fullPath };
           if (usedUpdatesObject) {
             resp.warning = "Aviso: Se aplic\xF3 'status' recibido dentro del objeto 'updates'. Para m\xE1xima compatibilidad con AGENTS.md se recomienda pasar 'status' como campo top-level.";
           }
@@ -1299,11 +1339,10 @@ async function handleToolCall(name, args) {
             if (effectivePlan !== void 0) current.implementationPlan = effectivePlan;
             if (effectiveMilestone !== void 0) current.milestone = effectiveMilestone;
             if (effectiveSprint !== void 0) {
-              current.sprint = effectiveSprint;
-              current.targetSprint = effectiveSprint;
-              if (effectiveSprint) {
-                current.sprints = Array.from(/* @__PURE__ */ new Set([...current.sprints || [], effectiveSprint]));
-              }
+              const legSprint = resolveLegibleSprint(project, effectiveSprint);
+              current.sprint = legSprint;
+              current.targetSprint = legSprint;
+              current.sprints = legSprint ? [legSprint] : [];
             }
             current.updatedAt = now;
             if (effectiveCheckAllAcs !== void 0 && current.acceptanceCriteriaList) {

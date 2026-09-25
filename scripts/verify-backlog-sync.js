@@ -62,15 +62,15 @@ for (const file of files) {
   // REGLA 1: Si tiene criterios definidos y todos están marcados (- [x]), no puede estar en 'draft' ni 'doing'
   if (totalAcs > 0 && totalChecked === totalAcs && (rawStatus === 'draft' || rawStatus === 'doing')) {
     if (isFixMode) {
-      const updatedFm = fm.replace(/^status:\s*.*$/m, 'status: Done');
+      const updatedFm = fm.replace(/^status:\s*.*$/m, 'status: ready');
       const updatedContent = content.replace(fmMatch[0], `---\n${updatedFm}\n---`);
       fs.writeFileSync(filePath, updatedContent, 'utf8');
-      console.log(`✨ [Auto-fix] ${taskId}: Todos los AC completados (${totalChecked}/${totalAcs}). Promocionado a 'status: Done'.`);
+      console.log(`✨ [Auto-fix] ${taskId}: Todos los AC completados (${totalChecked}/${totalAcs}). Promocionado a 'status: ready'.`);
       fixedCount++;
     } else {
       console.error(`❌ [Error de Sincronización] ${taskId} (${file}):`);
       console.error(`   Tiene todos los criterios de aceptación cumplidos (${totalChecked}/${totalAcs} AC), pero su estado en el backlog sigue siendo '${rawStatus}'.`);
-      console.error(`   👉 Acción requerida: Cambia el status a 'Done' o ejecuta 'npm run backlog:sync'.`);
+      console.error(`   👉 Acción requerida: Cambia el status a 'ready' o ejecuta 'npm run backlog:sync'.`);
       errorsFound++;
     }
   }
@@ -81,7 +81,7 @@ for (const file of files) {
       const fixedAcBlock = acBlock.replace(/-\s*\[ \]/g, '- [x]');
       const updatedContent = content.replace(acBlock, fixedAcBlock);
       fs.writeFileSync(filePath, updatedContent, 'utf8');
-      console.log(`✨ [Auto-fix] ${taskId}: Estado es 'Done'. Tildando automáticamente todos los ACs (${totalAcs}/${totalAcs}).`);
+      console.log(`✨ [Auto-fix] ${taskId}: Estado es 'done'. Tildando automáticamente todos los ACs (${totalAcs}/${totalAcs}).`);
       fixedCount++;
     } else {
       console.warn(`⚠️  [Advertencia] ${taskId}: El estado es 'done' pero solo tiene ${totalChecked}/${totalAcs} criterios tildados.`);

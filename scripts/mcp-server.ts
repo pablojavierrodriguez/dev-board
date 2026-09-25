@@ -87,6 +87,37 @@ function getTasksDir(project: ProjectMeta): string {
   return path.join(project.repoPath || ROOT_DIR, dir, 'tasks');
 }
 
+function resolveLegibleSprint(project: ProjectMeta, val: string | undefined | null): string | undefined {
+  if (!val) return undefined;
+  const clean = String(val).trim();
+  if (!clean) return undefined;
+  const lower = clean.toLowerCase();
+  if (['backlog-futuro', 'sin-sprint', 'sin sprint', 'backlog', 'none', 'null'].includes(lower)) {
+    return undefined;
+  }
+  if (!project.repoPath) return clean;
+  const sprintsPath = path.join(project.repoPath, project.backlogDir || 'backlog', 'sprints.json');
+  if (fs.existsSync(sprintsPath)) {
+    try {
+      const registeredSprints = JSON.parse(fs.readFileSync(sprintsPath, 'utf8'));
+      if (Array.isArray(registeredSprints) && registeredSprints.length > 0) {
+        const matched = registeredSprints.find((s: any) =>
+          (s.id && s.id.toLowerCase() === lower) ||
+          (s.name && s.name.trim().toLowerCase() === lower)
+        );
+        if (matched && (matched.status === 'active' || matched.status === 'planned' || matched.status === 'open' || !matched.status)) {
+          return matched.name || clean;
+        }
+        return undefined;
+      }
+    } catch {}
+  }
+  if (lower.startsWith('sprint-') || lower.includes('backlog-futuro')) {
+    return undefined;
+  }
+  return clean;
+}
+
 function readTasksForProject(project: ProjectMeta): any[] {
   if (project.storageType === 'markdown' && project.repoPath) {
     const tasksDir = getTasksDir(project);
@@ -595,13 +626,22 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             if (updates.priority) current.priority = normalizePriority(updates.priority);
             if (updates.milestone !== undefined) current.milestone = updates.milestone;
             if (updates.sprint !== undefined) {
-              current.sprint = updates.sprint;
-              current.targetSprint = updates.sprint;
-              if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
-              current.rawExtraFrontmatter.sprint = updates.sprint;
-              current.rawExtraFrontmatter.targetSprint = updates.sprint;
-              if (updates.sprint) {
-                current.sprints = Array.from(new Set([...(current.sprints || []), updates.sprint]));
+              const legSprint = resolveLegibleSprint(targetProject, updates.sprint);
+              if (legSprint) {
+                current.sprint = legSprint;
+                current.targetSprint = legSprint;
+                if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+                current.rawExtraFrontmatter.sprint = legSprint;
+                current.rawExtraFrontmatter.targetSprint = legSprint;
+                current.sprints = [legSprint];
+              } else {
+                current.sprint = undefined;
+                current.targetSprint = undefined;
+                current.sprints = [];
+                if (current.rawExtraFrontmatter) {
+                  delete current.rawExtraFrontmatter.sprint;
+                  delete current.rawExtraFrontmatter.targetSprint;
+                }
               }
             }
             if (updates.implementationNotes !== undefined) current.implementationNotes = updates.implementationNotes;
@@ -609,13 +649,8 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             current.updatedDate = today;
 
             const serialized = serializeBacklogMd(current);
-            const canonicalName = generateTaskFilename(current.id, current.title);
-            const canonicalPath = path.join(tasksDir, canonicalName);
-
-            if (file !== canonicalName) {
-              try { fs.unlinkSync(fullPath); } catch {}
-            }
-            fs.writeFileSync(canonicalPath, serialized, 'utf8');
+            // Sobreescritura in-place del archivo existente sin renombrar ni generar slugs innecesarios
+            fs.writeFileSync(fullPath, serialized, 'utf8');
             updatedCount++;
             updatedIds.push(current.id);
           }
@@ -665,11 +700,10 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             current.targetSprint = updates.milestone;
           }
           if (updates.sprint !== undefined) {
-            current.sprint = updates.sprint;
-            current.targetSprint = updates.sprint;
-            if (updates.sprint) {
-              current.sprints = Array.from(new Set([...(current.sprints || []), updates.sprint]));
-            }
+            const legSprint = resolveLegibleSprint(targetProject, updates.sprint);
+            current.sprint = legSprint;
+            current.targetSprint = legSprint;
+            current.sprints = legSprint ? [legSprint] : [];
           }
           if (updates.implementationNotes !== undefined) {
             current.implementationNotes = updates.implementationNotes;
@@ -851,13 +885,22 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           if (effectivePlan !== undefined) current.implementationPlan = effectivePlan;
           if (effectiveMilestone !== undefined) current.milestone = effectiveMilestone;
           if (effectiveSprint !== undefined) {
-            current.sprint = effectiveSprint;
-            current.targetSprint = effectiveSprint;
-            if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
-            current.rawExtraFrontmatter.sprint = effectiveSprint;
-            current.rawExtraFrontmatter.targetSprint = effectiveSprint;
-            if (effectiveSprint) {
-              current.sprints = Array.from(new Set([...(current.sprints || []), effectiveSprint]));
+            const legSprint = resolveLegibleSprint(project, effectiveSprint);
+            if (legSprint) {
+              current.sprint = legSprint;
+              current.targetSprint = legSprint;
+              if (!current.rawExtraFrontmatter) current.rawExtraFrontmatter = {};
+              current.rawExtraFrontmatter.sprint = legSprint;
+              current.rawExtraFrontmatter.targetSprint = legSprint;
+              current.sprints = [legSprint];
+            } else {
+              current.sprint = undefined;
+              current.targetSprint = undefined;
+              current.sprints = [];
+              if (current.rawExtraFrontmatter) {
+                delete current.rawExtraFrontmatter.sprint;
+                delete current.rawExtraFrontmatter.targetSprint;
+              }
             }
           }
           current.updatedDate = today;
@@ -874,18 +917,9 @@ async function handleToolCall(name: string, args: any): Promise<any> {
           }
 
           const serialized = serializeBacklogMd(current);
-          const canonicalName = generateTaskFilename(current.id, current.title);
-          const canonicalPath = path.join(tasksDir, canonicalName);
-
-          // Si el archivo tenía un nombre no estándar, renombrar al canónico
-          if (resolvedFile !== canonicalName) {
-            try {
-              fs.unlinkSync(fullPath);
-            } catch {}
-          }
-
-          fs.writeFileSync(canonicalPath, serialized, 'utf8');
-          const resp: any = { ok: true, updatedTask: current, filePath: canonicalPath };
+          // Sobreescritura in-place del archivo existente (fullPath) sin borrar ni generar slugs innecesarios
+          fs.writeFileSync(fullPath, serialized, 'utf8');
+          const resp: any = { ok: true, updatedTask: current, filePath: fullPath };
           if (usedUpdatesObject) {
             resp.warning = "Aviso: Se aplicó 'status' recibido dentro del objeto 'updates'. Para máxima compatibilidad con AGENTS.md se recomienda pasar 'status' como campo top-level.";
           }
@@ -923,11 +957,10 @@ async function handleToolCall(name: string, args: any): Promise<any> {
             if (effectivePlan !== undefined) current.implementationPlan = effectivePlan;
             if (effectiveMilestone !== undefined) current.milestone = effectiveMilestone;
             if (effectiveSprint !== undefined) {
-              current.sprint = effectiveSprint;
-              current.targetSprint = effectiveSprint;
-              if (effectiveSprint) {
-                current.sprints = Array.from(new Set([...(current.sprints || []), effectiveSprint]));
-              }
+              const legSprint = resolveLegibleSprint(project, effectiveSprint);
+              current.sprint = legSprint;
+              current.targetSprint = legSprint;
+              current.sprints = legSprint ? [legSprint] : [];
             }
             current.updatedAt = now;
 

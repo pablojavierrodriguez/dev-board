@@ -110,12 +110,28 @@ for (const p of ['p0', 'p1', 'p2', 'p3']) {
 }
 console.log('✅ Priority lossless round-trip (p0, p1, p2, p3) passed');
 
-// 4. Filename generation
+// 4. Filename generation (Canonical Backlog.md uppercase ID and clean title preserving casing and spaces)
 assert.strictEqual(
   generateTaskFilename('BACK-355', 'Add task type field'),
-  'back-355 - add-task-type-field.md'
+  'BACK-355 - Add task type field.md'
+);
+assert.strictEqual(
+  generateTaskFilename('dom-spec-001', 'SPEC-001 Arquitectura de Persistencia Real & Sincronización con Supabase'),
+  'DOM-SPEC-001 - SPEC-001 Arquitectura de Persistencia Real & Sincronización con Supabase.md'
 );
 console.log('✅ Filename generation passed');
+
+// 4.1. Status formatting for Markdown (Strictly lowercase, ideas -> draft)
+assert.strictEqual(formatStatusForMd('ideas'), 'draft');
+assert.strictEqual(formatStatusForMd('Ideas'), 'draft');
+assert.strictEqual(formatStatusForMd('draft'), 'draft');
+assert.strictEqual(formatStatusForMd('doing'), 'doing');
+assert.strictEqual(formatStatusForMd('In Progress'), 'doing');
+assert.strictEqual(formatStatusForMd('review'), 'review');
+assert.strictEqual(formatStatusForMd('ready'), 'ready');
+assert.strictEqual(formatStatusForMd('done'), 'done');
+assert.strictEqual(formatStatusForMd('dismissed'), 'dismissed');
+console.log('✅ Lowercase status formatting passed');
 
 // 5. Monolithic export
 const monolithic = generateMonolithicBacklogMd('Test Project', [parsed]);

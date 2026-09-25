@@ -328,13 +328,8 @@ async function main() {
         taskData.updatedDate = today;
 
         const serialized = serializeBacklogMd(taskData);
-        const canonicalName = generateTaskFilename(taskData.id, taskData.title);
-        const canonicalPath = path.join(tasksDir, canonicalName);
-
-        if (t._file !== canonicalName) {
-          try { fs.unlinkSync(path.join(tasksDir, t._file)); } catch {}
-        }
-        fs.writeFileSync(canonicalPath, serialized, 'utf8');
+        const targetPath = t._file ? path.join(tasksDir, t._file) : path.join(tasksDir, generateTaskFilename(taskData.id, taskData.title));
+        fs.writeFileSync(targetPath, serialized, 'utf8');
         updatedCount++;
       }
     } else {
