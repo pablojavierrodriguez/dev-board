@@ -69,12 +69,19 @@ It replaces chaotic "vibe coding" with strict, transparent engineering guardrail
 
 ---
 
-## 🚀 Quick Start (Choose Your Workflow)
+## 🚀 Quick Start
 
 No complex setups or servers required. Pick the scenario that matches what you want to do:
 
-### 1. Use the AI Agent MCP Server in any project (Zero-Install)
-You **don't need to clone this repository**. Just add this to your IDE's MCP configuration (`.cursor/mcp.json`, Claude Desktop, or Antigravity):
+### 1. Instant Launch in Any Repository (Zero-Install)
+Run inside any repository folder:
+```bash
+npx devboard
+```
+*DevBoard automatically detects the repository in your working directory, verifies storage engine (`backlog/tasks` or `.devboard`), and launches the Kanban UI in your default browser at `http://localhost:4100`.*
+
+### 2. Use the AI Agent MCP Server in any project
+Add this to your IDE's MCP configuration (`.cursor/mcp.json`, Claude Desktop, or Antigravity):
 
 ```json
 {
@@ -86,9 +93,9 @@ You **don't need to clone this repository**. Just add this to your IDE's MCP con
   }
 }
 ```
-*Your AI agent (Cursor, Claude Code, Antigravity) will automatically detect `backlog/tasks/` in your repository and manage tasks through 9 dedicated tools.*
+*Your AI agent (Cursor, Claude Code, Antigravity) will automatically detect `backlog/tasks/` in your repository and manage tasks through 12 dedicated tools.*
 
-### 2. Run the Visual Kanban Cockpit in your browser
+### 3. Run the Visual Kanban Cockpit from Source
 Clone this repository and launch the local dashboard:
 ```bash
 git clone https://github.com/pablojavierrodriguez/dev-board.git
@@ -98,8 +105,8 @@ npm run dev
 ```
 *Open `http://localhost:4100`. Pre-commit verification hooks configure automatically via `npm install`.*
 
-### 3. Local Developer Link (`npm link`)
-If you cloned the repo and want `devboard` and `devboard-mcp` available in terminal across any directory on your machine:
+### 4. Local Developer Link (`npm link`)
+If you cloned the repo and want `devboard` and `devboard-mcp` globally available in your terminal:
 ```bash
 npm link
 ```
@@ -107,7 +114,7 @@ npm link
 
 ---
 
-## 🤖 Standalone MCP Server Tools (9 Tools)
+## 🤖 Standalone MCP Server Tools (12 Tools)
 
 Or pointing to an explicit repository path:
 ```json
@@ -126,7 +133,7 @@ Or run via npm inside this workspace:
 npm run mcp
 ```
 
-### Available MCP Tools (9 Tools)
+### Available MCP Tools (12 Tools)
 
 | Tool | Purpose | Key Parameters |
 | :--- | :--- | :--- |
@@ -139,6 +146,9 @@ npm run mcp
 | `devboard_create_task` | Adds a new task directly into the repository in the project's native storage format. | `title`, `description`, `type`, `priority`, `acceptanceCriteria` |
 | `devboard_update_task` | Updates status (`draft`, `doing`, `review`, `ready`, `done`), toggles criteria checkboxes, or technical plans. | `taskId`, `status`, `toggleAcIndex`, `implementationPlan` |
 | `devboard_export_backlog` | Generates or refreshes the consolidated `BACKLOG.md` report. | `projectId` |
+| `devboard_sync_backlog` | Audits and auto-reconciles tasks with completed criteria and updates `BACKLOG.md`. | `projectId`, `autoFix` |
+| `devboard_create_retro` | Generates a structured retrospective file for a completed sprint. | `projectId`, `sprintId`, `sprintName`, `date`, `author` |
+| `devboard_list_retros` | Lists historical retrospectives recorded in `backlog/retros/`. | `projectId` |
 
 ---
 
@@ -212,9 +222,9 @@ npm run build
 
 ---
 
-## ✨ Features Overview (v0.3.0)
+## ✨ Features Overview (v0.5.0)
 
-- **🎨 Linear & Raycast Aesthetic**: Sleek glassmorphism, refined dark color palette, daylight mode toggle, and zero CLS layout stability.
+- **🎨 Linear & Raycast Aesthetic**: Sleek glassmorphism, refined dark color palette, daylight mode toggle, and zero-CLS layout stability (`overflow-y: scroll`, `scrollbar-gutter: stable`).
 - **🔄 Dual Agile Methodologies (Kanban vs Scrumban)**: 
   - **Kanban**: Continuous value delivery across all items without artificial batching.
   - **Scrumban**: Targeted Sprint Board focused on active **Sprint Goals** with live progress tracking (`%` completed, items in progress, goal fulfillment indicator).
@@ -222,12 +232,16 @@ npm run build
   - **Modo Simple (3 columnas)**: Optimized for speed and clarity (*Draft*, *Doing*, *Done*).
   - **Modo Ampliado (5 columnas)**: Complete quality lifecycle (*Draft*, *Doing*, *Review*, *Ready*, *Done*).
   - **Discovery Column (Ideas)**: Dedicated toggleable pipeline for discovery items with zero layout shifts.
-- **⚙️ Dedicated Project Settings (`SettingsView`)**: Persistent project configuration saved to `.devboard/config.json` (methodology, column definitions, WIP limits, default views, and theme preferences).
-- **🎯 Sprint & Backlog Prioritization Hub**: Dense table view with collapsible sprint groups, progress bars, inline priority/status editing, and natural sorting.
-- **🚀 Sovereign Release Management**: Track versions in preparation (*unreleased*) vs deployed to production (*released*) with automated changelog compilation.
+- **🎯 Sprints Hub & Prioritization**: Complete sprint lifecycle (planning, active progress, sprint completion and automated retrospectives), dense table views, collapsible sprint groups, and natural sorting.
+- **🌳 Hierarchical Relations & Epics Graph**: Direct parent-child relationships, sub-issues, and dependency graphs (`DEV-047`, `DEV-048`).
+- **🧪 Native BDD Support**: First-class Given/When/Then specification in user stories and acceptance criteria (`DEV-084`).
+- **🗑️ Direct Trash & Safe Lifecycle**: First-level Trash View (`TrashView`) with soft-delete, one-click restoration or permanent purging, decoupled from dismissed backlog items (`DEV-096`, `DEV-097`).
+- **🔔 Contextual & Accessible Dialogs**: Linear-grade `ConfirmModal` for destructive actions and production release promotions, replacing raw browser alerts (`DEV-100`).
+- **⚙️ Dedicated Project Settings (`SettingsView`)**: Persistent project configuration saved to `.devboard/config.json` (methodology, custom item types taxonomy, column definitions, WIP limits, and theme preferences).
+- **🚀 Sovereign Release Management**: Track versions in preparation (*unreleased*) vs deployed to production (*released*) with automated changelog compilation and strict orthogonality between sprints and releases (`DEV-099`).
 - **🛡️ Plan Guard**: Ensures items transitioning to `doing` have documented acceptance criteria, technical plans, or specifications before code is written.
 - **📂 Cross-Platform File Explorer**: Visual folder browser (`FolderPickerModal`) for macOS, Linux, and Windows with automatic repository detection.
-- **🤖 Standalone MCP Bridge**: 9 dedicated MCP tools for AI agents (Antigravity, Cursor, Claude Code) with token-efficient filters and atomic updates.
+- **🤖 Standalone MCP Bridge**: 12 dedicated MCP tools for AI agents (Antigravity, Cursor, Claude Code) with token-efficient filters, atomic batch updates, retro generators, and live backlog synchronization.
 
 ---
 
@@ -235,32 +249,7 @@ npm run build
 
 DevBoard uses DevBoard to manage its own development. 
 
-This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases across **64+ tasks** (`DEV-001` through `DEV-066`).
-
----
-
-## 🚀 Quick Start
-
-### Option A: Zero-Install Instant Launch (Recommended)
-
-Run inside any repository folder:
-
-```bash
-npx devboard
-```
-
-DevBoard automatically detects the repository in your working directory, verifies storage engine (`backlog/tasks` or `.devboard`), and launches the Kanban UI in your default browser at `http://localhost:4100`.
-
-### Option B: Clone & Run Locally
-
-```bash
-git clone https://github.com/pablojavierrodriguez/dev-board.git
-cd dev-board
-npm install
-npm run dev
-```
-
-Open [http://localhost:4100](http://localhost:4100) in your browser.
+This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases across **100+ tasks** (`DEV-001` through `DEV-101`), 6 completed sprints (Sprint 0 al 5) and 4 formal releases (`v0.2.0` through `v0.5.0`).
 
 ---
 
@@ -268,7 +257,7 @@ Open [http://localhost:4100](http://localhost:4100) in your browser.
 
 - `N`: Create new backlog item
 - `⌘K` / `Ctrl+K`: Focus instant search bar
-- `1` - `5`: Switch tabs (`1`: Kanban/Tablero, `2`: Sprint & Priorización, `3`: Releases, `4`: Archivo, `5`: Configuración)
+- `1` - `5`: Switch tabs (`1`: Kanban/Tablero, `2`: Sprint & Priorización, `3`: Releases, `4`: Papelera, `5`: Configuración)
 - `Esc`: Close modals
 - `⌘+Enter`: Save item / form
 

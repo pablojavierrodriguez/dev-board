@@ -12,7 +12,7 @@ Esta skill proporciona las reglas de inspección, heurísticas y herramientas de
 
 ---
 
-## 🎯 Las 8 Firmas Estáticas de Anti-Patrones de UX en DevBoard
+## 🎯 Las 10 Firmas Estáticas de Anti-Patrones de UX en DevBoard
 
 ### 1. [UX-001] Colisión de Scroll Horizontal y Gestos en Tableros/Pestañas
 - **Firma en código:** Contenedores con `overflow-x-auto` o flex horizontal sin `min-w-0`, o selectores de pestañas con scroll dinámico sin control de ancho.

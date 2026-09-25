@@ -1,5 +1,5 @@
 # Backlog: dev-board
-> Consolidado generado el 2026-09-24 por DevBoard ⚡
+> Consolidado generado el 2026-09-25 por DevBoard ⚡
 
 ## Resumen de Estados
 
@@ -24,6 +24,22 @@ Módulo de observabilidad, estadísticas y diagnóstico para el ecosistema de Ag
 - [ ] #3 Tabla con listado de skills, última invocación y frecuencia de uso
 - [ ] #4 Sugerencias automáticas de depuración para skills obsoletas o nunca consultadas
 - [ ] #5 Integración opcional con comando CLI npm run skills --stats
+
+---
+
+### 🚀 Ready for Deploy (1)
+
+#### [DEV-102] Actualización integral de documentación y verificación automatizada de coherencia en releases
+- **Prioridad**: `high` | **Tipo**: `docs`
+
+Actualización integral de toda la documentación del repositorio dev-board para armonizarla con el estado de v0.5.0 y el Sprint 5 recién completado, e incorporación de salvaguarda automatizada pre-release en verify-backlog-sync.js y reglas de calidad para asegurar que ante cada release la documentación sea auditada y actualizada obligatoriamente.
+
+**Criterios de Aceptación:**
+- [x] #1 Actualizar README.md a v0.5.0 (Features Overview, 12 herramientas MCP, 100+ tareas, atajos con Papelera y eliminación de Quick Start duplicado).
+- [x] #2 Actualizar docs/ARCHITECTURE.md incorporando TrashView.tsx, ruta trash y registro de persistencia (releases.json, sprints.json, retros/).
+- [x] #3 Armonizar docs/AGENTIC_PLAYBOOK.md y .agents/rules/backlog-dogfooding.md con el límite canónico en ready (prohibido done en sprint) y scripts/backlogMdParser.ts.
+- [x] #4 Actualizar skills en .agents/skills/ (devboard con 12 tools, code-level-ux-auditor con 10 firmas, principal-engineer, rigorous-qa-auditor y list-views-filters).
+- [x] #5 Extender scripts/verify-backlog-sync.js con auditoría automática de coherencia de documentación y formalizar el guardrail pre-release en AGENTS.md y QA auditor.
 
 ---
 

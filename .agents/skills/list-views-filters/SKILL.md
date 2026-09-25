@@ -30,12 +30,12 @@ const activeFiltersCount = (
 ```
 
 ### 2. Contenedores Flex y Prevención de Desborde (`min-w-0`)
-- **Regla Estricta:** En cualquier layout horizontal que combine barra lateral/tabs con un carril principal (como las vistas de Kanban, Archive o Sprint), el contenedor de contenido debe declarar `flex-1 min-w-0`.
+- **Regla Estricta:** En cualquier layout horizontal que combine barra lateral/tabs con un carril principal (como las vistas de Kanban, Papelera o Sprint), el contenedor de contenido debe declarar `flex-1 min-w-0`.
 - **Por qué:** Sin `min-w-0`, los navegadores calculan el ancho intrínseco de las tablas o columnas interiores y fuerzan desbordes laterales o barras de scroll indeseadas en la ventana global.
 
-### 3. Vistas Duales: Tablero Kanban vs Lista / Archivo
+### 3. Vistas Duales: Tablero Kanban vs Lista / Backlog
 - **Tablero Kanban:** Optimizado para flujo de trabajo activo (`doing`, `review`, `ready`). Columnas con conteos de tareas y límites WIP claros.
-- **Vista de Lista / Tabla (Backlog & Archive):** Para auditoría y triage masivo. Cada fila debe utilizar `truncate min-w-0` en el título para garantizar una cuadrícula uniforme sin saltos de línea forzados.
+- **Vista de Lista / Tabla (Backlog & Papelera):** Para auditoría y triage masivo. Cada fila debe utilizar `truncate min-w-0` en el título para garantizar una cuadrícula uniforme sin saltos de línea forzados.
 
 ### 4. Diferenciación Rigurosa de Estados Vacíos (`EmptyState`)
 Nunca mostrar una vista en blanco genérica. Siempre distinguir entre dos escenarios:

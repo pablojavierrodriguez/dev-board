@@ -19,17 +19,14 @@ Antes de iniciar cualquier implementación o cambio de código:
 3. **Tildar Criterios de Aceptación (AC) en Vivo:**
    - A medida que se resuelven los criterios, cambia `- [ ]` a `- [x]` (o usa `toggleAcIndex`).
 
-4. **Promocionar a `done` o `ready` antes del Commit:**
-   - Si la tarea está completa y verificada, pásala a `done` (o `ready` si espera empaquetado de release).
+4. **Promocionar a `ready` antes de Concluir (Límite Canónico del Sprint):**
+   - Si la tarea está completa y verificada, pásala a `ready` (Ready for Release): `{ taskId: "DEV-XXX", status: "ready" }`.
+   - **PROHIBIDO pasar a `done`:** El desarrollo dentro de un sprint nunca marca tareas como `done`. Ese estado lo otorga única y exclusivamente la acción de promover formalmente la versión a `released` en `backlog/releases.json`.
    - **NUNCA dejes una tarea con 100% de ACs cumplidos en `draft` o `doing`.**
 
-5. **Staging Obligatorio en el Mismo Commit:**
-   - Los archivos `.md` de la tarea modificada y el consolidado `BACKLOG.md` **DEBEN incluirse en el mismo commit de Git que el código fuente**.
-   - Ejemplo:
-     ```bash
-     git add src/components/NuevoComponente.tsx backlog/tasks/dev-025.md BACKLOG.md
-     git commit -m "feat(DEV-025): ..."
-     ```
+5. **Staging Obligatorio y Cero Commits No Solicitados:**
+   - Los archivos `.md` de la tarea modificada y el consolidado `BACKLOG.md` deben prepararse en el mismo conjunto de cambios que el código fuente.
+   - **Sin orden explícita no hay commit:** En cumplimiento con `.agents/rules/git-approval.md`, el agente prepara los cambios en el árbol de trabajo y se detiene. Jamás ejecutar `git commit` por deducción propia.
 
 ---
 

@@ -15,7 +15,7 @@ Construir software robusto, mantenible, rápido y confiable para el cockpit de D
 ### 1. Tolerancia Cero a Errores de Tipado y "any"
 - **Compilación Limpia:** Todo cambio debe compilar sin errores en `npx tsc --noEmit` y `npm run build`.
 - **Tipado Exhaustivo:** Tipos centralizados en `src/types.ts`. Prohibido el uso indiscriminado de `any` o aserciones inseguras (`as unknown as T`).
-- Toda nueva propiedad o metadato en tareas (`Task`) debe reflejarse en los parsers de Markdown (`legacyParser.ts`), en el MCP (`bin/devboard-mcp.js`) y en la interfaz de usuario.
+- Toda nueva propiedad o metadato en tareas (`Task`) debe reflejarse en los parsers de Markdown (`scripts/backlogMdParser.ts`), en el MCP (`bin/devboard-mcp.js`) y en la interfaz de usuario.
 
 ### 2. Rendimiento a 60 FPS en el Tablero Kanban
 - **Memoización Quirúrgica:** En tableros con decenas o cientos de tareas, el filtrado, ordenamiento y búsqueda deben encapsularse en `useMemo`.

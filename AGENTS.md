@@ -192,11 +192,14 @@ Antes de pasar cualquier tarea a `ready`, el agente DEBE verificar en orden:
 > ese feedback se atiende inmediatamente — no al final del sprint. El feedback en caliente
 > tiene el mayor valor de retorno y el menor costo de contexto.
 
-### Auditoría de Alcance Pre-Release (Regla del 100% en Producción)
+### Auditoría de Alcance y Documentación Pre-Release (Regla del 100% en Producción)
 Antes de promover cualquier versión a `released` en `backlog/releases.json`:
-- Ninguna versión en producción puede tener tareas incompletas asociadas (`draft`, `doing`, `review`).
-- El agente DEBE verificar que el 100% de las tareas con `milestone` o `targetRelease` asignado a esa versión estén en estado `done`.
-- Si existen tareas no terminadas, DEBEN ser formalmente reasignadas a la siguiente versión planificada (ej: `0.5.0`) antes de sellar el release, garantizando que el indicador de Alcance de la versión entregada sea estrictamente del **100%**.
+- **Alcance 100% en Producción:** Ninguna versión en producción puede tener tareas incompletas asociadas (`draft`, `doing`, `review`). El agente DEBE verificar que el 100% de las tareas con `milestone` o `targetRelease` asignado a esa versión estén en estado `done`. Si existen tareas no terminadas, DEBEN ser formalmente reasignadas a la siguiente versión planificada en preparación (ej: `0.6.0`) antes de sellar el release.
+- **Auditoría Obligatoria de Documentación (Gate de Release):**
+  1. `README.md` DEBE actualizarse con la nueva versión en la sección *Features Overview*, reflejando las novedades destacadas de la entrega, el catálogo vigente de herramientas MCP, el conteo real de tareas de dogfooding y la navegación vigente.
+  2. `docs/ARCHITECTURE.md` DEBE actualizarse si el release introdujo nuevos componentes, vistas o alteró la capa de persistencia.
+  3. Las skills en `.agents/skills/` DEBEN revisarse para reflejar nuevas herramientas MCP o parámetros añadidos.
+  4. La suite de integridad `npm run backlog:check` DEBE ejecutarse y finalizar con código 0, validando automáticamente la coherencia entre `package.json`, `README.md` y `releases.json`.
 
 ---
 

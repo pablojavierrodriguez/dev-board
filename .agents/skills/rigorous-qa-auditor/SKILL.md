@@ -65,12 +65,13 @@ Para tareas que modifiquen la interfaz visual (`KanbanBoard`, `ItemModal`, `Filt
 
 ---
 
-## 📦 Gate de Auditoría de Alcance Pre-Release (100% en Producción)
+## 📦 Gate de Auditoría de Alcance y Documentación Pre-Release (100% en Producción)
 
-Antes de promover un release a `released`:
-1. Comprobar que **todas** las tareas asignadas (`milestone` o `targetRelease`) estén en estado `done`.
-2. Si existen tareas en `draft`/`doing`, reasignarlas formalmente a la siguiente versión planificada (`0.5.0`) antes de sellar el release.
+Antes de promover un release a `released` en `backlog/releases.json`:
+1. Comprobar que **todas** las tareas asignadas (`milestone` o `targetRelease`) estén en estado `done` (o listas en `ready` para su promoción formal).
+2. Si existen tareas incompletas en `draft`/`doing`, reasignarlas formalmente a la siguiente versión planificada en preparación (ej: `0.6.0`) antes de sellar el release.
 3. El indicador de Alcance en el Centro de Releases debe marcar estrictamente **100%** (barra verde).
+4. **Auditoría Obligatoria de Documentación:** Verificar que `README.md`, `docs/ARCHITECTURE.md` y las skills de `.agents/skills/` reflejen la nueva versión, documenten las herramientas nuevas y no arrastren referencias obsoletas (`npm run backlog:check`).
 
 ---
 
@@ -80,5 +81,5 @@ Un agente **solo** puede dar por concluida una tarea si se cumplen las siguiente
 1. ✅ **100% de Criterios Cumplidos:** Todos los checkboxes en `backlog/tasks/<ID>.md` están en `- [x]`.
 2. ✅ **Build y Backlog Limpios:** `npm run build` y `npm run backlog:check` retornan código 0.
 3. ✅ **Auditoría UX Aprobada:** `npm run audit:ux` ejecutado con éxito.
-4. ✅ **Trazabilidad:** La tarea está promocionada a `ready` o `done` mediante `devboard_update_task`.
+4. ✅ **Trazabilidad:** La tarea está promocionada al estado canónico `ready` mediante `devboard_update_task` (pasando a `done` exclusivamente al publicarse el release).
 5. ✅ **Cero Commits No Solicitados:** Los cambios quedan preparados en el working tree sin ejecutar `git commit` hasta que el usuario lo ordene explícitamente.

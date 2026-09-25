@@ -64,6 +64,8 @@ O si estás desarrollando en el workspace local de `dev-board`:
 | **`devboard_update_task`** | Actualiza estado, plan o tilda criterios (AC). | `taskId`, `status`, `toggleAcIndex`, `implementationPlan` |
 | **`devboard_export_backlog`**| Genera o actualiza el archivo `BACKLOG.md` consolidado. | `projectId` |
 | **`devboard_sync_backlog`** | Audita y reconcilia tareas desfasadas con criterios de aceptación y regenera `BACKLOG.md` nativamente. | `projectId`, `autoFix` |
+| **`devboard_create_retro`** | Registra una retrospectiva estructurada en Markdown para un sprint completado. | `projectId`, `sprintId`, `sprintName`, `date`, `author` |
+| **`devboard_list_retros`** | Lista el histórico de retrospectivas de sprint registradas en `backlog/retros/`. | `projectId` |
 
 ---
 

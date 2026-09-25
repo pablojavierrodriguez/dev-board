@@ -89,6 +89,85 @@ for (const file of files) {
   }
 }
 
+// REGLA 3: Verificación de coherencia de documentación y releases
+const readmePath = path.join(currentRepoDir, 'README.md');
+const pkgPath = path.join(currentRepoDir, 'package.json');
+const releasesJsonPath = path.join(currentRepoDir, 'backlog/releases.json');
+
+if (fs.existsSync(readmePath) && fs.existsSync(pkgPath)) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    const readmeContent = fs.readFileSync(readmePath, 'utf8');
+
+    // Validar versión de features overview contra package.json
+    const featOverviewMatch = readmeContent.match(/## ✨ Features Overview \(v(\d+\.\d+\.\d+)\)/);
+    if (featOverviewMatch) {
+      const docVersion = featOverviewMatch[1];
+      if (docVersion !== pkg.version) {
+        console.error(`❌ [Documentación Desfasada] README.md menciona 'Features Overview (v${docVersion})', pero package.json está en 'v${pkg.version}'.`);
+        errorsFound++;
+      }
+    }
+
+    // Validar conteo de herramientas MCP en README
+    const mcpToolsMatch = readmeContent.match(/Available MCP Tools \((\d+)\s+Tools\)/i);
+    if (mcpToolsMatch) {
+      const toolsInDoc = parseInt(mcpToolsMatch[1], 10);
+      const mcpBinPath = path.join(ROOT_DIR, 'bin/devboard-mcp.js');
+      if (fs.existsSync(mcpBinPath)) {
+        const mcpBinContent = fs.readFileSync(mcpBinPath, 'utf8');
+        const toolDefs = (mcpBinContent.match(/name:\s*['"]devboard_[a-z0-9_]+['"]/g) || []).length;
+        if (toolDefs > 0 && toolsInDoc < toolDefs) {
+          console.warn(`⚠️  [Documentación Desfasada] README.md declara ${toolsInDoc} herramientas MCP, pero devboard-mcp expone ${toolDefs} herramientas.`);
+        }
+      }
+    }
+
+    // Validar que no existan referencias a archivos obsoletos en documentación crítica
+    const docsToCheck = [
+      readmePath,
+      path.join(currentRepoDir, 'docs/ARCHITECTURE.md'),
+      path.join(currentRepoDir, 'docs/AGENTIC_PLAYBOOK.md'),
+      path.join(currentRepoDir, 'AGENTS.md')
+    ].filter(f => fs.existsSync(f));
+
+    for (const docFile of docsToCheck) {
+      const docText = fs.readFileSync(docFile, 'utf8');
+      if (docText.includes('legacyParser.ts')) {
+        console.error(`❌ [Error de Documentación] ${path.basename(docFile)} hace referencia al archivo obsoleto 'legacyParser.ts' (debe ser 'scripts/backlogMdParser.ts').`);
+        errorsFound++;
+      }
+    }
+  } catch (docErr) {
+    // Silent catch
+  }
+}
+
+// REGLA 4: Verificación de Alcance 100% en Releases liberados (Regla de Producción)
+if (fs.existsSync(releasesJsonPath)) {
+  try {
+    const releases = JSON.parse(fs.readFileSync(releasesJsonPath, 'utf8'));
+    for (const rel of releases) {
+      if (rel.status === 'released' && Array.isArray(rel.itemCodes)) {
+        for (const code of rel.itemCodes) {
+          const taskFile = files.find(f => f.toLowerCase().startsWith(code.toLowerCase() + ' ') || f.toLowerCase().startsWith(code.toLowerCase() + '-'));
+          if (taskFile) {
+            const taskContent = fs.readFileSync(path.join(tasksDir, taskFile), 'utf8');
+            const statusMatch = taskContent.match(/^status:\s*['"]?([A-Za-z0-9_-]+)['"]?/m);
+            const status = (statusMatch ? statusMatch[1] : '').toLowerCase();
+            if (status !== 'done') {
+              console.error(`❌ [Error de Release] Tarea ${code} pertenece al release publicado v${rel.version}, pero su estado en el archivo es '${status}' (debe ser 'done').`);
+              errorsFound++;
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Si releases.json no es legible
+  }
+}
+
 // Regenerar BACKLOG.md consolidado si estamos en fix mode o en pre-commit
 try {
   const exportScript = path.join(ROOT_DIR, 'scripts/devboard-cli.ts');

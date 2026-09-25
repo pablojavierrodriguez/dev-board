@@ -57,7 +57,7 @@ Los roles del equipo están respaldados por skills operativas integradas en [`.a
 
 ### 🔴 Cuándo mantener FOCO ABSOLUTO (Un solo hilo atómico, sin subagentes):
 1. **Parsers y Sincronización Markdown/JSON (Estándar Backlog.md):**
-   - Modificaciones en `legacyParser.ts`, `backlog/tasks/*.md`, `backlog/releases.json` y `BACKLOG.md` requieren trazabilidad estricta para evitar condiciones de carrera o corrupción de etiquetas HTML comentadas.
+   - Modificaciones en `scripts/backlogMdParser.ts`, `backlog/tasks/*.md`, `backlog/releases.json` y `BACKLOG.md` requieren trazabilidad estricta para evitar condiciones de carrera o corrupción de etiquetas HTML comentadas.
 2. **Servidor MCP y Binarios Autónomos (`bin/devboard-mcp.js`, `bin/devboard.js`):**
    - La API de herramientas MCP debe ser alterada por un único hilo técnico para garantizar compatibilidad hacia atrás.
 3. **Estado Central y Eventos SSE:**
@@ -99,7 +99,8 @@ graph LR
 * El hook Git [`.githooks/pre-commit`](../.githooks/pre-commit) intercepta automáticamente cualquier commit con tareas desfasadas.
 
 ### Fase 5: Release Hub & Traceability (Liberación y Trazabilidad)
-* Las tareas resueltas pasan a `ready` o `done`.
+* **Límite Canónico del Desarrollo (Solo hasta `ready`):** Las tareas resueltas y verificadas pasan a `ready` (Ready for Release). Ningún agente o desarrollador marca tareas en sprint como `done` manualmente.
+* **El estado `done` pertenece exclusivamente a la versión liberada:** Al promover formalmente una versión a `released` en `backlog/releases.json` mediante el Release Assembler, sus tareas asociadas se sellan en `done`.
 * El archivo Markdown de la tarea se incluye **en el mismo commit de Git** que el código fuente.
 * Al empaquetar una versión con el Release Assembler, se generan notas en `backlog/releases.json` y se actualiza el consolidado [`BACKLOG.md`](../BACKLOG.md).
 

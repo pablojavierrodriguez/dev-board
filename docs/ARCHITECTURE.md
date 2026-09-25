@@ -26,6 +26,7 @@ DevBoard es un cockpit ágil *embedded-first* y orientado a la colaboración ent
 │    ├── src/components/KanbanBoard.tsx (Tablero interactivo D&D)        │
 │    ├── src/components/SprintView.tsx (Gestión de Sprints y métricas)   │
 │    ├── src/components/ReleaseAssembler.tsx (Releases y Changelogs)     │
+│    ├── src/components/TrashView.tsx (Papelera y soft-delete directo)   │
 │    ├── src/components/SettingsView.tsx (Configuración y MCP)           │
 │    ├── src/components/FilterBar.tsx + AdvancedFiltersPopover.tsx       │
 │    └── Modales: ItemModal, ProjectModal, ConfirmModal, etc.            │
@@ -50,6 +51,9 @@ DevBoard es un cockpit ágil *embedded-first* y orientado a la colaboración ent
 │                    PERSISTENCIA & SISTEMA DE ARCHIVOS                  │
 │                                                                        │
 │  backlog/tasks/*.md (Tareas individuales con YAML frontmatter)         │
+│  backlog/releases.json (Registro histórico y versiones activas)        │
+│  backlog/sprints.json (Ciclo de vida y balance de sprints)             │
+│  backlog/retros/*.md (Retrospectivas de sprint)                        │
 │  BACKLOG.md (Backlog monolítico compilado)                             │
 │  data/projects-registry.json (Registro local de proyectos)             │
 │  .devboard/ (Configuraciones locales de proyecto)                      │
@@ -64,11 +68,12 @@ DevBoard es un cockpit ágil *embedded-first* y orientado a la colaboración ent
 
 | Archivo | Responsabilidad Principal |
 | :--- | :--- |
-| [src/App.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/App.tsx) | Punto de entrada UI. Mantiene estado del proyecto activo, tareas, vistas activas (`kanban`, `sprint`, `releases`, `archive`, `settings`), handlers de modales y atajos de teclado. |
+| [src/App.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/App.tsx) | Punto de entrada UI. Mantiene estado del proyecto activo, tareas, vistas activas (`kanban`, `sprint`, `releases`, `trash`, `settings`), handlers de modales y atajos de teclado. |
 | [src/components/Header.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/Header.tsx) | Barra superior con switcher de proyecto, selector de vista principal, triggers de búsqueda, badges de sincronización y estado. |
 | [src/components/KanbanBoard.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/KanbanBoard.tsx) | Tablero visual Kanban con columnas por estado (`draft`, `doing`, `review`, `ready`, `done`), drag & drop, agrupación y colapso de columnas. |
 | [src/components/SprintView.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/SprintView.tsx) | Vista de planificación de sprints, cálculo de velocidad, métricas de avance y burndown. |
 | [src/components/ReleaseAssembler.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/ReleaseAssembler.tsx) | Ensamblador de versiones (`unreleased` y `released`), generación de changelogs y vinculación con tags Git. |
+| [src/components/TrashView.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/TrashView.tsx) | Vista directa de Papelera. Gestiona el ciclo de vida de tareas en borrado lógico (`isDeleted: true`), restauración al estado previo y purga definitiva. |
 | [src/components/SettingsView.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/SettingsView.tsx) | Panel de configuración del proyecto, opciones de almacenamiento (Markdown vs JSON), rutas de repositorio y estado de MCP. |
 | [src/components/FilterBar.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/FilterBar.tsx) | Barra de filtrado unificada con chips interactivos para búsqueda rápida, tipos, prioridades y asignados. |
 | [src/components/AdvancedFiltersPopover.tsx](file:///Users/adrisol/Pablo/code/dev-board/src/components/AdvancedFiltersPopover.tsx) | Popover con filtros avanzados combinados. |
@@ -83,7 +88,7 @@ DevBoard es un cockpit ágil *embedded-first* y orientado a la colaboración ent
 | [vite.config.ts](file:///Users/adrisol/Pablo/code/dev-board/vite.config.ts) | Configuración de Vite y plugin de middleware que implementa los endpoints `/api/*` para lectura/escritura de tareas, proyectos y sincronización. |
 | [scripts/backlogMdParser.ts](file:///Users/adrisol/Pablo/code/dev-board/scripts/backlogMdParser.ts) | Motor de parsing y serialización bidireccional entre archivos Markdown individuales (`backlog/tasks/*.md`), `BACKLOG.md` y objetos JSON en memoria. |
 | [scripts/verify-backlog-sync.js](file:///Users/adrisol/Pablo/code/dev-board/scripts/verify-backlog-sync.js) | Auditor de coherencia entre criterios de aceptación, estados de tareas y código fuente. Se ejecuta en `.githooks/pre-commit`. |
-| [bin/devboard-mcp.js](file:///Users/adrisol/Pablo/code/dev-board/bin/devboard-mcp.js) | Servidor MCP que expone las herramientas de DevBoard (`devboard_list_tasks`, `devboard_update_task`, etc.) a agentes de IA. |
+| [bin/devboard-mcp.js](file:///Users/adrisol/Pablo/code/dev-board/bin/devboard-mcp.js) | Servidor MCP que expone las 12 herramientas de DevBoard (`devboard_list_tasks`, `devboard_sync_backlog`, `devboard_create_retro`, etc.) a agentes de IA. |
 
 ---
 
