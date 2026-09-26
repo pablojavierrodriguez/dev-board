@@ -69,63 +69,76 @@ It replaces chaotic "vibe coding" with strict, transparent engineering guardrail
 
 ---
 
-## 🚀 Quick Start
+## 🎯 Choose Your Path: Who is DevBoard For?
 
-No complex setups or servers required. Pick the scenario that matches what you want to do:
+DevBoard caters to two distinct audiences. Choose the path that matches what you want to do:
 
-### 1. Interactive Onboarding & Scaffolding Wizard (`devboard --init`)
-Run inside any existing or new repository to initialize DevBoard with complete user sovereignty:
+| 👤 Profile 1: Product User / App Developer | 🛠️ Profile 2: Open Source Contributor & Customizer |
+| :--- | :--- |
+| **"I want to track tasks & use AI in my existing project"** | **"I want full control of the code to customize or fork it"** |
+| ✅ Zero need to clone the DevBoard repository | ✅ Clone or fork the DevBoard repository |
+| ✅ 1-minute setup via interactive CLI (`devboard --init`) | ✅ Modify React, Tailwind, and TypeScript source files |
+| ✅ Local web board + AI pairing in Cursor / Claude | ✅ Run Vite dev server with hot reload (`npm run dev`) |
+| ⏩ **[Go to User Quick Start](#-user-quick-start-profile-1)** | ⏩ **[Go to Developer & Customizer Guide](#-developer--customizer-guide-profile-2)** |
+
+---
+
+## 🚀 User Quick Start (Profile 1)
+*Use DevBoard in any repository without touching or cloning the DevBoard codebase.*
+
+### Step 1: Install DevBoard Globally (Run once on your machine)
+Install the CLI directly from the official GitHub repository:
 ```bash
-npx devboard --init
+npm install -g github:pablojavierrodriguez/dev-board
 ```
-The step-by-step interactive wizard lets you customize the exact installation scope:
-- **Operating Mode**: Choose between **Single-Project Mode** (`singleProject: true`, isolated to this repository with zero external dependencies) or **Multi-Project Hub** (registered in `~/.devboard/registry.json` under the XDG standard).
-- **AI Agent Skill**: Installs `.agents/skills/devboard/SKILL.md` so Antigravity, Cursor, and Claude Code know how to manage tasks via MCP or Markdown.
-- **Agent Governance Guide**: Generates `AGENTS.md` with best practices, dogfooding rules, and pre-commit guardrails.
-- **Convenience Scripts**: Adds `"board": "devboard"` and `"mcp": "devboard-mcp"` to your `package.json`.
-- **Git Ignore**: Adds recommended exclusions (`.devboard/update-cache.json`, etc.) to `.gitignore`.
+*(Or run on-demand without global installation: `npx github:pablojavierrodriguez/dev-board`)*
 
-*Non-interactive mode (for CI, containers, or automatic setups):*
+### Step 2: Initialize Your Project (1-minute setup)
+Open a terminal in your project's root directory (e.g. `my-app`) and run:
 ```bash
-npx devboard --init -y
+devboard --init
 ```
+The friendly interactive wizard guides you through 5 key decisions:
+1. **Operating Mode**: Choose **Single-Project Mode** (isolated, self-contained within your repo) or **Multi-Project Hub** (managed centrally in `~/.devboard/registry.json`).
+2. **AI Agent Skill**: Installs `.agents/skills/devboard/SKILL.md` so Cursor, Antigravity, and Claude Code know how to manage tasks.
+3. **Governance Rules**: Generates `AGENTS.md` with best practices and pre-commit guardrails.
+4. **Quick Scripts**: Adds `"board": "devboard"` and `"mcp": "devboard-mcp"` to your `package.json`.
+5. **Git Ignore**: Adds recommended exclusions (`.devboard/update-cache.json`, etc.) to `.gitignore`.
 
-### 2. Instant Launch in Any Repository (Zero-Install)
-Run inside any repository folder:
+*Non-interactive flag for CI or automatic setup:*
 ```bash
-npx devboard
+devboard --init -y
 ```
-*DevBoard automatically detects the repository in your working directory, verifies storage engine (`backlog/tasks` or `.devboard`), and launches the Kanban UI in your default browser at `http://localhost:4100`.*
 
-**Available CLI Flags:**
-- `--single` / `--mono`: Force isolated single-project mode (ignores other repositories and locks active context).
-- `--hub`: Force multi-project hub mode (loads and manages all registered projects in `~/.devboard/registry.json`).
-- `--port <number>`: Specify a custom port (e.g. `npx devboard --port 4200`).
-- `--repo <path>`: Target an explicit repository path instead of the current working directory.
-
-**Automatic Version & Update Notifications:**
-Like Supabase CLI, DevBoard performs a non-blocking check against GitHub Releases once every 24 hours. When a newer version is available, a subtle terminal banner appears on startup and a notification badge is displayed in the web UI. To disable:
+### Step 3: Daily Usage — Open Your Board
+Whenever you want to work on your project, simply run:
 ```bash
-DEVBOARD_NO_UPDATE_CHECK=1 npx devboard
+devboard
 ```
+*(Or `npm run board` if you enabled the script during init).*  
+*DevBoard launches your visual Kanban board in your default browser at `http://localhost:4100` in under 200ms.*
 
-### 3. Use the AI Agent MCP Server in any project
-Add this to your IDE's MCP configuration (`.cursor/mcp.json`, Claude Desktop, or Antigravity):
-
+### Step 4 (Optional): Connect Your AI Agent (Cursor / Claude / Antigravity)
+Add DevBoard to your IDE's MCP configuration (`.cursor/mcp.json`, Claude Desktop, or Antigravity):
 ```json
 {
   "mcpServers": {
     "devboard": {
-      "command": "npx",
-      "args": ["-y", "devboard-mcp", "--repo", "."]
+      "command": "devboard-mcp",
+      "args": ["--repo", "."]
     }
   }
 }
 ```
-*Your AI agent (Cursor, Claude Code, Antigravity) will automatically detect `backlog/tasks/` in your repository and manage tasks through 12 dedicated tools.*
+*Your AI agent will automatically detect `backlog/tasks/` in your repository and manage tasks through 12 dedicated tools.*
 
-### 4. Run the Visual Kanban Cockpit from Source
-Clone this repository and launch the local dashboard:
+---
+
+## 🛠️ Developer & Customizer Guide (Profile 2)
+*For developers who want full control over the DevBoard codebase: extend features, customize UI components, or fork the project.*
+
+### 1. Clone & Run the Development Environment
+Clone the repository and launch Vite with Hot Module Replacement (HMR):
 ```bash
 git clone https://github.com/pablojavierrodriguez/dev-board.git
 cd dev-board
@@ -134,12 +147,24 @@ npm run dev
 ```
 *Open `http://localhost:4100`. Pre-commit verification hooks configure automatically via `npm install`.*
 
-### 5. Local Developer Link (`npm link`)
-If you cloned the repo and want `devboard` and `devboard-mcp` globally available in your terminal:
+### 2. Local Developer Link (`npm link`)
+To use your customized local fork globally across other projects on your machine:
 ```bash
 npm link
 ```
-*Now you can run `devboard` (launches web UI) or `devboard-mcp` from any directory (also accepts `dev-board` / `dev-board-mcp`).*
+*Now `devboard` and `devboard-mcp` commands run your local build directly.*
+
+### 3. Advanced CLI Flags
+- `--single` / `--mono`: Force isolated single-project mode (ignores other repositories and locks active context).
+- `--hub`: Force multi-project hub mode (loads and manages all registered projects in `~/.devboard/registry.json`).
+- `--port <number>`: Specify a custom port (e.g. `devboard --port 4200`).
+- `--repo <path>`: Target an explicit repository path instead of the current working directory.
+
+**Silencing Update Checks:**
+Like Supabase CLI, DevBoard checks GitHub Releases once every 24 hours. To disable:
+```bash
+DEVBOARD_NO_UPDATE_CHECK=1 devboard
+```
 
 ---
 
@@ -209,7 +234,7 @@ In public Git repositories (e.g., GitHub, GitLab), **ALL branches and commits pu
 - Keep the public repository completely clean of backlog files, and maintain a private repository (e.g., `my-project-backlog`) for tracking.
 - Run DevBoard or point MCP to that directory:
   ```bash
-  npx devboard-mcp --repo /path/to/private-backlog
+  devboard-mcp --repo /path/to/private-backlog
   ```
 
 ---
