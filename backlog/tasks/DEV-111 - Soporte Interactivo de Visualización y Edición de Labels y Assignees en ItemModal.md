@@ -1,16 +1,22 @@
 ---
 id: DEV-111
 title: "Soporte Interactivo de Visualización y Edición de Labels y Assignees en ItemModal"
-status: ready
+status: done
 created_date: '2026-09-25'
 updated_date: '2026-09-25 16:30'
 labels: []
 dependencies: []
 priority: medium
 type: ux
+milestone: "0.6.0"
 sprints:
   - "Sprint 6"
+releases:
+  - "0.6.0"
 sprint: "Sprint 6"
+targetSprint: "Sprint 6"
+release: "0.6.0"
+targetRelease: "0.6.0"
 ---
 
 ## Description

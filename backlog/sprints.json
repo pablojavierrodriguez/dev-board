@@ -63,9 +63,10 @@
     "name": "Sprint 6",
     "goal": "Robustecimiento de CLI y Empaquetado: Estándar XDG, Aislamiento de Repositorios, Bundler de Tailwind y Notificador de Versiones",
     "startDate": "2026-09-25",
-    "endDate": "2026-10-02",
+    "endDate": "2026-09-25",
     "durationWeeks": 1,
-    "status": "active",
-    "createdAt": "2026-09-25T14:52:00.000Z"
+    "status": "completed",
+    "createdAt": "2026-09-25T14:52:00.000Z",
+    "completedAt": "2026-09-25T21:40:00.000Z"
   }
 ]

@@ -1,16 +1,22 @@
 ---
 id: DEV-106
 title: "Higiene de Código Abierto: Erradicación de Fallbacks Residuales Propietarios"
-status: ready
+status: done
 created_date: '2026-09-25'
 updated_date: '2026-09-25 15:03'
 labels: []
 dependencies: []
 priority: medium
 type: tech_debt
+milestone: "0.6.0"
 sprints:
   - "Sprint 6"
+releases:
+  - "0.6.0"
 sprint: "Sprint 6"
+targetSprint: "Sprint 6"
+release: "0.6.0"
+targetRelease: "0.6.0"
 ---
 
 ## Description

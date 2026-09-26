@@ -276,8 +276,15 @@ npm run build
 
 ---
 
-## ✨ Features Overview (v0.5.0)
+## ✨ Features Overview (v0.6.0)
 
+- **📦 Global CLI Distribution & Packaging**: Native `devboard` and `devboard-mcp` executable binaries with absolute path resolution in Tailwind CSS and Vite bundler (`DEV-108`).
+- **🔒 Strict Single-Project Mode & Multi-Project Hub**: Absolute repository isolation (`--single`) to prevent data leakage across distinct codebases, alongside centralized multi-project management (`--hub`) using the XDG home directory standard (`~/.devboard/registry.json`) (`DEV-104`, `DEV-105`).
+- **🧙 Interactive Project Initialization (`devboard --init`)**: Interactive onboarding wizard with readline prompting and non-interactive `--yes`/`-y` flags, supporting custom scaffolding of AI agent skills, `AGENTS.md` rules, package scripts, and Git safeguards (`DEV-109`).
+- **🔔 Silent CLI Update Checker**: Non-intrusive update notifier inspired by Supabase CLI with local 24-hour cache and `DEVBOARD_NO_UPDATE_CHECK=1` opt-out (`DEV-107`).
+- **🏷️ Interactive Labels & Assignees in ItemModal**: Tag chips editor with keyboard addition/removal and visual assignee management in the item detail modal (`DEV-111`).
+- **📋 Canonical Backlog.md Engine Compatibility**: Strict ID casing preservation, in-place atomic updates, canonical sprint mapping, and release `itemCodes` preservation (`DEV-103`).
+- **🛡️ Automated Pre-Release Documentation Audit**: Automated consistency checker in `verify-backlog-sync.js` preventing out-of-sync release documentation and orphan tasks (`DEV-102`, `DEV-110`).
 - **🎨 Linear & Raycast Aesthetic**: Sleek glassmorphism, refined dark color palette, daylight mode toggle, and zero-CLS layout stability (`overflow-y: scroll`, `scrollbar-gutter: stable`).
 - **🔄 Dual Agile Methodologies (Kanban vs Scrumban)**: 
   - **Kanban**: Continuous value delivery across all items without artificial batching.
@@ -287,12 +294,12 @@ npm run build
   - **Modo Ampliado (5 columnas)**: Complete quality lifecycle (*Draft*, *Doing*, *Review*, *Ready*, *Done*).
   - **Discovery Column (Ideas)**: Dedicated toggleable pipeline for discovery items with zero layout shifts.
 - **🎯 Sprints Hub & Prioritization**: Complete sprint lifecycle (planning, active progress, sprint completion and automated retrospectives), dense table views, collapsible sprint groups, and natural sorting.
-- **🌳 Hierarchical Relations & Epics Graph**: Direct parent-child relationships, sub-issues, and dependency graphs (`DEV-047`, `DEV-048`).
-- **🧪 Native BDD Support**: First-class Given/When/Then specification in user stories and acceptance criteria (`DEV-084`).
-- **🗑️ Direct Trash & Safe Lifecycle**: First-level Trash View (`TrashView`) with soft-delete, one-click restoration or permanent purging, decoupled from dismissed backlog items (`DEV-096`, `DEV-097`).
-- **🔔 Contextual & Accessible Dialogs**: Linear-grade `ConfirmModal` for destructive actions and production release promotions, replacing raw browser alerts (`DEV-100`).
+- **🌳 Hierarchical Relations & Epics Graph**: Direct parent-child relationships, sub-issues, and dependency graphs.
+- **🧪 Native BDD Support**: First-class Given/When/Then specification in user stories and acceptance criteria.
+- **🗑️ Direct Trash & Safe Lifecycle**: First-level Trash View (`TrashView`) with soft-delete, one-click restoration or permanent purging, decoupled from dismissed backlog items.
+- **🔔 Contextual & Accessible Dialogs**: Linear-grade `ConfirmModal` for destructive actions and production release promotions, replacing raw browser alerts.
 - **⚙️ Dedicated Project Settings (`SettingsView`)**: Persistent project configuration saved to `.devboard/config.json` (methodology, custom item types taxonomy, column definitions, WIP limits, and theme preferences).
-- **🚀 Sovereign Release Management**: Track versions in preparation (*unreleased*) vs deployed to production (*released*) with automated changelog compilation and strict orthogonality between sprints and releases (`DEV-099`).
+- **🚀 Sovereign Release Management**: Track versions in preparation (*unreleased*) vs deployed to production (*released*) with automated changelog compilation and strict orthogonality between sprints and releases.
 - **🛡️ Plan Guard**: Ensures items transitioning to `doing` have documented acceptance criteria, technical plans, or specifications before code is written.
 - **📂 Cross-Platform File Explorer**: Visual folder browser (`FolderPickerModal`) for macOS, Linux, and Windows with automatic repository detection.
 - **🤖 Standalone MCP Bridge**: 12 dedicated MCP tools for AI agents (Antigravity, Cursor, Claude Code) with token-efficient filters, atomic batch updates, retro generators, and live backlog synchronization.
@@ -303,7 +310,7 @@ npm run build
 
 DevBoard uses DevBoard to manage its own development. 
 
-This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases across **100+ tasks** (`DEV-001` through `DEV-101`), 6 completed sprints (Sprint 0 al 5) and 4 formal releases (`v0.2.0` through `v0.5.0`).
+This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases across **110+ tasks** (`DEV-001` through `DEV-111`), 7 completed sprints (Sprint 0 al 6) and 5 formal releases (`v0.2.0` through `v0.6.0`).
 
 ---
 

@@ -1,5 +1,30 @@
 [
   {
+    "id": "rel-0-6-0",
+    "projectId": "dev-board",
+    "version": "0.6.0",
+    "date": "2026-09-25",
+    "targetDate": "2026-09-25",
+    "status": "released",
+    "title": "v0.6.0 - CLI Packaging, Single-Project Isolation, XDG Hub, Interactive Scaffolding, Canonical Sync & ItemModal UX",
+    "summary": "Consolidación de Sprint 6 (10 ítems completados): empaquetado global y resolución absoluta de rutas en CLI (`devboard` y `devboard-mcp`), aislamiento estricto de repositorios en modo mono-proyecto (`--single`), registro global de proyectos bajo estándar XDG (`~/.devboard/registry.json`), asistente interactivo de onboarding (`devboard --init`), verificador silencioso de versiones estilo Supabase CLI, compatibilidad canónica con Backlog.md, auditoría automatizada pre-release y edición interactiva de labels y asignados en ItemModal.",
+    "scopeNotes": "Estabilización y empaquetado para distribución global, erradicación de fallbacks propietarios, soporte de personalización en onboarding y cierre de brecha en metadatos de tareas.",
+    "itemCodes": [
+      "DEV-102",
+      "DEV-103",
+      "DEV-104",
+      "DEV-105",
+      "DEV-106",
+      "DEV-107",
+      "DEV-108",
+      "DEV-109",
+      "DEV-110",
+      "DEV-111"
+    ],
+    "markdownContent": "## [0.6.0] — 2026-09-25 🚀 CLI Packaging, Single-Project Isolation, XDG Hub, Interactive Scaffolding, Canonical Sync & ItemModal UX\\n\\n### 🎯 Resumen\\n*Consolidación integral de Sprint 6 (10 ítems completados): distribución y empaquetado standalone del CLI, aislamiento mono-proyecto estricto, registro global XDG, asistente interactivo de inicialización (`devboard --init`), chequeador de versiones, compatibilidad canónica Backlog.md y edición de etiquetas y responsables en ItemModal.*\\n\\n### 🚀 Novedades y Mejoras\\n- **Distribución Global del CLI y Bundler (DEV-108):** Binarios ejecutables `devboard` y `devboard-mcp` con resolución absoluta de rutas de assets y plugins Tailwind para correr sin errores desde cualquier directorio del sistema.\\n- **Aislamiento Mono-Proyecto y Hub Global (DEV-104, DEV-105):** Modo mono-proyecto aislado (`--single`) que evita la mezcla de contextos entre repositorios independientes, junto a almacenamiento centralizado en `~/.devboard/registry.json` respetando estándares XDG y FHS.\\n- **Asistente Interactivo de Inicialización (DEV-109):** Comando `devboard --init` con asistente interactivo por consola (o flag `-y` / `--yes`) para configurar modo mono/multi-proyecto, skills de IA, reglas `AGENTS.md`, scripts en `package.json` y `.gitignore`.\\n- **Verificador de Actualizaciones Estilo Supabase (DEV-107):** Notificador no bloqueante de nuevas versiones en GitHub con ventana de cache de 24 horas y variable de entorno `DEVBOARD_NO_UPDATE_CHECK=1`.\\n- **Edición Interactiva de Labels y Asignados (DEV-111):** Gestión de chips de etiquetas y asignación visual de miembros o agentes en `ItemModal` con sincronización bidireccional limpia al frontmatter Markdown.\\n- **Compatibilidad Canónica con Backlog.md (DEV-103):** Nombres de archivo canónicos con ID en mayúsculas, sobreescritura atómica in-place por ID, serialización uniforme de estados y preservación estricta de `itemCodes`.\\n- **Auditoría Pre-Release y Especificación de Arquitectura (DEV-102, DEV-110):** Salvaguarda pre-release automatizada en `verify-backlog-sync.js` y documentación exhaustiva del CLI y modelo canónico de datos en `docs/ARCHITECTURE.md`.\\n- **Higiene de Código Abierto (DEV-106):** Erradicación total de fallbacks o rutas propietarias residuales en la detección de repositorios.",
+    "createdAt": "2026-09-25T21:40:00.000Z"
+  },
+  {
     "id": "rel-0-5-0",
     "projectId": "dev-board",
     "version": "0.5.0",

@@ -3,144 +3,6 @@
 
 ## Resumen de Estados
 
-### 🚀 Ready for Deploy (10)
-
-#### [DEV-102] Actualización integral de documentación y verificación automatizada de coherencia en releases
-- **Prioridad**: `high` | **Tipo**: `docs`
-
-Actualización integral de toda la documentación del repositorio dev-board para armonizarla con el estado de v0.5.0 y el Sprint 5 recién completado, e incorporación de salvaguarda automatizada pre-release en verify-backlog-sync.js y reglas de calidad para asegurar que ante cada release la documentación sea auditada y actualizada obligatoriamente.
-
-**Criterios de Aceptación:**
-- [x] #1 Actualizar README.md a v0.5.0 (Features Overview, 12 herramientas MCP, 100+ tareas, atajos con Papelera y eliminación de Quick Start duplicado).
-- [x] #2 Actualizar docs/ARCHITECTURE.md incorporando TrashView.tsx, ruta trash y registro de persistencia (releases.json, sprints.json, retros/).
-- [x] #3 Armonizar docs/AGENTIC_PLAYBOOK.md y .agents/rules/backlog-dogfooding.md con el límite canónico en ready (prohibido done en sprint) y scripts/backlogMdParser.ts.
-- [x] #4 Actualizar skills en .agents/skills/ (devboard con 12 tools, code-level-ux-auditor con 10 firmas, principal-engineer, rigorous-qa-auditor y list-views-filters).
-- [x] #5 Extender scripts/verify-backlog-sync.js con auditoría automática de coherencia de documentación y formalizar el guardrail pre-release en AGENTS.md y QA auditor.
-
----
-
-#### [DEV-103] Compatibilidad canónica de sincronización y exportación con estándar Backlog.md
-- **Prioridad**: `high` | **Tipo**: `feature`
-
-Adaptar el motor de sincronización y exportación de tareas en dev-board para que sea 100% compatible con el estándar canónico de Backlog.md: nombres de archivo canónicos con ID en mayúsculas y espacios (sin slugify a minúsculas), sobreescritura de archivos existentes por ID, serialización de status estrictamente en minúsculas (sin 'Ideas'), mapeo de sprints exclusivamente a nombres registrados en sprints.json (sin inventar 'backlog-futuro') y preservación absoluta de itemCodes en releases.json.
-
-**Criterios de Aceptación:**
-- [x] #1 Nombres de archivo canónicos en backlogMdParser.ts (${task.id.toUpperCase()} - ${task.title}.md) preservando mayúsculas y espacios sin slugify forzado a minúsculas.
-- [x] #2 Sobreescritura in-place de archivos existentes por ID en vite.config.ts, mcp-server.ts y devboard-cli.ts sin generar nombres slug duplicados ni borrar el archivo previo.
-- [x] #3 Serialización de status estrictamente en minúsculas (draft, doing, review, ready, done, dismissed) mapeando Ideas/Backlog a draft y prohibiendo mayúsculas o 'Ideas' en frontmatter YAML.
-- [x] #4 Mapeo de sprint exclusivamente al name legible registrado en sprints.json (activo/planificado), omitiendo el campo si no pertenece a un sprint válido y eliminando creación de sprints espurios como 'backlog-futuro'.
-- [x] #5 Preservación estricta del array itemCodes en releases.json en lecturas, escrituras y mutaciones de tareas en vite.config.ts.
-- [x] #6 Validación con suite de tests de parser, integración y verificación de coherencia de backlog (npm test, npm run backlog:check).
-
----
-
-#### [DEV-104] Estándar XDG y Home Directory para Registro Multi-Proyecto en CLI
-- **Prioridad**: `high` | **Tipo**: `feature`
-
-Migrar la persistencia del registro global de proyectos del Hub desde el árbol de archivos del paquete instalado (PKG_ROOT/data/projects-registry.json) al directorio del usuario (~/.devboard/registry.json), cumpliendo con estándares XDG y FHS para herramientas de CLI open-source.
-
-**Criterios de Aceptación:**
-- [x] #1 Persistir registry de proyectos en ~/.devboard/registry.json (o XDG_CONFIG_HOME) en lugar de PKG_ROOT/data/projects-registry.json.
-- [x] #2 Fallback y migración transparente de proyectos existentes desde PKG_ROOT/data/projects-registry.json si existen.
-- [x] #3 Garantizar que instalaciones globales (npm i -g) o npx devboard no fallen con EACCES por intentar escribir en node_modules.
-- [x] #4 Preservar el repositorio de dev-board limpio sin mutaciones de projects-registry.json al gestionar proyectos externos.
-
----
-
-#### [DEV-105] Aislamiento Estricto de Datos en Modo Mono-Proyecto (Single-Project Mode)
-- **Prioridad**: `high` | **Tipo**: `feature`
-
-Garantizar que la ejecución de DevBoard en un repositorio único limite estrictamente las consultas de la API, el estado y el socket SSE al repositorio actual, evitando que tareas de otros repositorios previamente registrados en el Hub se mezclen o transfieran al cliente web.
-
-**Criterios de Aceptación:**
-- [x] #1 En modo monoproyecto (ejecutado sin --hub o con DEVBOARD_MODE=single), la API /api/data debe retornar únicamente el proyecto activo local y sus tareas.
-- [x] #2 Evitar la carga y el cómputo en memoria de tareas de repositorios externos cuando no se esté en modo Hub.
-- [x] #3 Asegurar que Header.tsx renderice el badge local sin desplegar el dropdown de proyectos cuando singleProject es true.
-- [x] #4 Preservar el comportamiento multi-proyecto íntegro e intacto cuando se invoque con --hub o --multi.
-
----
-
-#### [DEV-106] Higiene de Código Abierto: Erradicación de Fallbacks Residuales Propietarios
-- **Prioridad**: `medium` | **Tipo**: `tech_debt`
-
-Limpieza de código para eliminar residuos y fallbacks hardcodeados con nombres de proyectos privados ('dom') presentes en el frontend, asegurando que la resolución de proyecto activo sea 100% neutral y dinámica para cualquier usuario de la comunidad open-source.
-
-**Criterios de Aceptación:**
-- [x] #1 Reemplazar todos los fallbacks al string literal 'dom' en src/App.tsx por resolución dinámica neutral (activeProjectId || projects[0]?.id).
-- [x] #2 Reemplazar fallbacks 'dom' en src/components/ItemModal.tsx.
-- [x] #3 Reemplazar fallbacks 'dom' en src/components/ImportWizardModal.tsx.
-- [x] #4 Garantizar que ningún identificador de proyecto privado quede hardcodeado en la base de código abierta.
-
----
-
-#### [DEV-107] Verificador y Notificador de Actualizaciones Estilo Supabase CLI
-- **Prioridad**: `medium` | **Tipo**: `feature`
-
-Implementar un sistema de notificación de versiones disponibles similar a Supabase CLI o Homebrew, que verifique en segundo plano si existe un release más nuevo en GitHub, cachee el resultado por 24 horas y notifique al desarrollador en consola y en la interfaz visual sin retrasar el tiempo de respuesta.
-
-**Criterios de Aceptación:**
-- [x] #1 Verificación no bloqueante en background al ejecutar bin/devboard.js y bin/devboard-mcp.js consultando la versión más reciente en GitHub Releases.
-- [x] #2 Almacenamiento en caché local de la última verificación (TTL: 24 horas) en ~/.devboard/update-cache.json para no demorar el inicio del CLI ni saturar la API.
-- [x] #3 Mostrar un banner informativo y amigable en terminal cuando exista una versión más reciente con instrucciones claras de actualización.
-- [x] #4 Exponer endpoint o flag de actualización para mostrar un badge sutil en el Header de la UI cuando haya una versión nueva.
-- [x] #5 Permitir silenciar la verificación mediante variable de entorno (DEVBOARD_NO_UPDATE_CHECK=1).
-
----
-
-#### [DEV-108] Resolución Absoluta de Rutas en Tailwind y Bundler para Ejecución Global del CLI
-- **Prioridad**: `urgent` | **Tipo**: `bug`
-
-Corregir la resolución de rutas en tailwind.config.js y la carga de configuración de Vite en bin/devboard.js para usar rutas absolutas ancladas a PKG_ROOT. Esto evita que al ejecutar el CLI desde repositorios externos, Tailwind busque clases en la carpeta del repositorio host en lugar del paquete DevBoard, lo que provocaba el colapso visual de la cabecera y la desestilización del layout.
-
-**Criterios de Aceptación:**
-- [x] #1 Resolver rutas absolutas para content en tailwind.config.js usando fileURLToPath y path.join(__dirname, ...), garantizando que escanee los componentes de DevBoard independientemente de process.cwd().
-- [x] #2 Configurar explícitamente configFile: path.resolve(PKG_ROOT, 'vite.config.ts') en createServer dentro de bin/devboard.js para evitar colisiones con bundlers o configuraciones del repositorio host.
-- [x] #3 Verificar que al ejecutar devboard desde cualquier carpeta externa en el sistema operativo, la UI compile y renderice todas las clases utilitarias de Tailwind con fidelidad completa (sin colapso de cabecera ni inputs planos).
-- [x] #4 Validar que el modo dark aplique correctamente en inputs, columnas y contenedores al ejecutar en directorios remotos.
-
----
-
-#### [DEV-109] Asistente Interactivo de Inicialización y Scaffolding Personalizable (devboard --init)
-- **Prioridad**: `high` | **Tipo**: `feature`
-
-Implementar un asistente interactivo y personalizable en 'devboard --init' (con soporte interactivo mediante readline nativo y flags no interactivas --yes / --defaults). El asistente permite al usuario elegir: (1) Modo de operación: Single Project (autocontenido y aislado) o Multi-Project (registrado en el Hub global ~/.devboard/registry.json), (2) Inclusión de la skill de agente (.agents/skills/devboard/SKILL.md), (3) Inclusión de reglas de gobernanza AGENTS.md, (4) Inclusión de scripts en package.json ('board', 'mcp'), (5) Reglas preventivas en .gitignore. Todo el proceso debe ser idempotente, no destructivo y permitir re-ejecución para modificar preferencias en el mismo dispositivo.
-
-**Criterios de Aceptación:**
-- [x] #1 Asistente interactivo en 'devboard --init' con preguntas claras (modo single vs hub, skills, AGENTS.md, package.json scripts, .gitignore) y flag no interactiva '--yes' / '-y'.
-- [x] #2 Soporte de selección de modo: en single project mode no registra en el Hub y configura .devboard/config.json con 'mode: single'; en multi project mode registra en ~/.devboard/registry.json.
-- [x] #3 Scaffolding opcional y limpio de '.agents/skills/devboard/SKILL.md' con la documentación canónica de herramientas MCP y mejores prácticas de agente.
-- [x] #4 Scaffolding opcional de 'AGENTS.md' con reglas de gobernanza adaptadas para el proyecto anfitrión.
-- [x] #5 Configuración opcional de scripts en package.json ('board': 'devboard', 'mcp': 'devboard-mcp') e inclusión defensiva de reglas en .gitignore sin duplicados.
-- [x] #6 Idempotencia y no destructividad: si el proyecto ya fue inicializado, permite cambiar opciones sin alterar ni borrar tareas existentes en backlog/tasks/.
-
----
-
-#### [DEV-110] Actualización de Documentación del CLI y Especificación Canónica del Modelo de Datos
-- **Prioridad**: `medium` | **Tipo**: `tech_debt`
-
-Actualización integral de la documentación del proyecto DevBoard para reflejar las capacidades de empaquetado, scaffolding interactivo y ejecución del CLI introducidas durante el Sprint 6, junto con la especificación canónica del modelo de datos de tareas en la arquitectura.
-
-**Criterios de Aceptación:**
-- [x] #1 Actualizar README.md con las nuevas capacidades del CLI de Sprint 6 (devboard --init interactivo y flag -y, modos --single y --hub, parámetro --port, y verificador de actualizaciones) manteniendo la versión en desarrollo en el sprint
-- [x] #2 Documentar en docs/ARCHITECTURE.md el Modelo de Datos Canónico completo (YAML frontmatter, secciones Markdown delimitadas y mapeo con TypeScript y UI)
-- [x] #3 Documentar en docs/ARCHITECTURE.md los nuevos módulos de persistencia y configuración (initScaffold.js, registryConfig.js, updateChecker.js y estándar XDG)
-- [x] #4 Validar que npm run backlog:check y npm test pasen con código 0
-
----
-
-#### [DEV-111] Soporte Interactivo de Visualización y Edición de Labels y Assignees en ItemModal
-- **Prioridad**: `medium` | **Tipo**: `ux`
-
-Completitud de UX en el modal de ítem (ItemModal): permitir la visualización y edición interactiva de etiquetas (labels) y personas/agentes asignados (assignees), cerrando la brecha entre el modelo de persistencia Markdown y la interfaz gráfica.
-
-**Criterios de Aceptación:**
-- [x] #1 Permitir visualizar y editar etiquetas (labels) en ItemModal mediante input de tags y chips eliminables con click
-- [x] #2 Permitir visualizar y editar asignados (assignees) en ItemModal mediante chips con botón de remover
-- [x] #3 Transmitir labels y assignees en el payload de onSave hacia la API de backend sin perder datos en disco
-- [x] #4 Validar que los ítems con labels y assignees se persistan correctamente en backlog/tasks/*.md y se reflejen en la UI
-
----
-
 ### 📋 Backlog / Draft (6)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
@@ -247,7 +109,7 @@ Tras los aprendizajes de la retrospectiva de Sprint 5, se requiere enriquecer la
 
 ---
 
-### ✅ Done / Deployed (93)
+### ✅ Done / Deployed (103)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1817,5 +1679,151 @@ Solución:
 - [x] #3 Reemplazar el `window.confirm` de "Eliminar borrador" en `ReleaseAssembler.tsx` por `ConfirmModal` (variante 'danger').
 - [x] #4 Ajustar `ConfirmModal` para permitir multilínea sin recorte por `truncate` y sintetizar los textos para óptima proporción visual.
 - [x] #5 Validar compilación TypeScript (`npx tsc --noEmit`), suite de pruebas (`npm test`) y sincronización viva (`npm run backlog:check`).
+
+---
+
+#### [DEV-102] Actualización integral de documentación y verificación automatizada de coherencia en releases
+- **Prioridad**: `high` | **Tipo**: `docs`
+- **Sprint / Milestone**: 0.6.0
+
+Actualización integral de toda la documentación del repositorio dev-board para armonizarla con el estado de v0.5.0 y el Sprint 5 recién completado, e incorporación de salvaguarda automatizada pre-release en verify-backlog-sync.js y reglas de calidad para asegurar que ante cada release la documentación sea auditada y actualizada obligatoriamente.
+
+**Criterios de Aceptación:**
+- [x] #1 Actualizar README.md a v0.5.0 (Features Overview, 12 herramientas MCP, 100+ tareas, atajos con Papelera y eliminación de Quick Start duplicado).
+- [x] #2 Actualizar docs/ARCHITECTURE.md incorporando TrashView.tsx, ruta trash y registro de persistencia (releases.json, sprints.json, retros/).
+- [x] #3 Armonizar docs/AGENTIC_PLAYBOOK.md y .agents/rules/backlog-dogfooding.md con el límite canónico en ready (prohibido done en sprint) y scripts/backlogMdParser.ts.
+- [x] #4 Actualizar skills en .agents/skills/ (devboard con 12 tools, code-level-ux-auditor con 10 firmas, principal-engineer, rigorous-qa-auditor y list-views-filters).
+- [x] #5 Extender scripts/verify-backlog-sync.js con auditoría automática de coherencia de documentación y formalizar el guardrail pre-release en AGENTS.md y QA auditor.
+
+---
+
+#### [DEV-103] Compatibilidad canónica de sincronización y exportación con estándar Backlog.md
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.6.0
+
+Adaptar el motor de sincronización y exportación de tareas en dev-board para que sea 100% compatible con el estándar canónico de Backlog.md: nombres de archivo canónicos con ID en mayúsculas y espacios (sin slugify a minúsculas), sobreescritura de archivos existentes por ID, serialización de status estrictamente en minúsculas (sin 'Ideas'), mapeo de sprints exclusivamente a nombres registrados en sprints.json (sin inventar 'backlog-futuro') y preservación absoluta de itemCodes en releases.json.
+
+**Criterios de Aceptación:**
+- [x] #1 Nombres de archivo canónicos en backlogMdParser.ts (${task.id.toUpperCase()} - ${task.title}.md) preservando mayúsculas y espacios sin slugify forzado a minúsculas.
+- [x] #2 Sobreescritura in-place de archivos existentes por ID en vite.config.ts, mcp-server.ts y devboard-cli.ts sin generar nombres slug duplicados ni borrar el archivo previo.
+- [x] #3 Serialización de status estrictamente en minúsculas (draft, doing, review, ready, done, dismissed) mapeando Ideas/Backlog a draft y prohibiendo mayúsculas o 'Ideas' en frontmatter YAML.
+- [x] #4 Mapeo de sprint exclusivamente al name legible registrado en sprints.json (activo/planificado), omitiendo el campo si no pertenece a un sprint válido y eliminando creación de sprints espurios como 'backlog-futuro'.
+- [x] #5 Preservación estricta del array itemCodes en releases.json en lecturas, escrituras y mutaciones de tareas en vite.config.ts.
+- [x] #6 Validación con suite de tests de parser, integración y verificación de coherencia de backlog (npm test, npm run backlog:check).
+
+---
+
+#### [DEV-104] Estándar XDG y Home Directory para Registro Multi-Proyecto en CLI
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.6.0
+
+Migrar la persistencia del registro global de proyectos del Hub desde el árbol de archivos del paquete instalado (PKG_ROOT/data/projects-registry.json) al directorio del usuario (~/.devboard/registry.json), cumpliendo con estándares XDG y FHS para herramientas de CLI open-source.
+
+**Criterios de Aceptación:**
+- [x] #1 Persistir registry de proyectos en ~/.devboard/registry.json (o XDG_CONFIG_HOME) en lugar de PKG_ROOT/data/projects-registry.json.
+- [x] #2 Fallback y migración transparente de proyectos existentes desde PKG_ROOT/data/projects-registry.json si existen.
+- [x] #3 Garantizar que instalaciones globales (npm i -g) o npx devboard no fallen con EACCES por intentar escribir en node_modules.
+- [x] #4 Preservar el repositorio de dev-board limpio sin mutaciones de projects-registry.json al gestionar proyectos externos.
+
+---
+
+#### [DEV-105] Aislamiento Estricto de Datos en Modo Mono-Proyecto (Single-Project Mode)
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.6.0
+
+Garantizar que la ejecución de DevBoard en un repositorio único limite estrictamente las consultas de la API, el estado y el socket SSE al repositorio actual, evitando que tareas de otros repositorios previamente registrados en el Hub se mezclen o transfieran al cliente web.
+
+**Criterios de Aceptación:**
+- [x] #1 En modo monoproyecto (ejecutado sin --hub o con DEVBOARD_MODE=single), la API /api/data debe retornar únicamente el proyecto activo local y sus tareas.
+- [x] #2 Evitar la carga y el cómputo en memoria de tareas de repositorios externos cuando no se esté en modo Hub.
+- [x] #3 Asegurar que Header.tsx renderice el badge local sin desplegar el dropdown de proyectos cuando singleProject es true.
+- [x] #4 Preservar el comportamiento multi-proyecto íntegro e intacto cuando se invoque con --hub o --multi.
+
+---
+
+#### [DEV-106] Higiene de Código Abierto: Erradicación de Fallbacks Residuales Propietarios
+- **Prioridad**: `medium` | **Tipo**: `tech_debt`
+- **Sprint / Milestone**: 0.6.0
+
+Limpieza de código para eliminar residuos y fallbacks hardcodeados con nombres de proyectos privados ('dom') presentes en el frontend, asegurando que la resolución de proyecto activo sea 100% neutral y dinámica para cualquier usuario de la comunidad open-source.
+
+**Criterios de Aceptación:**
+- [x] #1 Reemplazar todos los fallbacks al string literal 'dom' en src/App.tsx por resolución dinámica neutral (activeProjectId || projects[0]?.id).
+- [x] #2 Reemplazar fallbacks 'dom' en src/components/ItemModal.tsx.
+- [x] #3 Reemplazar fallbacks 'dom' en src/components/ImportWizardModal.tsx.
+- [x] #4 Garantizar que ningún identificador de proyecto privado quede hardcodeado en la base de código abierta.
+
+---
+
+#### [DEV-107] Verificador y Notificador de Actualizaciones Estilo Supabase CLI
+- **Prioridad**: `medium` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.6.0
+
+Implementar un sistema de notificación de versiones disponibles similar a Supabase CLI o Homebrew, que verifique en segundo plano si existe un release más nuevo en GitHub, cachee el resultado por 24 horas y notifique al desarrollador en consola y en la interfaz visual sin retrasar el tiempo de respuesta.
+
+**Criterios de Aceptación:**
+- [x] #1 Verificación no bloqueante en background al ejecutar bin/devboard.js y bin/devboard-mcp.js consultando la versión más reciente en GitHub Releases.
+- [x] #2 Almacenamiento en caché local de la última verificación (TTL: 24 horas) en ~/.devboard/update-cache.json para no demorar el inicio del CLI ni saturar la API.
+- [x] #3 Mostrar un banner informativo y amigable en terminal cuando exista una versión más reciente con instrucciones claras de actualización.
+- [x] #4 Exponer endpoint o flag de actualización para mostrar un badge sutil en el Header de la UI cuando haya una versión nueva.
+- [x] #5 Permitir silenciar la verificación mediante variable de entorno (DEVBOARD_NO_UPDATE_CHECK=1).
+
+---
+
+#### [DEV-108] Resolución Absoluta de Rutas en Tailwind y Bundler para Ejecución Global del CLI
+- **Prioridad**: `urgent` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.6.0
+
+Corregir la resolución de rutas en tailwind.config.js y la carga de configuración de Vite en bin/devboard.js para usar rutas absolutas ancladas a PKG_ROOT. Esto evita que al ejecutar el CLI desde repositorios externos, Tailwind busque clases en la carpeta del repositorio host en lugar del paquete DevBoard, lo que provocaba el colapso visual de la cabecera y la desestilización del layout.
+
+**Criterios de Aceptación:**
+- [x] #1 Resolver rutas absolutas para content en tailwind.config.js usando fileURLToPath y path.join(__dirname, ...), garantizando que escanee los componentes de DevBoard independientemente de process.cwd().
+- [x] #2 Configurar explícitamente configFile: path.resolve(PKG_ROOT, 'vite.config.ts') en createServer dentro de bin/devboard.js para evitar colisiones con bundlers o configuraciones del repositorio host.
+- [x] #3 Verificar que al ejecutar devboard desde cualquier carpeta externa en el sistema operativo, la UI compile y renderice todas las clases utilitarias de Tailwind con fidelidad completa (sin colapso de cabecera ni inputs planos).
+- [x] #4 Validar que el modo dark aplique correctamente en inputs, columnas y contenedores al ejecutar en directorios remotos.
+
+---
+
+#### [DEV-109] Asistente Interactivo de Inicialización y Scaffolding Personalizable (devboard --init)
+- **Prioridad**: `high` | **Tipo**: `feature`
+- **Sprint / Milestone**: 0.6.0
+
+Implementar un asistente interactivo y personalizable en 'devboard --init' (con soporte interactivo mediante readline nativo y flags no interactivas --yes / --defaults). El asistente permite al usuario elegir: (1) Modo de operación: Single Project (autocontenido y aislado) o Multi-Project (registrado en el Hub global ~/.devboard/registry.json), (2) Inclusión de la skill de agente (.agents/skills/devboard/SKILL.md), (3) Inclusión de reglas de gobernanza AGENTS.md, (4) Inclusión de scripts en package.json ('board', 'mcp'), (5) Reglas preventivas en .gitignore. Todo el proceso debe ser idempotente, no destructivo y permitir re-ejecución para modificar preferencias en el mismo dispositivo.
+
+**Criterios de Aceptación:**
+- [x] #1 Asistente interactivo en 'devboard --init' con preguntas claras (modo single vs hub, skills, AGENTS.md, package.json scripts, .gitignore) y flag no interactiva '--yes' / '-y'.
+- [x] #2 Soporte de selección de modo: en single project mode no registra en el Hub y configura .devboard/config.json con 'mode: single'; en multi project mode registra en ~/.devboard/registry.json.
+- [x] #3 Scaffolding opcional y limpio de '.agents/skills/devboard/SKILL.md' con la documentación canónica de herramientas MCP y mejores prácticas de agente.
+- [x] #4 Scaffolding opcional de 'AGENTS.md' con reglas de gobernanza adaptadas para el proyecto anfitrión.
+- [x] #5 Configuración opcional de scripts en package.json ('board': 'devboard', 'mcp': 'devboard-mcp') e inclusión defensiva de reglas en .gitignore sin duplicados.
+- [x] #6 Idempotencia y no destructividad: si el proyecto ya fue inicializado, permite cambiar opciones sin alterar ni borrar tareas existentes en backlog/tasks/.
+
+---
+
+#### [DEV-110] Actualización de Documentación del CLI y Especificación Canónica del Modelo de Datos
+- **Prioridad**: `medium` | **Tipo**: `tech_debt`
+- **Sprint / Milestone**: 0.6.0
+
+Actualización integral de la documentación del proyecto DevBoard para reflejar las capacidades de empaquetado, scaffolding interactivo y ejecución del CLI introducidas durante el Sprint 6, junto con la especificación canónica del modelo de datos de tareas en la arquitectura.
+
+**Criterios de Aceptación:**
+- [x] #1 Actualizar README.md con las nuevas capacidades del CLI de Sprint 6 (devboard --init interactivo y flag -y, modos --single y --hub, parámetro --port, y verificador de actualizaciones) manteniendo la versión en desarrollo en el sprint
+- [x] #2 Documentar en docs/ARCHITECTURE.md el Modelo de Datos Canónico completo (YAML frontmatter, secciones Markdown delimitadas y mapeo con TypeScript y UI)
+- [x] #3 Documentar en docs/ARCHITECTURE.md los nuevos módulos de persistencia y configuración (initScaffold.js, registryConfig.js, updateChecker.js y estándar XDG)
+- [x] #4 Validar que npm run backlog:check y npm test pasen con código 0
+
+---
+
+#### [DEV-111] Soporte Interactivo de Visualización y Edición de Labels y Assignees en ItemModal
+- **Prioridad**: `medium` | **Tipo**: `ux`
+- **Sprint / Milestone**: 0.6.0
+
+Completitud de UX en el modal de ítem (ItemModal): permitir la visualización y edición interactiva de etiquetas (labels) y personas/agentes asignados (assignees), cerrando la brecha entre el modelo de persistencia Markdown y la interfaz gráfica.
+
+**Criterios de Aceptación:**
+- [x] #1 Permitir visualizar y editar etiquetas (labels) en ItemModal mediante input de tags y chips eliminables con click
+- [x] #2 Permitir visualizar y editar asignados (assignees) en ItemModal mediante chips con botón de remover
+- [x] #3 Transmitir labels y assignees en el payload de onSave hacia la API de backend sin perder datos en disco
+- [x] #4 Validar que los ítems con labels y assignees se persistan correctamente en backlog/tasks/*.md y se reflejen en la UI
 
 ---

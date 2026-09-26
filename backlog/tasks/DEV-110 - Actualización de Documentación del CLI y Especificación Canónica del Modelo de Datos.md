@@ -1,16 +1,22 @@
 ---
 id: DEV-110
 title: "Actualización de Documentación del CLI y Especificación Canónica del Modelo de Datos"
-status: ready
+status: done
 created_date: '2026-09-25'
 updated_date: '2026-09-25 16:22'
 labels: []
 dependencies: []
 priority: medium
 type: tech_debt
+milestone: "0.6.0"
 sprints:
   - "Sprint 6"
+releases:
+  - "0.6.0"
 sprint: "Sprint 6"
+targetSprint: "Sprint 6"
+release: "0.6.0"
+targetRelease: "0.6.0"
 ---
 
 ## Description

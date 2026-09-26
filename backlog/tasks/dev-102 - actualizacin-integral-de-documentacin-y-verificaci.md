@@ -1,13 +1,22 @@
 ---
 id: DEV-102
 title: "Actualización integral de documentación y verificación automatizada de coherencia en releases"
-status: Ready
+status: done
 created_date: '2026-09-25'
 updated_date: '2026-09-25 00:29'
 labels: []
 dependencies: []
 priority: high
 type: docs
+milestone: "0.6.0"
+sprints:
+  - "Sprint 6"
+releases:
+  - "0.6.0"
+sprint: "Sprint 6"
+targetSprint: "Sprint 6"
+release: "0.6.0"
+targetRelease: "0.6.0"
 ---
 
 ## Description

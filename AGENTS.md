@@ -175,6 +175,16 @@ Estas reglas provienen de errores detectados en sesiones reales. Son **obligator
 >
 > El elemento raíz `html` debe declarar siempre `overflow-y: scroll; scrollbar-gutter: stable;` en `index.css` para evitar que la barra de desplazamiento aparezca y desaparezca entre vistas con distinta altura, previniendo desplazamientos horizontales bruscos del encabezado o contenido.
 
+> [!WARNING]
+> **Gotcha: Resolución Absoluta de Rutas en CLI y Bundlers para Ejecución Global**
+>
+> Al invocar herramientas empaquetadas (`devboard`, `devboard-mcp`) desde cualquier directorio arbitrario del usuario, NUNCA usar rutas relativas o imports que asuman que `process.cwd()` coincide con la raíz del paquete. Configurar siempre `root: PKG_ROOT`, `createRequire(import.meta.url)` para plugins de PostCSS/Tailwind y rutas absolutas hacia templates y assets.
+
+> [!IMPORTANT]
+> **Gotcha: Aislamiento Estricto de Repositorios (Single-Project Mode)**
+>
+> Al inicializar un repositorio con `devboard --init` o lanzar `devboard` sin un hub multi-proyecto explícito, debe priorizarse el aislamiento estricto (`--single`) para asegurar que el backlog del proyecto local no cargue tareas de otros repositorios ni exponga información sensible entre proyectos distintos del usuario.
+
 ---
 
 ## 7. Gate de Calidad Antes de Marcar `ready`

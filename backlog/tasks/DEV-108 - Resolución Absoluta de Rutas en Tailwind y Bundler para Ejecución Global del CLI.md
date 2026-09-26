@@ -1,16 +1,22 @@
 ---
 id: DEV-108
 title: "Resolución Absoluta de Rutas en Tailwind y Bundler para Ejecución Global del CLI"
-status: ready
+status: done
 created_date: '2026-09-25'
 updated_date: '2026-09-25 14:59'
 labels: []
 dependencies: []
 priority: urgent
 type: bug
+milestone: "0.6.0"
 sprints:
   - "Sprint 6"
+releases:
+  - "0.6.0"
 sprint: "Sprint 6"
+targetSprint: "Sprint 6"
+release: "0.6.0"
+targetRelease: "0.6.0"
 ---
 
 ## Description

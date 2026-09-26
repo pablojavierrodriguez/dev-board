@@ -1,16 +1,22 @@
 ---
 id: DEV-104
 title: "Estándar XDG y Home Directory para Registro Multi-Proyecto en CLI"
-status: ready
+status: done
 created_date: '2026-09-25'
 updated_date: '2026-09-25 15:13'
 labels: []
 dependencies: []
 priority: high
 type: feature
+milestone: "0.6.0"
 sprints:
   - "Sprint 6"
+releases:
+  - "0.6.0"
 sprint: "Sprint 6"
+targetSprint: "Sprint 6"
+release: "0.6.0"
+targetRelease: "0.6.0"
 ---
 
 ## Description
