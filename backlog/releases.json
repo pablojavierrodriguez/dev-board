@@ -1,5 +1,22 @@
 [
   {
+    "id": "rel-0-6-1",
+    "projectId": "dev-board",
+    "version": "0.6.1",
+    "date": "2026-09-26",
+    "targetDate": "2026-09-26",
+    "status": "released",
+    "title": "v0.6.1 - Hotfix: Resiliencia en Instalación Zero-Install, Renderizado UI y Onboarding en Español (DEV-112, DEV-113)",
+    "summary": "Hotfix crítico de empaquetado, scaffolding y renderizado: resolución del script prepare en package.json que provocaba fallos con Exit Code 128 (DEV-112), inyección de scripts resilientes con fallback a npx (DEV-113), resolución de pantalla en blanco mediante registro absoluto de Tailwind/PostCSS en Vite con RootErrorBoundary, homogeneización integral del flujo de onboarding a español y desacople bilingüe de la documentación oficial (README.md en inglés y README.es.md en español).",
+    "scopeNotes": "Hotfix de empaquetado, renderizado y distribución directa desde GitHub vía npx y npm.",
+    "itemCodes": [
+      "DEV-112",
+      "DEV-113"
+    ],
+    "markdownContent": "## [0.6.1] — 2026-09-26 ⚡ Hotfix: Resiliencia en Instalación Zero-Install, Renderizado UI y Onboarding en Español (DEV-112, DEV-113)\\n\\n### 🎯 Resumen\\n*Corrección crítica para permitir la ejecución inmediata de DevBoard mediante `npx github:pablojavierrodriguez/dev-board --init` e instalación global con `npm install -g github:pablojavierrodriguez/dev-board` sin abortos de ciclo de vida (Exit Code 128), erradicación de pantallas en blanco al iniciar el cockpit en repositorios externos, unificación integral del onboarding en español y desacople bilingüe de la documentación.*\\n\\n### 🐛 Correcciones y Estabilidad\\n- **Resiliencia en Hook `prepare` (DEV-112):** El script `prepare` en `package.json` ahora valida si se encuentra dentro de un worktree Git (`git rev-parse --is-inside-work-tree`) antes de intentar configurar `.githooks`, silenciando errores de directorio no existente y garantizando una salida exitosa con `|| true` en carpetas temporales de cache de npm (`~/.npm/_npx/`).\\n- **Scripts de Scaffolding con Fallback y Banner Preciso (DEV-113):** `devboard --init` inyecta scripts con fallback automático a GitHub (`devboard 2>/dev/null || npx -y github:pablojavierrodriguez/dev-board`), permitiendo que `npm run board` funcione siempre aunque el CLI no esté instalado globalmente.\\n- **Resolución de Pantalla en Blanco y Estilos Globales (DEV-113):** Se configuró PostCSS y Tailwind CSS con resolución absoluta directa en `vite.config.ts` y `postcss.config.js`, erradicando el fallo de pre-transformación de estilos (`Cannot read properties of undefined (reading 'get')`). Se incorporó `RootErrorBoundary` en `src/main.tsx` y fallback inline en `index.html` garantizando que la aplicación nunca quede en blanco.\\n- **Corrección de Importación de `react-dom/client` (DEV-113):** Se reemplazó la importación por defecto por la importación con nombre canónica `import { createRoot } from 'react-dom/client'`, configurando `optimizeDeps.include` y `resolve.dedupe` en `vite.config.ts` para erradicar el fallo de sintaxis en ESM (`does not provide an export named 'default'`).\\n- **Homogeneización del Onboarding en Español y Documentación Bilingüe (DEV-113):** Se unificaron al español todas las preguntas del asistente CLI, los mensajes de confirmación y las plantillas embebidas. Se desacopló la documentación oficial manteniendo `README.md` en inglés para la comunidad internacional y publicando `README.es.md` en español nativo con selector bilingüe.",
+    "createdAt": "2026-09-26T00:30:00.000Z"
+  },
+  {
     "id": "rel-0-6-0",
     "projectId": "dev-board",
     "version": "0.6.0",

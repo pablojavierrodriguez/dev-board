@@ -397,8 +397,8 @@ try {
   assert.strictEqual(fs.existsSync(path.join(testInitRepo, 'AGENTS.md')), true, 'AGENTS.md should be created');
 
   const updatedPkg = JSON.parse(fs.readFileSync(path.join(testInitRepo, 'package.json'), 'utf8'));
-  assert.strictEqual(updatedPkg.scripts.board, 'devboard', 'Should add board script');
-  assert.strictEqual(updatedPkg.scripts.mcp, 'devboard-mcp', 'Should add mcp script');
+  assert.ok(updatedPkg.scripts.board.includes('devboard') && updatedPkg.scripts.board.includes('npx -y github:'), 'Should add resilient board script with fallback');
+  assert.ok(updatedPkg.scripts.mcp.includes('devboard-mcp') && updatedPkg.scripts.mcp.includes('npx -y -p github:'), 'Should add resilient mcp script with fallback');
   assert.strictEqual(updatedPkg.scripts.test, 'vitest', 'Should preserve existing scripts');
 
   const gitignoreContent = fs.readFileSync(path.join(testInitRepo, '.gitignore'), 'utf8');

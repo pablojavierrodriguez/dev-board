@@ -166,10 +166,10 @@ async function start() {
 ┌────────────────────────────────────────────────────────────┐
 │  🚀 DevBoard - Tablero Ágil de Desarrollo con IA           │
 │                                                            │
-│  📁 Repositorio:  ${targetRepo.slice(0, 40).padEnd(41)}│
-│  📦 Modo Almacén: ${storageType.toUpperCase().padEnd(41)}│
+│  📁 Repositorio:  ${targetRepo.slice(0, 39).padEnd(41)}│
+│  📦 Almacén:      ${storageType.toUpperCase().padEnd(41)}│
 │  🌐 Interfaz Web: ${url.padEnd(41)}│
-│  ⚡ Live Sync:    Activa (SSE & Watcher en tiempo real)    │
+│  ⚡ En Tiempo Real: Activo (SSE y observador de archivos)   │
 └────────────────────────────────────────────────────────────┘
   `);
 

@@ -1,7 +1,7 @@
 {
   "name": "dev-board",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "type": "module",
   "bin": {
     "devboard": "./bin/devboard.js",
@@ -22,22 +22,22 @@
     "backlog:check": "node scripts/verify-backlog-sync.js",
     "backlog:sync": "node scripts/verify-backlog-sync.js --fix",
     "audit:ux": "node scripts/audit-ux-code.cjs",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
     "lucide-react": "^1.16.0",
+    "postcss": "^8.4.45",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.11",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.5.4",
     "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.45",
-    "tailwindcss": "^3.4.11",
-    "typescript": "^5.5.4",
-    "vite": "^5.4.3"
+    "@types/react-dom": "^18.3.0"
   }
 }

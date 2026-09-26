@@ -1,7 +1,10 @@
 import { defineConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from 'tailwindcss';
+import autoprefixer from 'autoprefixer';
 import fs from 'node:fs';
 import path from 'node:path';
+
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { runMigration } from './scripts/import-dom-docs.js';
@@ -1181,7 +1184,7 @@ function devBoardApi(): PluginOption {
             }
 
             // GET /api/data
-            if (req.method === 'GET' && url === '/api/data') {
+            if (req.method === 'GET' && (pathname === '/api/data' || url === '/api/data')) {
               const allItems: any[] = [];
               const allReleases: any[] = [];
               const allSprints: any[] = [];
@@ -1192,12 +1195,26 @@ function devBoardApi(): PluginOption {
 
               // In single-project mode: resolve strictly the targeted or active project
               const targetRepo = targetRepoEnv ? path.resolve(targetRepoEnv) : path.resolve(process.cwd());
-              const activeProject = registry.projects.find(p => {
+              let activeProject = registry.projects.find(p => {
                 if (p.repoPath && path.resolve(p.repoPath) === targetRepo) {
                   return true;
                 }
                 return false;
               }) || registry.projects.find(p => p.id === registry.activeProjectId) || registry.projects[0];
+
+              if (!activeProject && targetRepo) {
+                const folderName = path.basename(targetRepo);
+                activeProject = {
+                  id: folderName.toLowerCase().replace(/[^a-z0-9_-]/g, '-'),
+                  name: folderName,
+                  codePrefix: folderName.substring(0, 4).toUpperCase(),
+                  repoPath: targetRepo,
+                  storageType: 'markdown',
+                  backlogDir: 'backlog',
+                  createdAt: new Date().toISOString()
+                };
+              }
+
 
               const isSingleMode = process.env.DEVBOARD_MODE === 'single' || (!isMultiMode && registry.projects.length <= 1) || !isMultiMode;
               const projectsToProcess = (isSingleMode && activeProject) ? [activeProject] : registry.projects;
@@ -2330,12 +2347,41 @@ ${Array.isArray(r.actions) && r.actions.length > 0
 
 export default defineConfig({
   plugins: [react(), devBoardApi()],
+  resolve: {
+    dedupe: ['react', 'react-dom']
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react/jsx-runtime',
+      'react-dom',
+      'react-dom/client',
+      'lucide-react'
+    ]
+  },
+  css: {
+    postcss: {
+      plugins: [
+        tailwindcss({
+          config: path.resolve(__dirname, 'tailwind.config.js')
+        }),
+        autoprefixer()
+      ]
+    }
+  },
   server: {
     port: 4100,
-    strictPort: true,
+    strictPort: false,
     host: true,
+    fs: {
+      allow: [
+        __dirname,
+        path.resolve(__dirname, '..')
+      ]
+    },
     watch: {
       ignored: ['**/backlog/**', '**/.devboard/**', '**/data/**']
     }
   }
 });
+

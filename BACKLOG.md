@@ -3,7 +3,7 @@
 
 ## Resumen de Estados
 
-### 📋 Backlog / Draft (6)
+### 📋 Backlog / Draft (7)
 
 #### [DEV-039] Sincronización no invasiva de árbol Git con estados de backlog y releases
 - **Prioridad**: `low` | **Tipo**: `feature`
@@ -109,7 +109,37 @@ Tras los aprendizajes de la retrospectiva de Sprint 5, se requiere enriquecer la
 
 ---
 
-### ✅ Done / Deployed (103)
+#### [DEV-114] Internacionalización Integral (i18n): Selector de Idioma en CLI (--init), Diccionarios Cockpit UI y Templates Bilingües
+- **Prioridad**: `high` | **Tipo**: `feature`
+
+Implementar soporte formal y arquitectónico de internacionalización (i18n) en todo el ecosistema de DevBoard:
+
+1. **Selector de Idioma en Onboarding CLI (`devboard --init`):**
+   - Preguntar al usuario en el paso 1 si desea configurar su repositorio en Español (es) o Inglés (en).
+   - Generar la configuración de idioma en `.devboard/config.json` o `package.json` (`"language": "es" | "en"`).
+   - Desplegar las plantillas de gobernanza (`AGENTS.md`) y Agent Skills (`.agents/skills/devboard/SKILL.md`) en el idioma seleccionado por el usuario.
+
+2. **Capa de Internacionalización en Cockpit UI (Frontend):**
+   - Diseñar sistema liviano y sin dependencias pesadas de i18n (o usando un micro-store tipado en TypeScript con diccionarios `src/locales/en.json` y `src/locales/es.json`).
+   - Selector visual de idioma (🌐 EN / ES) en la barra superior o configuración del cockpit.
+   - Persistencia de la preferencia en `localStorage` con detección automática inicial del idioma del navegador (`navigator.language`).
+   - Tipado estricto de claves de traducción para evitar cadenas hardcodeadas o claves faltantes en tiempo de compilación (`t('header.sprint')`, `t('modal.confirm')`, etc.).
+
+3. **Templates Bilingües y Documentación:**
+   - Mantener simetría estricta entre la documentación en inglés (`README.md`) y español (`README.es.md`).
+   - Soportar generación de Backlog y Releases en el idioma configurado para el proyecto.
+
+**Criterios de Aceptación:**
+- [ ] #1 Asistente `devboard --init` solicita la selección de idioma (`[1] Español (es) / [2] English (en)`) y persiste la elección en la configuración local del proyecto.
+- [ ] #2 `scripts/initScaffold.js` genera los templates de `AGENTS.md` y `.agents/skills/devboard/SKILL.md` en el idioma seleccionado (ES o EN).
+- [ ] #3 Diseñar arquitectura de diccionarios tipados `src/locales/{en,es}.json` y hook `useTranslation()` / `t(key)`.
+- [ ] #4 Implementar selector de idioma en la barra de navegación del Cockpit con persistencia en `localStorage` y detección de `navigator.language`.
+- [ ] #5 Migrar las vistas principales (`KanbanBoard`, `SprintView`, `ItemModal`, `BacklogTable`, `ConfirmModal`) al sistema de traducción, erradicando textos hardcodeados.
+- [ ] #6 Validar tipado TypeScript estricto de las claves de traducción (`npx tsc --noEmit` sin errores) y suite de tests unitarios/integración.
+
+---
+
+### ✅ Done / Deployed (105)
 
 #### [DEV-001] Interoperabilidad nativa con Backlog.md y motor Markdown
 - **Prioridad**: `high` | **Tipo**: `feature`
@@ -1825,5 +1855,61 @@ Completitud de UX en el modal de ítem (ItemModal): permitir la visualización y
 - [x] #2 Permitir visualizar y editar asignados (assignees) en ItemModal mediante chips con botón de remover
 - [x] #3 Transmitir labels y assignees en el payload de onSave hacia la API de backend sin perder datos en disco
 - [x] #4 Validar que los ítems con labels y assignees se persistan correctamente en backlog/tasks/*.md y se reflejen en la UI
+
+---
+
+#### [DEV-112] Resiliencia en Script Prepare de Package.json para npx e Instalación Directa
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.6.1
+
+Al intentar ejecutar o instalar DevBoard directamente desde GitHub según la guía de inicio rápido (Profile 1: `npx github:pablojavierrodriguez/dev-board --init` o `npm install -g github:pablojavierrodriguez/dev-board`), la ejecución aborta inmediatamente con Exit Code 128.
+
+Causa raíz:
+En package.json el script de ciclo de vida `"prepare": "git config core.hooksPath .githooks"` se ejecuta automáticamente cuando npm extrae el paquete desde un repositorio Git en una carpeta temporal de cache. Al no existir un árbol de trabajo .git válido en ese entorno temporal, git config arroja error fatal (exit code 128: fatal: not in a git directory) y npm aborta la instalación por completo.
+
+Solución:
+Hacer condicional y resiliente el script prepare para que valide la existencia de un worktree git antes de invocar git config o ignore de forma segura el fallo si no se encuentra en la raíz de un repo git:
+`git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks 2>/dev/null || true`
+
+**Criterios de Aceptación:**
+- [x] #1 El script prepare en package.json valida la presencia de un worktree Git antes de ejecutar git config o implementa fallback seguro con `|| true` para no romper entornos temporales de npm.
+- [x] #2 Probar que la ejecución de `npx github:pablojavierrodriguez/dev-board --help` o `--init` funciona sin arrojar Exit Code 128.
+- [x] #3 Probar que la instalación global `npm install -g github:pablojavierrodriguez/dev-board` completa exitosamente sin abortos de ciclo de vida.
+
+---
+
+#### [DEV-113] Resiliencia en Scripts Generados por Scaffolding y Banner de Onboarding
+- **Prioridad**: `high` | **Tipo**: `bug`
+- **Sprint / Milestone**: 0.6.1
+
+Cuando un usuario inicializa un repositorio con `npx github:pablojavierrodriguez/dev-board --init`, el asistente genera scripts `"board": "devboard"` y `"mcp": "devboard-mcp"` en el `package.json` consumidor y finaliza sugiriendo `(o npx devboard)`.
+
+Dado que el paquete se distribuye directamente vía GitHub y aún no está publicado en el registro público de npm (npmjs.com) bajo el nombre `devboard`:
+1. `npx devboard` aborta con `npm error could not determine executable to run`.
+2. Si el usuario no ejecutó previamente la instalación global `npm install -g github:pablojavierrodriguez/dev-board`, ejecutar `npm run board` en el repo consumidor falla con `sh: devboard: command not found`.
+3. Al invocar `devboard` o `npx github:...`, Node.js falla con `Cannot find package 'vite'` porque `vite`, `@vitejs/plugin-react`, `tailwindcss`, `postcss`, `autoprefixer` y `typescript` estaban clasificados como `devDependencies` en `package.json`, y npm los omite al instalar paquetes vía npx o de forma global para consumidores.
+
+Solución:
+1. En `scripts/initScaffold.js`, generar scripts resilientes en el `package.json` consumidor que intenten invocar el binario global/local y, si no existe en PATH, hagan fallback transparente a npx sobre el repo de GitHub:
+   `"board": "devboard 2>/dev/null || npx -y github:pablojavierrodriguez/dev-board"`
+   `"mcp": "devboard-mcp 2>/dev/null || npx -y -p github:pablojavierrodriguez/dev-board devboard-mcp"`
+2. Promover `vite`, `@vitejs/plugin-react`, `tailwindcss`, `postcss`, `autoprefixer` y `typescript` a `dependencies` en `package.json` de dev-board para que se instalen siempre en el cache de npx o globalmente.
+3. Actualizar el banner final de éxito en `scripts/initScaffold.js` para indicar con precisión los comandos funcionales.
+4. Actualizar la Agent Skill embebida (`getSkillTemplate`) en `scripts/initScaffold.js` y `.agents/skills/devboard/SKILL.md` para reflejar la configuración MCP canónica con fallback y con binario global.
+5. Resolver el problema de pantalla en blanco al ejecutar en repositorios externos: registrar PostCSS y Tailwind CSS con resolución absoluta explícita en `vite.config.ts` y `postcss.config.js` para evitar fallos de pre-transformación de estilos (`Cannot read properties of undefined (reading 'get')`).
+6. Añadir `RootErrorBoundary` e inline fallback en `src/main.tsx` e `index.html` para erradicar pantallas en blanco ante excepciones de renderizado.
+7. Unificar y homogeneizar todo el flujo de onboarding (asistente CLI, banner, skills y `README.md`) al español coherente, eliminando fragmentos e inconsistencias en inglés.
+8. Corregir importación en `src/main.tsx`: sustituir la importación de default inválida `import ReactDOM from 'react-dom/client'` por la importación canónica con nombre `import { createRoot } from 'react-dom/client'` y configurar `optimizeDeps.include` y `resolve.dedupe` en `vite.config.ts`.
+
+**Criterios de Aceptación:**
+- [x] #1 `initScaffold.js` genera scripts "board" y "mcp" en el `package.json` consumidor con fallback automático a `npx -y github:pablojavierrodriguez/dev-board` si `devboard` no está instalado globalmente.
+- [x] #2 El banner final de `devboard --init` muestra los comandos exactos de ejecución sin asumir publicación en npmjs.org e instruye la instalación global opcional (`npm install -g ...`).
+- [x] #3 La plantilla de Agent Skill (`getSkillTemplate`) en `initScaffold.js` y `.agents/skills/devboard/SKILL.md` documenta la configuración MCP compatible con ejecución directa y vía GitHub.
+- [x] #4 Validar mediante suite de integración (`npm test`, `npm run backlog:check`) que el asistente genera la nueva configuración resiliente y los tests pasan al 100%.
+- [x] #5 Promover paquetes de servidor Vite (`vite`, `@vitejs/plugin-react`, `tailwindcss`, `postcss`, `autoprefixer`, `typescript`) a `dependencies` en `package.json` para que npx e instalación global no fallen por dependencias faltantes.
+- [x] #6 Configurar PostCSS y Tailwind con rutas absolutas explícitas en `vite.config.ts` y `postcss.config.js`, erradicando el fallo de pre-transformación de estilos y pantalla en blanco al iniciar el servidor desde repositorios externos.
+- [x] #7 Unificar el asistente de onboarding, banners y plantillas de skills en español coherente y profesional, y desacoplar la documentación oficial con `README.md` (inglés para la comunidad internacional) y `README.es.md` (español nativo) con selector bilingüe.
+- [x] #8 Implementar `RootErrorBoundary` en `src/main.tsx` y fallback inline en `index.html` garantizando tolerancia ante fallos y cero pantallas en blanco.
+- [x] #9 Corregir importación canónica de `createRoot` desde `react-dom/client` (`import { createRoot } from 'react-dom/client'`) y configurar `optimizeDeps.include` y `resolve.dedupe` en `vite.config.ts`, erradicando el fallo de sintaxis por falta de export default en ESM.
 
 ---

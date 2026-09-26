@@ -1,6 +1,6 @@
 ---
 name: devboard
-description: DevBoard Agile Cockpit & Backlog management skill. Guides AI agents and LLMs (Antigravity, Cursor, Claude Code) to seamlessly query, pick, update, plan, and complete backlog tasks using the DevBoard MCP server or native Markdown files.
+description: Skill de DevBoard para gestión ágil y Backlog.md. Guía a agentes de IA y LLMs (Antigravity, Cursor, Claude Code) para consultar, tomar, actualizar, planificar y completar tareas del backlog usando el servidor MCP o archivos Markdown nativos.
 ---
 
 # DevBoard Agent Skill
@@ -13,36 +13,37 @@ Esta skill instruye a agentes de IA y LLMs para interactuar con **DevBoard**, el
 
 DevBoard incluye un servidor MCP autónomo empaquetado sobre `stdio` (`bin/devboard-mcp.js`). Para integrarlo en Antigravity, Cursor o Claude Code en cualquier repositorio:
 
-```json
-{
-  "mcpServers": {
-    "devboard": {
-      "command": "npx",
-      "args": ["devboard-mcp"]
-    }
-  }
-}
-```
-
-O apuntando explícitamente a un repositorio específico:
-```json
-{
-  "mcpServers": {
-    "devboard": {
-      "command": "npx",
-      "args": ["devboard-mcp", "--repo", "/Users/usuario/proyectos/mi-app"]
-    }
-  }
-}
-```
-
-O si estás desarrollando en el workspace local de `dev-board`:
+### Opción A: Mediante npm run (Recomendado en este repositorio)
 ```json
 {
   "mcpServers": {
     "devboard": {
       "command": "npm",
       "args": ["run", "mcp"]
+    }
+  }
+}
+```
+
+### Opción B: Mediante binario global (si instalaste con `npm install -g`)
+```json
+{
+  "mcpServers": {
+    "devboard": {
+      "command": "devboard-mcp",
+      "args": ["--repo", "/Users/usuario/proyectos/mi-app"]
+    }
+  }
+}
+```
+
+### Opción C: Mediante npx directo desde GitHub
+```json
+{
+  "mcpServers": {
+    "devboard": {
+      "command": "npx",
+      "args": ["-y", "-p", "github:pablojavierrodriguez/dev-board", "devboard-mcp", "--repo", "/Users/usuario/proyectos/mi-app"]
     }
   }
 }

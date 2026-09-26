@@ -2,6 +2,8 @@
 
 > **A sovereign, local-first, Linear-style Kanban, Sprint Hub & Release Cockpit for developers and AI pair programmers.**
 
+🌐 **[English](README.md)** | **[Español](README.es.md)**
+
 [![Methodology: Agentic Team Playbook](https://img.shields.io/badge/Methodology-Agentic%20Team%20Playbook-purple.svg)](https://github.com/pablojavierrodriguez/agentic-team-playbook)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![MCP Protocol: 2024-11-05](https://img.shields.io/badge/MCP-Protocol%20Ready-6366f1.svg)](https://modelcontextprotocol.io/)
@@ -276,8 +278,9 @@ npm run build
 
 ---
 
-## ✨ Features Overview (v0.6.0)
+## ✨ Features Overview (v0.6.1)
 
+- **⚡ Zero-Install & Scaffolding Resilience (v0.6.1 Hotfix)**: Resilient `prepare` npm lifecycle script and smart fallback scripts in scaffolded projects (`devboard 2>/dev/null || npx -y github:pablojavierrodriguez/dev-board`), guaranteeing zero aborts on `npx` and immediate `npm run board` execution without requiring global installs (`DEV-112`, `DEV-113`).
 - **📦 Global CLI Distribution & Packaging**: Native `devboard` and `devboard-mcp` executable binaries with absolute path resolution in Tailwind CSS and Vite bundler (`DEV-108`).
 - **🔒 Strict Single-Project Mode & Multi-Project Hub**: Absolute repository isolation (`--single`) to prevent data leakage across distinct codebases, alongside centralized multi-project management (`--hub`) using the XDG home directory standard (`~/.devboard/registry.json`) (`DEV-104`, `DEV-105`).
 - **🧙 Interactive Project Initialization (`devboard --init`)**: Interactive onboarding wizard with readline prompting and non-interactive `--yes`/`-y` flags, supporting custom scaffolding of AI agent skills, `AGENTS.md` rules, package scripts, and Git safeguards (`DEV-109`).
@@ -310,7 +313,7 @@ npm run build
 
 DevBoard uses DevBoard to manage its own development. 
 
-This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases across **110+ tasks** (`DEV-001` through `DEV-111`), 7 completed sprints (Sprint 0 al 6) and 5 formal releases (`v0.2.0` through `v0.6.0`).
+This repository itself contains a [`backlog/tasks/`](backlog/tasks/) folder managed in `backlog-md` mode, tracking real features, UX polish, and releases across **110+ tasks** (`DEV-001` through `DEV-113`), 7 completed sprints (Sprint 0 al 6) and 6 formal releases (`v0.2.0` through `v0.6.1`).
 
 ---
 

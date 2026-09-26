@@ -21,7 +21,7 @@ export function getSkillTemplate() {
 
   return `---
 name: devboard
-description: DevBoard Agile Cockpit & Backlog management skill. Guides AI agents and LLMs to seamlessly query, pick, update, plan, and complete backlog tasks using the DevBoard MCP server or native Markdown files.
+description: Skill de DevBoard para gestión ágil y Backlog.md. Guía a agentes de IA y LLMs para consultar, tomar, actualizar, planificar y completar tareas del backlog usando el servidor MCP o archivos Markdown nativos.
 ---
 
 # DevBoard Agent Skill
@@ -32,12 +32,36 @@ Esta skill instruye a agentes de IA y LLMs para interactuar con **DevBoard**, el
 
 DevBoard incluye un servidor MCP autónomo sobre \`stdio\` (\`devboard-mcp\`). Para integrarlo en Antigravity, Cursor o Claude Code:
 
+### Opción A: Mediante npm run (Recomendado en este repositorio)
+\`\`\`json
+{
+  "mcpServers": {
+    "devboard": {
+      "command": "npm",
+      "args": ["run", "mcp"]
+    }
+  }
+}
+\`\`\`
+
+### Opción B: Mediante binario global (si instalaste con \`npm install -g\`)
+\`\`\`json
+{
+  "mcpServers": {
+    "devboard": {
+      "command": "devboard-mcp"
+    }
+  }
+}
+\`\`\`
+
+### Opción C: Mediante npx directo desde GitHub
 \`\`\`json
 {
   "mcpServers": {
     "devboard": {
       "command": "npx",
-      "args": ["devboard-mcp"]
+      "args": ["-y", "-p", "github:pablojavierrodriguez/dev-board", "devboard-mcp"]
     }
   }
 }
@@ -134,8 +158,8 @@ export async function runInitWizard(targetRepo = process.cwd(), options = {}) {
         mode = 'single';
       }
 
-      // Question 2: Skill
-      const skillAnswer = await rl.question('\n  2. ¿Instalar Agent Skill (.agents/skills/devboard/SKILL.md)? (S/n) [S]: ');
+      // Pregunta 2: Skill
+      const skillAnswer = await rl.question('\n  2. ¿Instalar skill para agentes (.agents/skills/devboard/SKILL.md)? (S/n) [S]: ');
       installSkill = skillAnswer.trim().toLowerCase() !== 'n';
 
       // Question 3: AGENTS.md
@@ -254,7 +278,7 @@ export async function runInitWizard(targetRepo = process.cwd(), options = {}) {
     const skillPath = path.join(skillDir, 'SKILL.md');
     fs.writeFileSync(skillPath, getSkillTemplate(), 'utf8');
     results.skill = true;
-    console.log('  ✅ Agent Skill instalada en .agents/skills/devboard/SKILL.md');
+    console.log('  ✅ Skill para agentes instalada en .agents/skills/devboard/SKILL.md');
   }
 
   // 5. Generate AGENTS.md
@@ -279,12 +303,15 @@ export async function runInitWizard(targetRepo = process.cwd(), options = {}) {
         pkg.scripts = pkg.scripts || {};
         let modified = false;
 
-        if (!pkg.scripts.board) {
-          pkg.scripts.board = 'devboard';
+        const canonicalBoard = 'devboard 2>/dev/null || npx -y github:pablojavierrodriguez/dev-board';
+        const canonicalMcp = 'devboard-mcp 2>/dev/null || npx -y -p github:pablojavierrodriguez/dev-board devboard-mcp';
+
+        if (!pkg.scripts.board || pkg.scripts.board === 'devboard') {
+          pkg.scripts.board = canonicalBoard;
           modified = true;
         }
-        if (!pkg.scripts.mcp) {
-          pkg.scripts.mcp = 'devboard-mcp';
+        if (!pkg.scripts.mcp || pkg.scripts.mcp === 'devboard-mcp') {
+          pkg.scripts.mcp = canonicalMcp;
           modified = true;
         }
 
@@ -330,11 +357,16 @@ export async function runInitWizard(targetRepo = process.cwd(), options = {}) {
 ┌────────────────────────────────────────────────────────────┐
 │  ✨ ¡DevBoard inicializado con éxito!                       │
 │                                                            │
-│  Para abrir el cockpit:                                    │
-│  • npm run board   (o npx devboard)                        │
+│  Para abrir el tablero:                                    │
+│  • npm run board                                           │
+│    (o directo: npx github:pablojavierrodriguez/dev-board)  │
 │                                                            │
 │  Para iniciar el servidor MCP:                             │
-│  • npm run mcp     (o npx devboard-mcp)                    │
+│  • npm run mcp                                             │
+│    (o: npx -p github:pablojavierrodriguez/dev-board devboard-mcp) │
+│                                                            │
+│  💡 Consejo: Ejecuta 'npm install -g github:pablojavierrodriguez/dev-board' │
+│  para usar el comando global directo 'devboard'.           │
 └────────────────────────────────────────────────────────────┘
   `);
 
